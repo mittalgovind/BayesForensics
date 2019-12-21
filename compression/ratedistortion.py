@@ -594,14 +594,20 @@ def plot_bulk(plots, dirname, plot_images, metric, plot, baseline_count=3, add_l
     fig, ax = plt.subplots(images_y, images_x, sharex=True, sharey=True)
     fig.set_size_inches((images_x * 6, images_y * 4))
 
-    for image_id in plot_images:
+    if hasattr(ax, 'flat'):
+        for axes in ax.flat:
+            axes.axis('off')
+
+    for ax_id, image_id in enumerate(plot_images):
 
         if images_y > 1:
-            axes = ax[image_id // images_x, image_id % images_x]
+            axes = ax[ax_id // images_x, ax_id % images_x]
         elif images_x > 1:
-            axes = ax[image_id % images_x]
+            axes = ax[ax_id % images_x]
         else:
             axes = ax
+
+        axes.axis('on')
 
         # Select measurements for a specific image, if specified
         for dfc in df_all:
