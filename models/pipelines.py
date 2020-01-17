@@ -2,7 +2,8 @@ import sys
 import inspect
 import numpy as np
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
+
+from collections import OrderedDict
 
 from models.tfmodel import TFModel
 from helpers.utils import upsampling_kernel, bilin_kernel, gamma_kernels
@@ -16,7 +17,7 @@ class NIPModel(TFModel):
     classes for examples.
     """
 
-    def __init__(self, sess=None, graph=None, loss_metric='L2', patch_size=None, label=None, reuse_placeholders=None, **kwargs):
+    def __init__(self, loss_metric='L2', patch_size=None, label=None, reuse_placeholders=None, in_channels=3, out_shape_mx=2, **kwargs):
         """
         Base constructor with common setup.
 
@@ -28,7 +29,7 @@ class NIPModel(TFModel):
         :param reuse_placeholders: Give a dictionary with 'x' and 'y' keys if multiple NIPs should use the same inputs
         :param kwargs: Additional arguments for specific NIP implementations
         """
-        super().__init__(sess, graph, label)
+        super().__init__(label)
 
         # Initialize input placeholders and run 'construct_model' to build the model and
         # setup its output as self.y
@@ -38,9 +39,9 @@ class NIPModel(TFModel):
             self.x = reuse_placeholders['x']
             self.y_gt = reuse_placeholders['y']
         else:
-            with self.graph.as_default():
-                self.x = tf.placeholder(tf.float32, shape=(None, patch_size, patch_size, 4), name='x')
-                self.y_gt = tf.placeholder(tf.float32, shape=(None, 2 * patch_size if patch_size is not None else None, 2 * patch_size if patch_size is not None else None, 3), name='y')
+            out_patch_size = out_shape_mx * patch_size if patch_size is not None else None
+            self.x = tf.keras.Input(dtype=tf.float32, shape=(None, patch_size, patch_size, in_channels), name='x')
+            self.y_gt = tf.keras.Input(dtype=tf.float32, shape=(None, out_patch_size, out_patch_size, 3), name='y')
         
         self.construct_model(**kwargs)
 
@@ -52,6 +53,8 @@ class NIPModel(TFModel):
         with self.graph.as_default():
             with tf.name_scope('nip_optimization'):
                 # Detect whether non-clipped image is available (better training stability)
+
+                # TODO This needs to be adapted
                 y = self.yy if hasattr(self, 'yy') else self.y
                 
                 # The loss
@@ -134,6 +137,33 @@ class UNet(NIPModel):
     """
         
     def construct_model(self):
+
+        self._model = tf.keras.Model()
+
+        lrelu = tf.keras.layers.LeakyReLU(alpha=0.1)
+
+        n_steps = 5
+        layers = OrderedDict()
+        for n in range(n_steps):
+            layers['c{}1'.format(n)] = tf.keras.layers.Conv2D(32 * 2**n, [3, 3], activation=lrelu)
+            layers['c{}2'.format(n)] = tf.keras.layers.Conv2D(32 * 2**n, [3, 3], activation=lrelu)
+            if n < n_steps - 1:
+                layers['c{}2'.format(n)] = tf.keras.layers.Conv2D(32 * 2**n, [3, 3], activation=lrelu)
+
+        
+        c11 = tf.keras.layers.Conv2D(32, [3, 3], activation=lrelu)
+        c12 = tf.keras.layers.Conv2D(32, [3, 3], activation=lrelu)
+        pl1 = tf.keras.layers.MaxPool2D([2, 2], padding='SAME')
+
+        c21 = tf.keras.layers.Conv2D(64, [3, 3], activation=lrelu)
+        c22 = tf.keras.layers.Conv2D(64, [3, 3], activation=lrelu)
+        pl1 = tf.keras.layers.MaxPool2D([2, 2], padding='SAME')
+
+        # ...
+
+
+
+
         with self.graph.as_default():            
             conv1 = slim.conv2d(self.x, 32, [3, 3], rate=1, activation_fn=lrelu, scope='{}/conv1_1'.format(self.scoped_name))
             conv1 = slim.conv2d(conv1, 32, [3, 3], rate=1, activation_fn=lrelu, scope='{}/conv1_2'.format(self.scoped_name))

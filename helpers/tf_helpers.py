@@ -1,6 +1,5 @@
 import tensorflow as tf
 import numpy as np
-from tensorflow.contrib import slim as slim
 
 from helpers.utils import gkern, repeat_2dfilter
 from IPython.display import display, HTML
@@ -263,12 +262,6 @@ def identity_initializer():
             array[cx, cy, i, i] = 1
         return tf.constant(array, dtype=dtype)
     return _initializer
-
-
-def nm(x):
-    w0 = tf.Variable(1.0, name='w0')
-    w1 = tf.Variable(0.0, name='w1')
-    return w0*x + w1*slim.batch_norm(x) # the parameter "is_training" in slim.batch_norm does not seem to help so I do not use it
 
 
 def entropy(values, codebook, v=50, gamma=25):
