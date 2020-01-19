@@ -133,7 +133,7 @@ def memory_usage_tf_variables(global_vars=True):
 
 def strip_consts(graph_def, max_const_size=32):
     """Strip large constant values from graph_def."""
-    strip_def = tf.GraphDef()
+    strip_def = tf.compat.v1.GraphDef()
     for n0 in graph_def.node:
         n = strip_def.node.add()
         n.MergeFrom(n0)
@@ -145,9 +145,16 @@ def strip_consts(graph_def, max_const_size=32):
     return strip_def
 
 
+def show_model(model, show_shapes=True, expand_nested=False):
+    return tf.keras.utils.plot_model(model, show_shapes=show_shapes, expand_nested=expand_nested, dpi=50)
+
 def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungroup_gradients=False):
+
+    if isinstance(graph_def, tf.keras.Model):
+        graph_def = graph_def.inputs[0].graph.as_graph_def()
+
     if not graph_def:
-        graph_def = tf.get_default_graph().as_graph_def()
+        graph_def = tf.compat.v1.get_default_graph().as_graph_def()
 
     """Visualize TensorFlow graph."""
     if hasattr(graph_def, 'as_graph_def'):
@@ -166,10 +173,10 @@ def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungrou
           }}
         </script>
         <link rel="import" href="https://tensorboard.appspot.com/tf-graph-basic.build.html" onload=load()>
-        <div style="height:600px">
+        <div style="height:{height}px">
           <tf-graph-basic id="{id}"></tf-graph-basic>
         </div>
-    """.format(data=repr(data), id='graph'+str(np.random.rand()))
+    """.format(data=repr(data), height=height, id='graph'+str(np.random.rand()))
 
     iframe = """
         <iframe seamless style="width:{}px;height:{}px;border:0" srcdoc="{}"></iframe>
@@ -239,8 +246,8 @@ def quantization(x, scope, name, rounding='soft', approx_steps=1, codebook_tenso
     return x
 
 
-def lrelu(x):
-    return tf.maximum(x * 0.2, x)
+# def lrelu(x):
+#     return tf.maximum(x * 0.2, x)
 
 
 def upsample_and_concat(x1, x2, output_channels, in_channels, name='upsampling_kernel', scope=None):

@@ -7,7 +7,9 @@ from collections import deque, OrderedDict
 import numpy as np
 import matplotlib.pylab as plt
 from tqdm import tqdm
-from skimage.measure import compare_ssim, compare_psnr, compare_mse
+from helpers import metrics
+
+
 
 # Set progress bar width
 TQDM_WIDTH = 120
@@ -41,13 +43,13 @@ def validate(model, data, out_directory, savefig=False, epoch=0, show_ref=False,
         reference = example_y.squeeze()
 
         # Compute loss & quality metrics
-        ssim = float(compare_ssim(reference, developed, multichannel=True))
-        psnr = float(compare_psnr(reference, developed))
+        ssim = float(metrics.ssim(reference, developed))
+        psnr = float(metrics.psnr(reference, developed))
 
         if loss_metric == 'L2':
-            loss = float(np.mean(np.power(255.0*reference - 255.0*developed, 2.0)))
+            loss = metrics.mse(255 * reference, 255 * developed)
         elif loss_metric == 'L1':
-            loss = float(np.mean(np.abs(255.0*reference - 255.0*developed)))
+            loss = metrics.mae(255 * reference, 255 * developed)
         else:
             raise ValueError('Unsupported loss ({})!'.format(loss_metric))
 
@@ -146,8 +148,8 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
         return
 
     # Limit the number of checkpoints to 5
-    model.saver.saver_def.max_to_keep = 5
-    model.saver._max_to_keep = 5
+    # model.saver.saver_def.max_to_keep = 5
+    # model.saver._max_to_keep = 5
     
     n_batches = data.count_training // batch_size
     learning_rate = 1e-4
@@ -227,7 +229,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
                 # Compare the current images to the ones from a previous model iteration
                 dmses = []
                 for v in range(data['validation']['x'].shape[0]):
-                    dmses.append(compare_mse(developed_old[v, :, :, :], developed[v, :, :, :]))
+                    dmses.append(metrics.mse(developed_old[v, :, :, :], developed[v, :, :, :]))
 
                 model.performance['dmse']['validation'].append(np.mean(dmses))
 

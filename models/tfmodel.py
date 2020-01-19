@@ -1,6 +1,5 @@
 import os
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
 import numpy as np
 from collections import OrderedDict
 
@@ -21,12 +20,9 @@ class TFModel(object):
                                 used as a prefix for TF variables & as a directory name for storing models
     """
 
-    def __init__(self, sess, graph, label, **kwargs):        
-        self.graph = tf.Graph() if graph is None else graph
-        self.sess = tf.Session(graph=self.graph) if sess is None else sess
+    def __init__(self, label, **kwargs):        
         self._label = '_'+label if label is not None else ''
         self.is_initialized = False
-        self._saver = None
         self._summary_writer = None
         self.reset_performance_stats()        
 
@@ -36,26 +32,22 @@ class TFModel(object):
         }
 
     def init(self):
-        with self.graph.as_default():
-            self.sess.run(tf.variables_initializer(self.variables))
-            self.is_initialized = True
-            self._summary_writer = None
-            self._saver = None
-            self.reset_performance_stats()
+        self.is_initialized = True
+        self._summary_writer = None
+        self.reset_performance_stats()
 
     @property
     def parameters(self):
-        with self.graph.as_default():
-            # TODO the current implementation needs to manually add population statistics from BN layers since these
-            # TODO variables are updated manually and are not reported as 'trainable'
-            trainable = tf.trainable_variables()
-            return [tv for tv in tf.global_variables() if tv.name.startswith('{}/'.format(self.scoped_name)) and (tv in trainable or tv.name.endswith('moving_mean:0') or tv.name.endswith('moving_variance:0'))]
+        return self._model.trainable_weights
+        # with self.graph.as_default():
+        #     # TODO the current implementation needs to manually add population statistics from BN layers since these
+        #     # TODO variables are updated manually and are not reported as 'trainable'
+        #     trainable = tf.trainable_variables()
+        #     return [tv for tv in tf.global_variables() if tv.name.startswith('{}/'.format(self.scoped_name)) and (tv in trainable or tv.name.endswith('moving_mean:0') or tv.name.endswith('moving_variance:0'))]
     
     @property
     def variables(self):
-        """ List all variables related to the model - regardless of whether they are trainable """
-        with self.graph.as_default():
-            return [tv for tv in tf.global_variables() if tv.name.startswith('{}/'.format(self.scoped_name))]
+       return self._model.variables
 
     def get_summary_writer(self, dirname):
         if not hasattr(self, '_summary_writer') or self._summary_writer is None:
@@ -82,32 +74,34 @@ class TFModel(object):
         return self._saver
 
     def save_model(self, dirname, epoch=0):
-
         if not os.path.exists(dirname):
             os.makedirs(dirname)
         
-        with self.graph.as_default():
-            self.saver.save(self.sess, os.path.join(dirname, self.class_name.lower()), global_step=epoch)
+        # with self.graph.as_default():
+        #     self.saver.save(self.sess, os.path.join(dirname, self.class_name.lower()), global_step=epoch)
+
+        self._model.save_weights(os.path.join(dirname, self.class_name.lower()). dirname)
 
     def load_model(self, dirname):
+        self._model.load_weights(os.path.join(dirname, self.class_name.lower()))
 
-        self.init()
+        # self.init()
 
-        # Try to load the model from the given directory
-        latest_checkpoint = tf.train.latest_checkpoint(dirname)
+        # # Try to load the model from the given directory
+        # latest_checkpoint = tf.train.latest_checkpoint(dirname)
 
-        # If no model available, append current model's scoped name
-        if latest_checkpoint is None:
-            dirname = os.path.join(dirname, self.scoped_name)
-            latest_checkpoint = tf.train.latest_checkpoint(dirname)
+        # # If no model available, append current model's scoped name
+        # if latest_checkpoint is None:
+        #     dirname = os.path.join(dirname, self.scoped_name)
+        #     latest_checkpoint = tf.train.latest_checkpoint(dirname)
 
-        if latest_checkpoint is None:
-            raise RuntimeError('Model checkpoint not found at {}'.format(dirname))
+        # if latest_checkpoint is None:
+        #     raise RuntimeError('Model checkpoint not found at {}'.format(dirname))
 
-        with self.graph.as_default():
-            # Use the slim package to load the checkpoint - this gives a chance to ignore missing variables
-            init_assign_op, init_feed_dict = slim.assign_from_checkpoint(latest_checkpoint, self.parameters, ignore_missing_vars=True)
-            self.sess.run(init_assign_op, feed_dict=init_feed_dict)
+        # with self.graph.as_default():
+        #     # Use the slim package to load the checkpoint - this gives a chance to ignore missing variables
+        #     init_assign_op, init_feed_dict = slim.assign_from_checkpoint(latest_checkpoint, self.parameters, ignore_missing_vars=True)
+        #     self.sess.run(init_assign_op, feed_dict=init_feed_dict)
 
         self.is_initialized = True
         self.reset_performance_stats()
