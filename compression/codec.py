@@ -284,7 +284,7 @@ def global_compress(dcn, batch_x):
     return pyfse.compress(bytes(indices.astype(np.uint8)))
 
 
-def restore_model(dir_name, patch_size=128, fetch_stats=False, sess=None, graph=None, x=None, nip_input=None):
+def restore_model(dir_name, patch_size=None, fetch_stats=False):
     """
     Utility function to restore a DCN model from a training directory. By default,
     a standalone instance is created. Can also be used for chaining when sess,
@@ -322,12 +322,7 @@ def restore_model(dir_name, patch_size=128, fetch_stats=False, sess=None, graph=
     parameters['patch_size'] = patch_size
     parameters['default_val_is_train'] = False
 
-    if x is not None:
-        parameters['x'] = x
-    if nip_input is not None:
-        parameters['nip_input'] = nip_input
-
-    model = getattr(compression, training_progress['dcn']['model'])(sess, graph, **parameters)
+    model = getattr(compression, training_progress['dcn']['model'])(**parameters)
     model.load_model(dir_name)
     print('Loaded model: {}'.format(model.model_code))
 

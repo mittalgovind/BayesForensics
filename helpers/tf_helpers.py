@@ -5,20 +5,18 @@ from helpers.utils import gkern, repeat_2dfilter
 from IPython.display import display, HTML
 
 activation_mapping = {
-    'leaky_relu' : tf.nn.leaky_relu,
-    'relu': tf.nn.relu,
-    'tanh': tf.nn.tanh,
-    'sigmoid': tf.nn.sigmoid,
-    'softsign': tf.nn.softsign
+    'leaky_relu' : tf.keras.layers.LeakyReLU(alpha=0.1),
+    'relu': tf.keras.activations.relu,
+    'tanh': tf.keras.activations.tanh,
+    'sigmoid': tf.keras.activations.sigmoid,
+    'softsign': tf.keras.activations.softsign
 }
 
 
-def manipulation_resample(x, factor=0.5):
-    with tf.name_scope('resample'):
-        im_res = tf.image.resize_images(x, [tf.shape(x)[1] * int(factor) // 100, tf.shape(x)[1] * int(factor) // 100], method=tf.image.ResizeMethod.BILINEAR)
-        return tf.image.resize_images(im_res, [tf.shape(x)[1], tf.shape(x)[1]], tf.image.ResizeMethod.BILINEAR)
-        # im_res = tf.image.resize_images(x, [tf.shape(x)[1] * factor, tf.shape(x)[1] * factor], method=tf.image.ResizeMethod.BILINEAR)
-        # return tf.image.resize_images(im_res, [tf.shape(x)[1], tf.shape(x)[1]], tf.image.ResizeMethod.BILINEAR)
+def manipulation_resample(x, factor=0.5, method='bilinear'):
+    with tf.name_scope('resampling_filter'):
+        im_res = tf.image.resize(x, [tf.shape(x)[1] * int(factor) // 100, tf.shape(x)[1] * int(factor) // 100], method=method)
+        return tf.image.resize(im_res, [tf.shape(x)[1], tf.shape(x)[1]], method)
 
 
 def manipulation_awgn(x, strength=0.025):
@@ -29,7 +27,7 @@ def manipulation_awgn(x, strength=0.025):
 
 
 def manipulation_gamma(x, strength=2.0):
-    with tf.name_scope('gamma'):
+    with tf.name_scope('gamma_filter'):
         im_gamma = tf.pow(x, strength, name='squared')
         im_gamma = quantization(255.0 * im_gamma, 'quantization', 'quantized', 'soft')
         return tf.pow(tf.clip_by_value(im_gamma, 1, 255) / 255.0, 1/strength, name='sqrt')
@@ -39,10 +37,74 @@ def manipulation_median(x, kernel=3):
     kernel = int(kernel)
     with tf.name_scope('median_filter'):
         xp = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
-        patches = tf.extract_image_patches(xp, [1, kernel, kernel, 1], [1, 1, 1, 1], 4*[1], 'VALID')
+        patches = tf.image.extract_patches(xp, [1, kernel, kernel, 1], [1, 1, 1, 1], 4*[1], 'VALID')
         patches = tf.reshape(patches, [tf.shape(patches)[0], tf.shape(patches)[1], tf.shape(patches)[2], tf.shape(patches)[3]//3, 3])
-        return tf.contrib.distributions.percentile(patches, 50, axis=3)
 
+        area = kernel ** 2
+        floor = (area + 1) // 2
+        ceil = area // 2 + 1
+
+        top = tf.nn.top_k(patches, k=ceil).values
+        if area % 2 == 1:
+            median = top[:, :, :, :, floor - 1]
+        else:
+            median = (top[:, :, :, :, floor - 1] + top[:, :, :, :, ceil - 1]) / 2
+
+        return median
+
+# with tf.name_scope(name or "median_filter2d"):
+#         image = tf.convert_to_tensor(image, name="image")
+#         original_ndims = img_utils.get_ndims(image)
+#         image = img_utils.to_4D_image(image)
+
+#         if padding not in ["REFLECT", "CONSTANT", "SYMMETRIC"]:
+#             raise ValueError(
+#                 "padding should be one of \"REFLECT\", \"CONSTANT\", or "
+#                 "\"SYMMETRIC\".")
+
+#         filter_shape = keras_utils.normalize_tuple(filter_shape, 2,
+#                                                    "filter_shape")
+
+#         image_shape = tf.shape(image)
+#         batch_size = image_shape[0]
+#         height = image_shape[1]
+#         width = image_shape[2]
+#         channels = image_shape[3]
+
+#         # Explicitly pad the image
+#         image = _pad(
+#             image, filter_shape, mode=padding, constant_values=constant_values)
+
+#         area = filter_shape[0] * filter_shape[1]
+
+#         floor = (area + 1) // 2
+#         ceil = area // 2 + 1
+
+#         patches = tf.image.extract_patches(
+#             image,
+#             sizes=[1, filter_shape[0], filter_shape[1], 1],
+#             strides=[1, 1, 1, 1],
+#             rates=[1, 1, 1, 1],
+#             padding="VALID")
+
+#         patches = tf.reshape(
+#             patches, shape=[batch_size, height, width, area, channels])
+
+#         patches = tf.transpose(patches, [0, 1, 2, 4, 3])
+
+#         # Note the returned median is casted back to the original type
+#         # Take [5, 6, 7, 8] for example, the median is (6 + 7) / 2 = 3.5
+#         # It turns out to be int(6.5) = 6 if the original type is int
+#         top = tf.nn.top_k(patches, k=ceil).values
+#         if area % 2 == 1:
+#             median = top[:, :, :, :, floor - 1]
+#         else:
+#             median = (
+#                 top[:, :, :, :, floor - 1] + top[:, :, :, :, ceil - 1]) / 2
+
+#         output = tf.cast(median, image.dtype)
+#         output = img_utils.from_4D_image(output, original_ndims)
+#         return output
 
 def manipulation_gaussian(x, kernel, std, skip_clip=False):
     kernel = int(kernel)
@@ -120,15 +182,15 @@ def residual(x, hsv=False):
 
         return y
 
-def memory_usage_tf(sess):
-    return sess.run(tf.contrib.memory_stats.BytesInUse())
+# def memory_usage_tf(sess):
+#     return 0 #sess.run(tf.contrib.memory_stats.BytesInUse())
 
 
-def memory_usage_tf_variables(global_vars=True):
-    bytes = 0
-    for tv in (tf.trainable_variables() if not global_vars else tf.global_variables()):
-        bytes += np.prod(tv.shape.as_list()) * tv.dtype.size
-    return bytes
+# def memory_usage_tf_variables(global_vars=True):
+#     bytes = 0
+#     for tv in (tf.trainable_variables() if not global_vars else tf.global_variables()):
+#         bytes += np.prod(tv.shape.as_list()) * tv.dtype.size
+#     return bytes
 
 
 def strip_consts(graph_def, max_const_size=32):
@@ -184,7 +246,7 @@ def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungrou
     display(HTML(iframe))
 
 
-def quantization(x, scope, name, rounding='soft', approx_steps=1, codebook_tensor=None, v=50, gamma=25):
+def quantization(x, scope, rounding='soft', approx_steps=1, codebook_tensor=None, v=50, gamma=25):
 
     with tf.name_scope(scope):
 
@@ -192,17 +254,17 @@ def quantization(x, scope, name, rounding='soft', approx_steps=1, codebook_tenso
             x = tf.round(x)
 
         elif rounding == 'sin':
-            x = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi), name=name)
+            x = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
 
         elif rounding == 'soft':
-            x_ = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi), name='{}_soft'.format(name))
-            x = tf.add(tf.stop_gradient(tf.round(x) - x_), x_, name=name)
+            x_ = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
+            x = tf.add(tf.stop_gradient(tf.round(x) - x_), x_)
 
         elif rounding == 'harmonic':
             xa = x - tf.sin(2 * np.pi * x) / np.pi
             for k in range(2, approx_steps):
                 xa += tf.pow(-1.0, k) * tf.sin(2 * np.pi * k * x) / (k * np.pi)
-            x = tf.identity(xa, name=name)
+            x = tf.identity(xa)
 
         elif rounding == 'identity':
             x = x
@@ -238,7 +300,7 @@ def quantization(x, scope, name, rounding='soft', approx_steps=1, codebook_tenso
             hard = tf.reshape(hard, tf.shape(x))
 
             x = tf.stop_gradient(hard - soft) + soft
-            x = tf.identity(x, name=name)
+            x = tf.identity(x)
 
         else:
             raise ValueError('Unknown quantization! {}'.format(rounding))
@@ -246,19 +308,15 @@ def quantization(x, scope, name, rounding='soft', approx_steps=1, codebook_tenso
     return x
 
 
-# def lrelu(x):
-#     return tf.maximum(x * 0.2, x)
+# def upsample_and_concat(x1, x2, output_channels, in_channels, name='upsampling_kernel', scope=None):
+#     with tf.name_scope(scope):
+#         pool_size = 2
+#         deconv_filter = tf.Variable(tf.truncated_normal([pool_size, pool_size, output_channels, in_channels], stddev=0.02), name=name)
+#         deconv = tf.nn.conv2d_transpose(x1, deconv_filter, tf.shape(x2), strides=[1, pool_size, pool_size, 1])
+#         deconv_output = tf.concat([deconv, x2], 3)
+#         deconv_output.set_shape([None, None, None, output_channels * 2])
 
-
-def upsample_and_concat(x1, x2, output_channels, in_channels, name='upsampling_kernel', scope=None):
-    with tf.name_scope(scope):
-        pool_size = 2
-        deconv_filter = tf.Variable(tf.truncated_normal([pool_size, pool_size, output_channels, in_channels], stddev=0.02), name=name)
-        deconv = tf.nn.conv2d_transpose(x1, deconv_filter, tf.shape(x2), strides=[1, pool_size, pool_size, 1])
-        deconv_output = tf.concat([deconv, x2], 3)
-        deconv_output.set_shape([None, None, None, output_channels * 2])
-
-    return deconv_output
+#     return deconv_output
 
 
 def identity_initializer():
@@ -302,7 +360,7 @@ def entropy(values, codebook, v=50, gamma=25):
     histogram = tf.reduce_mean(weights, axis=0)
     histogram = tf.clip_by_value(histogram, 1e-9, tf.float32.max)
     histogram = histogram / tf.reduce_sum(histogram)
-    entropy = - tf.reduce_sum(histogram * tf.log(histogram)) / 0.6931  # 0.6931 - log(2)
+    entropy = - tf.reduce_sum(histogram * tf.math.log(histogram)) / 0.6931  # 0.6931 - log(2)
     entropy = tf.cast(entropy, tf.float32)
 
     return entropy, histogram, weights

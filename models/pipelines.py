@@ -6,6 +6,7 @@ import tensorflow as tf
 from collections import OrderedDict
 
 from models.tfmodel import TFModel
+from helpers import tf_helpers, paramspec
 from helpers.utils import upsampling_kernel, bilin_kernel, gamma_kernels
 
 
@@ -42,6 +43,8 @@ class NIPModel(TFModel):
             self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, in_channels), name='x')
             self.y_gt = tf.keras.Input(dtype=tf.float32, shape=(out_patch_size, out_patch_size, 3), name='y')
         
+        self.in_channels = in_channels
+        self.out_shape_mx = out_shape_mx
         self.construct_model(**kwargs)
 
         # Configure loss and model optimization
@@ -84,9 +87,8 @@ class NIPModel(TFModel):
             loss = self.loss(batch_Y, batch_y)
 
         self.optimizer.lr.assign(learning_rate)
-        grads = tape.gradient(loss, self._model.trainable_weights) # e.trainable_weights + 
-        self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights)) # e.trainable_weights + 
-            # _, loss = self.sess.run([self.opt, self.loss], feed_dict=feed_dict)
+        grads = tape.gradient(loss, self._model.trainable_weights)
+        self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
         return loss.numpy()
         
     def process(self, batch_x, is_training=False):
@@ -108,8 +110,8 @@ class NIPModel(TFModel):
 
     def get_hyperparameters(self):
         p = {
-            'in_channels': in_channels,
-            'out_shape_mx': out_shape_mx 
+            'in_channels': self.in_channels,
+            'out_shape_mx': self.out_shape_mx 
         }
         if hasattr(self, '_h'):
             p.update(self._h.to_json())
@@ -121,14 +123,14 @@ class UNet(NIPModel):
     Originally adapted from https://github.com/cchen156/Learning-to-See-in-the-Dark
     """
         
-    def construct_model(self, n_steps=5, activation='leaky_relu'):
+    def construct_model(self, **kwargs):
         # Define expected hyper parameters and their values ------------------------------------------------------------
         self._h = paramspec.ParamSpec({
             'n_steps': (5, int, (2, 6)),
             'activation': ('leaky_relu', str, set(tf_helpers.activation_mapping.keys()))
         })
 
-        self._h.update(**params)
+        self._h.update(**kwargs)
         lrelu = tf_helpers.activation_mapping[self._h.activation]
         
         # lrelu = tf.keras.layers.LeakyReLU(alpha=0.1)

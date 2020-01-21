@@ -102,16 +102,8 @@ def main():
 
         args.nip_params = args.nip_params or {}
 
-        tf.reset_default_graph()
-        sess = tf.Session()
-        model = getattr(pipelines, pipe)(sess, tf.get_default_graph(), loss_metric='L2', **args.nip_params)
-        model.sess.run(tf.global_variables_initializer())
-
+        model = getattr(pipelines, pipe)(loss_metric='L2', **args.nip_params)
         train_nip_model(model, args.camera, args.epochs, validation_loss_threshold=1e-5, patch_size=args.patch_size, resume=args.resume, data=data, out_directory_root=args.out_dir)
-
-        sess.close()
-
-    return
 
 
 if __name__ == "__main__":
