@@ -80,7 +80,7 @@ class TFModel(object):
         # with self.graph.as_default():
         #     self.saver.save(self.sess, os.path.join(dirname, self.class_name.lower()), global_step=epoch)
 
-        self._model.save_weights(os.path.join(dirname, self.class_name.lower()). dirname)
+        self._model.save_weights(os.path.join(dirname, self.class_name.lower()))
 
     def load_model(self, dirname):
         self._model.load_weights(os.path.join(dirname, self.class_name.lower()))
@@ -120,3 +120,6 @@ class TFModel(object):
     @property
     def scoped_name(self):
         return '{}{}'.format(type(self).__name__.lower(), self._label)
+
+    def get_hyperparameters(self):
+        raise NotImplementedError()

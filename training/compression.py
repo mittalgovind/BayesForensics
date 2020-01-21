@@ -108,7 +108,7 @@ def save_progress(dcn, data, training, out_dir):
         'data': data.summary(),
         'dcn': {
             'model': type(dcn).__name__,
-            'args': dcn.get_parameters(),
+            'args': dcn.get_hyperparameters(),
             'codebook': dcn.get_codebook().tolist()
         },
         'performance': dcn.performance,

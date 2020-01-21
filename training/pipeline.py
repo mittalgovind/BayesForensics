@@ -118,10 +118,10 @@ def visualize_progress(arch, performance, patch_size, camera_name, out_directory
         plt.close()
 
 
-def save_progress(performance, training_summary, out_directory):
+def save_progress(model, training_summary, out_directory):
 
     filename = os.path.join(out_directory, 'progress.json')
-    output_stats = {'performance': performance}
+    output_stats = {'performance': model.performance, 'args': model.get_hyperparameters()}
     output_stats.update(training_summary)
     with open(filename, 'w') as f:
         json.dump(output_stats, f, indent=4)
@@ -236,7 +236,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
                 # Generate progress summary
                 training_summary['Epoch'] = epoch
                 visualize_progress(model.class_name, model.performance, patch_size, camera_name, out_directory, False, sampling_rate)
-                save_progress(model.performance, training_summary, out_directory)
+                save_progress(model, training_summary, out_directory)
                 model.save_model(out_directory, epoch)
 
                 # Check for convergence
@@ -254,7 +254,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
 
     training_summary['Epoch'] = epoch
     visualize_progress(model.class_name, model.performance, patch_size, camera_name, out_directory, False, sampling_rate)
-    save_progress(model.performance, training_summary, out_directory)
+    save_progress(model, training_summary, out_directory)
     model.save_model(out_directory, epoch)
 
     return out_directory

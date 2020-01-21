@@ -37,7 +37,7 @@ class DCN(TFModel):
     latent_post attributes.
     """
 
-    def __init__(self, sess, graph, label=None, x=None, nip_input=None, patch_size=128, latent_bpf=4, train_codebook=False, entropy_weight=None, default_val_is_train=True, scale_latent=False, use_batchnorm=False, use_gdn=False, verbose=False, loss_metric='L2', **kwargs):
+    def __init__(self, label=None, x=None, nip_input=None, patch_size=128, latent_bpf=4, train_codebook=False, entropy_weight=None, default_val_is_train=True, scale_latent=False, use_batchnorm=False, use_gdn=False, verbose=False, loss_metric='L2', **kwargs):
         """
         Creates a forensic analysis network.
 
@@ -45,7 +45,7 @@ class DCN(TFModel):
         :param graph: TF graph or None (creates a new one)
         :param label: a suffix for the name scope of the model
         """
-        super().__init__(sess, graph, label)
+        super().__init__(label)
 
         # Basic parameter sanitization
 
@@ -67,77 +67,76 @@ class DCN(TFModel):
         self.use_gdn = use_gdn
         self.loss_metric = loss_metric
 
-        with self.graph.as_default():
-            # Setup inputs:
-            # - if possible take external tensor as input, otherwise create a placeholder
-            # - if external input is given (from a NIP model), remember the input to the NIP model to facilitate 
-            #   convenient operation of the class (see helper methods 'process*')
-            if x is None:
-                x = tf.placeholder(tf.float32, shape=(None, patch_size, patch_size, 3), name='x_{}'.format(self.scoped_name))
-                self.use_nip_input = False
-            else:
-                self.use_nip_input = True
+        # Setup inputs:
+        # - if possible take external tensor as input, otherwise create a placeholder
+        # - if external input is given (from a NIP model), remember the input to the NIP model to facilitate 
+        #   convenient operation of the class (see helper methods 'process*')
+        if x is None:
+            x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, 3), name='x_{}'.format(self.scoped_name))
+            self.use_nip_input = False
+        else:
+            self.use_nip_input = True
+        
+        self.x = x
+        
+        # Setup quantization code book -----------------------------------------------------------------------------
+        with tf.name_scope('{}/optimization'.format(self.scoped_name)):
             
-            self.x = x
-            
-            # Setup quantization code book -----------------------------------------------------------------------------
-            with tf.name_scope('{}/optimization'.format(self.scoped_name)):
-                
-                with tf.name_scope('entropy'):
-                                        
-                    # Initialize the quantization codebook
-                    qmin = -2 ** (self.latent_bpf - 1) + 1
-                    qmax = 2 ** (self.latent_bpf - 1)
-                                        
-                    self.log('Initializing {} codebook ({} bpf): from {} to {}'.format('trainable' if self.train_codebook else 'fixed', self.latent_bpf, qmin, qmax))
+            with tf.name_scope('entropy'):
+                                    
+                # Initialize the quantization codebook
+                qmin = -2 ** (self.latent_bpf - 1) + 1
+                qmax = 2 ** (self.latent_bpf - 1)
+                                    
+                self.log('Initializing {} codebook ({} bpf): from {} to {}'.format('trainable' if self.train_codebook else 'fixed', self.latent_bpf, qmin, qmax))
 
-                    if self.train_codebook:
-                        bin_centers = tf.get_variable('{}/quantization/codebook'.format(self.scoped_name),
-                            initializer=tf.constant_initializer(np.arange(qmin, qmax + 1)),
-                            shape=(1, 2 ** self.latent_bpf))
-                    else:
-                        bin_centers = tf.constant(np.arange(qmin, qmax + 1), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)                        
-
-                    self._codebook = bin_centers
-            
-            # Construct the actual model -------------------------------------------------------------------------------
-            self.construct_model(kwargs)
-            
-            # Overwrite the output to guarantee correct data range and maintain gradient propagation
-            self.y = tf.stop_gradient(tf.clip_by_value(self.y, 0, 1) - self.y) + self.y
-
-            # Check if the sub-class has set all expected attributes
-            setup_status = {key: hasattr(self, key) for key in ['y', 'latent_pre', 'latent_post', 'latent_shape', 'n_latent']}
-
-            if not all(setup_status.values()):
-                raise NotImplementedError('The model construction function has failed to set-up some attributes: {}'.format([key for key, value in setup_status.items() if not value]))
-
-            # Add entropy estimation and model optimization operations -------------------------------------------------
-            with tf.name_scope('{}/optimization'.format(self.scoped_name)):
-
-                # Estimate entropy of the latent representation
-                with tf.name_scope('entropy'):
-                    self.entropy, self.histogram, self.weights = tf_helpers.entropy(self.latent_pre, self._codebook)
-
-                # Loss and SSIM
-                self.ssim = tf.reduce_mean(tf.image.ssim(self.x, tf.clip_by_value(self.y, 0, 1), max_val=1))
-                
-                if loss_metric == 'L2':                    
-                    self.loss = tf.nn.l2_loss(self.x - self.y)
+                if self.train_codebook:
+                    bin_centers = tf.get_variable('{}/quantization/codebook'.format(self.scoped_name),
+                        initializer=tf.constant_initializer(np.arange(qmin, qmax + 1)),
+                        shape=(1, 2 ** self.latent_bpf))
                 else:
-                    raise NotImplementedError('Loss metric {} not supported.'.format(loss_metric))
-                
-                if self.entropy_weight is not None:
-                    self.loss = self.loss + self.entropy_weight * tf.cast(self.entropy, dtype=tf.float32)
-                loss_entropy_label = '+ {:.2f} * entropy'.format(self.entropy_weight) if self.entropy_weight is not None else ''
-                self.log('Initializing loss: {} {}'.format(self.loss_metric, loss_entropy_label))
-                
-                # Optimization
-                update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-                with tf.control_dependencies(update_ops):
-                    self.lr = tf.placeholder(tf.float32, name='{}_learning_rate'.format(self.scoped_name))
-                    self.adam = tf.train.AdamOptimizer(learning_rate=self.lr)
-                    self.opt = self.adam.minimize(self.loss, var_list=self.parameters)
+                    bin_centers = tf.constant(np.arange(qmin, qmax + 1), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)                        
+
+                self._codebook = bin_centers
+        
+        # Construct the actual model -------------------------------------------------------------------------------
+        self.construct_model(kwargs)
+        
+        # Overwrite the output to guarantee correct data range and maintain gradient propagation
+        self.y = tf.stop_gradient(tf.clip_by_value(self.y, 0, 1) - self.y) + self.y
+
+        # Check if the sub-class has set all expected attributes
+        setup_status = {key: hasattr(self, key) for key in ['y', 'latent_pre', 'latent_post', 'latent_shape', 'n_latent']}
+
+        if not all(setup_status.values()):
+            raise NotImplementedError('The model construction function has failed to set-up some attributes: {}'.format([key for key, value in setup_status.items() if not value]))
+
+        # Add entropy estimation and model optimization operations -------------------------------------------------
+        with tf.name_scope('{}/optimization'.format(self.scoped_name)):
+
+            # Estimate entropy of the latent representation
+            with tf.name_scope('entropy'):
+                self.entropy, self.histogram, self.weights = tf_helpers.entropy(self.latent_pre, self._codebook)
+
+            # Loss and SSIM
+            self.ssim = tf.reduce_mean(tf.image.ssim(self.x, tf.clip_by_value(self.y, 0, 1), max_val=1))
+            
+            if loss_metric == 'L2':                    
+                self.loss = tf.nn.l2_loss(self.x - self.y)
+            else:
+                raise NotImplementedError('Loss metric {} not supported.'.format(loss_metric))
+            
+            if self.entropy_weight is not None:
+                self.loss = self.loss + self.entropy_weight * tf.cast(self.entropy, dtype=tf.float32)
+            loss_entropy_label = '+ {:.2f} * entropy'.format(self.entropy_weight) if self.entropy_weight is not None else ''
+            self.log('Initializing loss: {} {}'.format(self.loss_metric, loss_entropy_label))
+            
+            # Optimization
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(update_ops):
+                self.lr = tf.placeholder(tf.float32, name='{}_learning_rate'.format(self.scoped_name))
+                self.adam = tf.train.AdamOptimizer(learning_rate=self.lr)
+                self.opt = self.adam.minimize(self.loss, var_list=self.parameters)
 
     def log(self, message):
         if self.verbose:
@@ -362,8 +361,8 @@ class DCN(TFModel):
         
         return '{}-{}D'.format(type(self).__name__, self.n_latent)        
 
-    def get_parameters(self):
-        return {
+    def get_hyperparameters(self):
+        p = {
             'latent_bpf': self.latent_bpf,
             'train_codebook': self.train_codebook,
             'entropy_weight': self.entropy_weight,
@@ -372,6 +371,9 @@ class DCN(TFModel):
             'use_batchnorm': self.use_batchnorm,
             'use_gdn': self.use_gdn
         }
+        if hasattr(self, '_h'):
+            p.update(self._h.to_json())
+        return p
 
     def get_codebook(self, bpf=None, lloyd=False):
         if hasattr(self, '_h') and hasattr(self._h, 'rounding'):
