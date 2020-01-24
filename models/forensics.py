@@ -44,7 +44,7 @@ class FAN(TFModel):
     6. Output layer with K classes
     """
 
-    def __init__(self, n_classes, patch_size=None, label=None, n_filters=32, n_fscale=2, n_convolutions=4, kernel=5, dropout=0.0, use_gap=True):
+    def __init__(self, n_classes, patch_size=None, label=None, n_filters=32, n_fscale=2, n_convolutions=4, kernel=5, dropout=0.0, use_gap=True, activation='leaky_relu'):
         """
         Creates a forensic analysis network.
 
@@ -59,13 +59,19 @@ class FAN(TFModel):
         :param use_gap: whether to use a GAP or to reshape the final conv tensor
         """
         super().__init__(label)
+        self.n_classes = n_classes
             
         self._h = paramspec.ParamSpec({
-            'n_features': (96, int, (4, 128)),
-            'rounding': ('soft', str, {'identity', 'soft', 'soft-codebook', 'sin'}),
+            'n_filters': (32, int, (4, 128)),
+            'n_fscale': (2, float, (0.25, 4)),
+            'n_convolutions': (4, int, (1, 32)),
+            'kernel': (5, int, (3, 11)),
+            'dropout': (0, float, (0, 1)),
+            'use_gap': (False, bool, None),
             'activation': ('leaky_relu', str, set(tf_helpers.activation_mapping.keys()))
         })
-        # self._h.update(**params)
+        params = locals()
+        self._h.update(**{k: params[k] for k in self._h.keys()})
 
         # Setup inputs:
         # - if possible take external tensor as input, otherwise create a placeholder
@@ -76,16 +82,17 @@ class FAN(TFModel):
         # Setup a GT placeholder
         self.y_gt = tf.keras.Input(dtype=tf.int32, shape=(None,))
         
-            # Basic parameters
-        activation = tf.keras.layers.LeakyReLU(0.1)
+        # Basic parameters
+        activation = tf_helpers.activation_mapping[self._h.activation]
+
 
         net = ConstrainedConv2D()(self.x)
 
         # Standard convolutional layers
-        for conv_id in range(n_convolutions):
-            net = tf.keras.layers.Conv2D(n_filters, [kernel, kernel], activation=activation)(net)
+        for conv_id in range(self._h.n_convolutions):
+            net = tf.keras.layers.Conv2D(n_filters, [self._h.kernel, self._h.kernel], activation=activation)(net)
             net = tf.keras.layers.MaxPool2D([2, 2])(net)
-            n_filters *= n_fscale
+            n_filters = int(n_filters * self._h.n_fscale)
 
         # Final 1 x 1 convolution
         net = tf.keras.layers.Conv2D(n_filters // n_fscale, [1, 1], activation=activation)(net)
@@ -108,7 +115,7 @@ class FAN(TFModel):
 
         self._model = tf.keras.Model(inputs=self.x, outputs=self.y)        
         self.optimizer = tf.keras.optimizers.Adam()
-        self.loss = tf.keras.losses.CategoricalCrossentropy()
+        self.loss = tf.keras.losses.SparseCategoricalCrossentropy()
 
 
     def reset_performance_stats(self):
@@ -131,7 +138,7 @@ class FAN(TFModel):
         """
         Returns class probabilities for an image batch. The input is fed to the NIP if the model is chained properly.
         """
-        return self._model(batch_x).numpy()  
+        return self._model(batch_x).numpy()
     
     # def process_direct(self, batch_x, with_confidence=False):
     #     """
@@ -192,7 +199,14 @@ class FAN(TFModel):
     #         return loss
 
     def __repr__(self):
-        return 'FAN({}, {})'.format(self.n_classes)
+        extra_params = ','.join('{}={}'.format(k, v) for k, v in self._h.changed_params().items())
+        if len(extra_params) > 0:
+            extra_params = ','+extra_params
+        return 'FAN(n_classes={}{})'.format(self.n_classes, extra_params)
 
     def summary(self):
-        return '{}x{} cnn with {}+1+1 conv layers + 2 fc layers [{:,} parameters]'.format(self.kernel, self.kernel, self.n_convolutions, self.count_parameters())
+        return '{kernel}x{kernel} CNN: 1+{conv}+1 conv layers {gap}+ 2 fc layers [{params:,} parameters]'.format(
+            kernel=self._h.kernel, 
+            conv=self._h.n_convolutions, 
+            gap='+ (GAP) ' if self._h.use_gap else '',
+            params=self.count_parameters())

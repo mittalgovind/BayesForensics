@@ -22,89 +22,35 @@ def manipulation_resample(x, factor=0.5, method='bilinear'):
 def manipulation_awgn(x, strength=0.025):
     with tf.name_scope('awgn'):
         im_awgn = x + strength * tf.random.normal(tf.shape(x))
-        im_awgn = quantization(255.0 * im_awgn, 'quantization', 'quantized', 'soft')
-        return im_awgn / 255.0
+        im_awgn = quantization(255.0 * im_awgn, 'quantization', 'soft')
+        return tf.clip_by_value(im_awgn / 255.0, 0, 1)
 
 
 def manipulation_gamma(x, strength=2.0):
     with tf.name_scope('gamma_filter'):
         im_gamma = tf.pow(x, strength, name='squared')
-        im_gamma = quantization(255.0 * im_gamma, 'quantization', 'quantized', 'soft')
+        im_gamma = quantization(255.0 * im_gamma, 'quantization', 'soft')
         return tf.pow(tf.clip_by_value(im_gamma, 1, 255) / 255.0, 1/strength, name='sqrt')
 
 
-def manipulation_median(x, kernel=3):
+def manipulation_median(x, kernel=3):    
     kernel = int(kernel)
+    assert kernel % 2 == 1, 'Median filter size needs to be odd!'
     with tf.name_scope('median_filter'):
         xp = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
         patches = tf.image.extract_patches(xp, [1, kernel, kernel, 1], [1, 1, 1, 1], 4*[1], 'VALID')
         patches = tf.reshape(patches, [tf.shape(patches)[0], tf.shape(patches)[1], tf.shape(patches)[2], tf.shape(patches)[3]//3, 3])
-
+        patches = tf.transpose(patches, [0, 1, 2, 4, 3])
+        
         area = kernel ** 2
         floor = (area + 1) // 2
         ceil = area // 2 + 1
 
         top = tf.nn.top_k(patches, k=ceil).values
-        if area % 2 == 1:
-            median = top[:, :, :, :, floor - 1]
-        else:
-            median = (top[:, :, :, :, floor - 1] + top[:, :, :, :, ceil - 1]) / 2
+        # The area will always be odd if kernel is odd
+        median = top[:, :, :, :, floor - 1]
 
         return median
-
-# with tf.name_scope(name or "median_filter2d"):
-#         image = tf.convert_to_tensor(image, name="image")
-#         original_ndims = img_utils.get_ndims(image)
-#         image = img_utils.to_4D_image(image)
-
-#         if padding not in ["REFLECT", "CONSTANT", "SYMMETRIC"]:
-#             raise ValueError(
-#                 "padding should be one of \"REFLECT\", \"CONSTANT\", or "
-#                 "\"SYMMETRIC\".")
-
-#         filter_shape = keras_utils.normalize_tuple(filter_shape, 2,
-#                                                    "filter_shape")
-
-#         image_shape = tf.shape(image)
-#         batch_size = image_shape[0]
-#         height = image_shape[1]
-#         width = image_shape[2]
-#         channels = image_shape[3]
-
-#         # Explicitly pad the image
-#         image = _pad(
-#             image, filter_shape, mode=padding, constant_values=constant_values)
-
-#         area = filter_shape[0] * filter_shape[1]
-
-#         floor = (area + 1) // 2
-#         ceil = area // 2 + 1
-
-#         patches = tf.image.extract_patches(
-#             image,
-#             sizes=[1, filter_shape[0], filter_shape[1], 1],
-#             strides=[1, 1, 1, 1],
-#             rates=[1, 1, 1, 1],
-#             padding="VALID")
-
-#         patches = tf.reshape(
-#             patches, shape=[batch_size, height, width, area, channels])
-
-#         patches = tf.transpose(patches, [0, 1, 2, 4, 3])
-
-#         # Note the returned median is casted back to the original type
-#         # Take [5, 6, 7, 8] for example, the median is (6 + 7) / 2 = 3.5
-#         # It turns out to be int(6.5) = 6 if the original type is int
-#         top = tf.nn.top_k(patches, k=ceil).values
-#         if area % 2 == 1:
-#             median = top[:, :, :, :, floor - 1]
-#         else:
-#             median = (
-#                 top[:, :, :, :, floor - 1] + top[:, :, :, :, ceil - 1]) / 2
-
-#         output = tf.cast(median, image.dtype)
-#         output = img_utils.from_4D_image(output, original_ndims)
-#         return output
 
 def manipulation_gaussian(x, kernel, std, skip_clip=False):
     kernel = int(kernel)

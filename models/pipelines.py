@@ -98,7 +98,7 @@ class NIPModel(TFModel):
         if batch_x.ndim == 3:
             batch_x = np.expand_dims(batch_x, 0)
         
-        return self._model(batch_x).numpy()
+        return self._model(batch_x)
     
     def reset_performance_stats(self):
         self.performance = {

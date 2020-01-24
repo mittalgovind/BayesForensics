@@ -24,6 +24,9 @@ class DifferentiableJPEG(tf.keras.Model):
             q_mtx_chroma_init = np.ones((8, 8)) if quality is None else jpeg_qtable(quality, 1)
             self._q_mtx_luma = self.add_weight('Q_mtx_luma', [8, 8], initializer=tf.constant_initializer(q_mtx_luma_init))
             self._q_mtx_chroma = self.add_weight('Q_mtx_chroma', [8, 8], initializer=tf.constant_initializer(q_mtx_chroma_init))
+        else:
+            self._q_mtx_luma = np.ones((8, 8)) if quality is None else jpeg_qtable(quality, 0)
+            self._q_mtx_chroma = np.ones((8, 8)) if quality is None else jpeg_qtable(quality, 1)
 
         # Paramaters
         self.quality = quality
@@ -33,8 +36,8 @@ class DifferentiableJPEG(tf.keras.Model):
 
         # Transformations
         # RGB to YCbCr conversion
-        self._color_F = np.array([[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5], [128, 0.5, -0.418688, -0.081312]])
-        self._color_I = np.array([[-1.402 * 128, 1, 0, 1.402], [1.058272 * 128, 1, -0.344136, -0.714136], [-1.772 * 128, 1, 1.772, 0]])
+        self._color_F = np.array([[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5], [128, 0.5, -0.418688, -0.081312]], dtype=np.float32)
+        self._color_I = np.array([[-1.402 * 128, 1, 0, 1.402], [1.058272 * 128, 1, -0.344136, -0.714136], [-1.772 * 128, 1, 1.772, 0]], dtype=np.float32)
         # DCT
         self._dct_F = np.array([[0.3536, 0.3536, 0.3536, 0.3536, 0.3536, 0.3536, 0.3536, 0.3536],
                                 [0.4904, 0.4157, 0.2778, 0.0975, -0.0975, -0.2778, -0.4157, -0.4904],
@@ -43,7 +46,7 @@ class DifferentiableJPEG(tf.keras.Model):
                                 [0.3536, -0.3536, -0.3536, 0.3536, 0.3536, -0.3536, -0.3536, 0.3536],
                                 [0.2778, -0.4904, 0.0975, 0.4157, -0.4157, -0.0975, 0.4904, -0.2778],
                                 [0.1913, -0.4619, 0.4619, -0.1913, -0.1913, 0.4619, -0.4619, 0.1913],
-                                [0.0975, -0.2778, 0.4157, -0.4904, 0.4904, -0.4157, 0.2778, -0.0975]])
+                                [0.0975, -0.2778, 0.4157, -0.4904, 0.4904, -0.4157, 0.2778, -0.0975]], dtype=np.float32)
         self._dct_I = np.transpose(self._dct_F)                    
 
     def call(self, inputs):
@@ -196,7 +199,7 @@ class JPEG:
                 self._model._q_mtx_luma = jpeg_qtable(quality, 0)
                 self._model._q_mtx_chroma = jpeg_qtable(quality, 1)
             
-            y = self._model(batch_x).numpy()
+            y = self._model(batch_x)
 
             if sampled:
                 self._model._q_mtx_luma, self._model._q_mtx_chroma = old_q_luma, old_q_chroma

@@ -92,6 +92,13 @@ class ParamSpec(object):
 
     def __contains__(self, item):
         return item in self._specs
+
+    def keys(self):
+        return [key for key in self._specs.keys()]
+
+    def changed_params(self):
+        params = {key: value for key, value in self._values.items() if self._specs[key][0] != value}
+        return params
     
     def update(self, **params):
 

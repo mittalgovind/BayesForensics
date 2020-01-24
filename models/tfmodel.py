@@ -23,7 +23,7 @@ class TFModel(object):
     def __init__(self, label, **kwargs):        
         self._label = '_'+label if label is not None else ''
         self.is_initialized = False
-        self._summary_writer = None
+        self._model = None
         self.reset_performance_stats()        
 
     def reset_performance_stats(self):
@@ -33,7 +33,7 @@ class TFModel(object):
 
     def init(self):
         self.is_initialized = True
-        self._summary_writer = None
+        # self._summary_writer = None
         self.reset_performance_stats()
 
     @property
