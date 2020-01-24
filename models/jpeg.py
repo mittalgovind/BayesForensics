@@ -6,14 +6,31 @@ from compression import jpeg_helpers
 from helpers.utils import jpeg_qtable, is_number
 from helpers import tf_helpers
 
+common_codec = None
+
+
+def is_valid_quality(quality):
+    if is_number(quality) and (quality < 1 or quality > 100):
+        return False
+    elif hasattr(quality, '__getitem__') and any((x < 1 or x > 100) for x in quality):
+        return False
+    return True
+
+
+@tf.function
+def differentiable_jpeg(x, quality):
+    if common_codec is None:
+        common_codec = DifferentiableJPEG(None, 'soft')
+    return common_codec(x, quality)
+
 
 class DifferentiableJPEG(tf.keras.Model):
 
     def __init__(self, quality=None, rounding_approximation='sin', rounding_approximation_steps=5, trainable=False):
         super().__init__(self)
 
-        if not (is_number(quality) or (isinstance(quality, tuple) and len(quality) == 2)):
-            raise ValueError('The JPEG quality needs to be either a number or a tuple of two numbers')
+        if quality is not None and not is_valid_quality(quality):
+            raise ValueError('Invalid JPEG quality - required number between 1-100 or an iterable of such numbers')
 
         # Sanitize inputs
         if rounding_approximation is not None and rounding_approximation not in ['sin', 'harmonic', 'soft']:
@@ -21,13 +38,13 @@ class DifferentiableJPEG(tf.keras.Model):
 
         # Quantization tables
         if trainable:
-            q_mtx_luma_init = np.ones((8, 8)) if quality is None else jpeg_qtable(quality, 0)
-            q_mtx_chroma_init = np.ones((8, 8)) if quality is None else jpeg_qtable(quality, 1)
-            self._q_mtx_luma = self.add_weight('Q_mtx_luma', [8, 8], initializer=tf.constant_initializer(q_mtx_luma_init))
-            self._q_mtx_chroma = self.add_weight('Q_mtx_chroma', [8, 8], initializer=tf.constant_initializer(q_mtx_chroma_init))
+            q_mtx_luma_init = np.ones((8, 8), dtype=np.float32) if not is_number(quality) else jpeg_qtable(quality, 0)
+            q_mtx_chroma_init = np.ones((8, 8), dtype=np.float32) if not is_number(quality) else jpeg_qtable(quality, 1)
+            self._q_mtx_luma = self.add_weight('Q_mtx_luma', [8, 8], dtype=tf.float32, initializer=tf.constant_initializer(q_mtx_luma_init))
+            self._q_mtx_chroma = self.add_weight('Q_mtx_chroma', [8, 8], dtype=tf.float32, initializer=tf.constant_initializer(q_mtx_chroma_init))
         else:
-            self._q_mtx_luma = np.ones((8, 8)) if quality is None else jpeg_qtable(quality, 0)
-            self._q_mtx_chroma = np.ones((8, 8)) if quality is None else jpeg_qtable(quality, 1)
+            self._q_mtx_luma = np.ones((8, 8), dtype=np.float32) if not is_number(quality) else jpeg_qtable(quality, 0)
+            self._q_mtx_chroma = np.ones((8, 8), dtype=np.float32) if not is_number(quality) else jpeg_qtable(quality, 1)
 
         # Paramaters
         self.quality = quality
@@ -164,31 +181,18 @@ class JPEG(TFModel):
         self.codec = codec
         self.quality = quality
         self.loss =  tf.keras.losses.MeanSquaredError()
-        # self.rounding_approximation_steps = rounding_approximation_steps
-        # self.init_quality = quality
-
-        # self.x = x
-        # self.y = y
-        # self.nip_input = nip_input
-        # self.Q_mtx_lum = Q_mtx_lum
-        # self.Q_mtx_chr = Q_mtx_chr
 
     def process(self, batch_x, quality=None):
 
-        sampled = False
-
-        if quality is not None:
-            if isinstance(quality, tuple) and len(quality) > 2:
-                quality = np.random.choice(quality)
-                sampled = True
+        if quality is None:
+            if isinstance(self.quality, tuple) and len(self.quality) > 2:
+                quality = int(np.random.choice(self.quality))
             
-            elif isinstance(quality, tuple) and len(quality) == 2:
-                quality = np.random.randint(quality[0], quality[1])
-                sampled = True
+            elif isinstance(self.quality, tuple) and len(self.quality) == 2:
+                quality = np.random.randint(self.quality[0], self.quality[1])
             
-            elif is_number(quality):
-                quality = int(quality)
-                sampled = True
+            elif is_number(self.quality):
+                quality = int(self.quality)
             
             else:
                 raise ValueError('Invalid quality! {}'.format(quality))
@@ -196,14 +200,14 @@ class JPEG(TFModel):
         if self._model is None:
             return jpeg_helpers.compress_batch(batch_x, quality)[0]
         else:
-            if sampled:
+            if quality != self.quality:
                 old_q_luma, old_q_chroma = self._model._q_mtx_luma, self._model._q_mtx_chroma
                 self._model._q_mtx_luma = jpeg_qtable(quality, 0)
                 self._model._q_mtx_chroma = jpeg_qtable(quality, 1)
             
             y = self._model(batch_x)
 
-            if sampled:
+            if quality != self.quality:
                 self._model._q_mtx_luma, self._model._q_mtx_chroma = old_q_luma, old_q_chroma
 
             return y
