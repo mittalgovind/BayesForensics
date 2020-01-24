@@ -74,6 +74,9 @@ class TFModel(object):
         return self._saver
 
     def save_model(self, dirname, epoch=0):
+        if not dirname.endswith(self.scoped_name):
+            dirname = os.path.join(dirname, self.scoped_name)
+
         if not os.path.exists(dirname):
             os.makedirs(dirname)
         
@@ -83,6 +86,9 @@ class TFModel(object):
         self._model.save_weights(os.path.join(dirname, self.class_name.lower()))
 
     def load_model(self, dirname):
+        if not dirname.endswith(self.scoped_name):
+            dirname = os.path.join(dirname, self.scoped_name)
+        print('<', os.path.join(dirname, self.class_name.lower()))
         self._model.load_weights(os.path.join(dirname, self.class_name.lower()))
 
         # self.init()

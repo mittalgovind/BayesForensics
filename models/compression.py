@@ -397,7 +397,7 @@ class TwitterDCN(DCN):
     coders,” Mar. 2017.
     """
 
-    def construct_model(self, params):
+    def construct_model(self, n_features=96, rounding='soft', activation='leaky_relu'):
 
         # Define expected hyper parameters and their values ------------------------------------------------------------
         self._h = paramspec.ParamSpec({
@@ -406,7 +406,8 @@ class TwitterDCN(DCN):
             'activation': ('leaky_relu', str, set(tf_helpers.activation_mapping.keys()))
         })
 
-        self._h.update(**params)
+        params = locals()
+        self._h.update(**{k: params[k] for k in self._h.keys()})
 
         self.latent_shape = (1, self.patch_size // 8, self.patch_size // 8, self._h.n_features)
         self.n_latent = int(np.prod(self.latent_shape))
@@ -432,28 +433,28 @@ class TwitterDCN(DCN):
             net = 2 * (self.x - 0.5)
             self.log('norm: {}'.format(net.shape))
 
-        net = tf.contrib.layers.conv2d(net, 64, 5, 2, activation_fn=activation, scope=le_conv.format(0))
+        net = tf.keras.layers.Conv2D(64, 5, 2, activation=activation, scope=le_conv.format(0))(net)
         self.log('conv:2 {} + {}'.format(net.shape, self._h.activation))
-        net = tf.contrib.layers.conv2d(net, 128, 5, 2, activation_fn=None, scope=le_conv.format(1))
+        net = tf.keras.layers.Conv2D(128, 5, 2, activation=None, scope=le_conv.format(1))(net)
         self.log('conv:2 {} + {}'.format(net.shape, self._h.activation))
 
         net_relu = tf.nn.leaky_relu(net, name=le_relu.format(1))
-        resnet = tf.contrib.layers.conv2d(net_relu, 128, 3, 1, activation_fn=activation, scope=le_conv.format(2))
-        resnet = tf.contrib.layers.conv2d(resnet, 128, 3, 1, activation_fn=None, scope=le_conv.format(3))
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=activation, scope=le_conv.format(2))(net_relu)
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=None, scope=le_conv.format(3))(resnet)
         net = tf.add(net, resnet, name=le_sum.format(0))
         self.log('res block {}'.format(net.shape))
 
-        resnet = tf.contrib.layers.conv2d(net, 128, 3, 1, activation_fn=activation, scope=le_conv.format(4))
-        resnet = tf.contrib.layers.conv2d(resnet, 128, 3, 1, activation_fn=None, scope=le_conv.format(5))
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=activation, scope=le_conv.format(4))(net)
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=None, scope=le_conv.format(5))(resnet)
         net = tf.add(net, resnet, name=le_sum.format(1))
         self.log('res block {}'.format(net.shape))
 
-        resnet = tf.contrib.layers.conv2d(net, 128, 3, 1, activation_fn=activation, scope=le_conv.format(6))
-        resnet = tf.contrib.layers.conv2d(resnet, 128, 3, 1, activation_fn=None, scope=le_conv.format(7))
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=activation, scope=le_conv.format(6))(net)
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=None, scope=le_conv.format(7))(resnet)
         net = tf.add(net, resnet, name=le_sum.format(2))
         self.log('res block {}'.format(net.shape))
 
-        net = tf.contrib.layers.conv2d(net, self._h.n_features, 5, 2, activation_fn=None, scope=le_conv.format(8))
+        net = tf.keras.layers.Conv2D(self._h.n_features, 5, 2, activation=None, scope=le_conv.format(8))(net)
         self.log('conv:2 {} + {} activation'.format(net.shape, None))
 
         # Latent space -------------------------------------------------------------------------------------------------
@@ -462,34 +463,34 @@ class TwitterDCN(DCN):
 
         # Decoder ------------------------------------------------------------------------------------------------------
 
-        inet = tf.contrib.layers.conv2d(latent, 512, 3, 1, activation_fn=None, scope=ld_conv.format(0))
+        inet = tf.keras.layers.Conv2D(512, 3, 1, activation=None, scope=ld_conv.format(0))(latent)
         self.log('conv:1 {} + {} activation'.format(inet.shape, None))
-        inet = tf.depth_to_space(inet, 2, name=ld_d2s.format(0))
+        inet = tf.nn.depth_to_space(inet, 2, name=ld_d2s.format(0))
         self.log('dts {}'.format(inet.shape))
 
-        resnet = tf.contrib.layers.conv2d(inet, 128, 3, 1, activation_fn=activation, scope=ld_conv.format(1))
-        resnet = tf.contrib.layers.conv2d(resnet, 128, 3, 1, activation_fn=None, scope=ld_conv.format(2))
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=activation, scope=ld_conv.format(1))(inet)
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=None, scope=ld_conv.format(2))(resnet)
         inet = tf.add(inet, resnet, name=ld_sum.format(0))
         self.log('res block {}'.format(inet.shape))
 
-        resnet = tf.contrib.layers.conv2d(inet, 128, 3, 1, activation_fn=activation, scope=ld_conv.format(3))
-        resnet = tf.contrib.layers.conv2d(resnet, 128, 3, 1, activation_fn=None, scope=ld_conv.format(4))
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=activation, scope=ld_conv.format(3))(inet)
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=None, scope=ld_conv.format(4))(resnet)
         inet = tf.add(inet, resnet, name=ld_sum.format(1))
         self.log('res block {}'.format(inet.shape))
 
-        resnet = tf.contrib.layers.conv2d(inet, 128, 3, 1, activation_fn=activation, scope=ld_conv.format(5))
-        resnet = tf.contrib.layers.conv2d(resnet, 128, 3, 1, activation_fn=None, scope=ld_conv.format(6))
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=activation, scope=ld_conv.format(5))(inet)
+        resnet = tf.keras.layers.Conv2D(128, 3, 1, activation=None, scope=ld_conv.format(6))(resnet)
         inet = tf.add(inet, resnet, name=ld_sum.format(2))
         self.log('res block {}'.format(inet.shape))
 
-        inet = tf.contrib.layers.conv2d(inet, 256, 3, 1, activation_fn=activation, scope=ld_tconv.format(7))
+        inet = tf.keras.layers.Conv2D(256, 3, 1, activation=activation, scope=ld_tconv.format(7))(inet)
         self.log('conv:1 {} + {} activation'.format(inet.shape, self._h.activation))
-        inet = tf.depth_to_space(inet, 2, name=ld_d2s.format(7))
+        inet = tf.nn.depth_to_space(inet, 2, name=ld_d2s.format(7))
         self.log('dts {}'.format(inet.shape))
 
-        inet = tf.contrib.layers.conv2d(inet, 12, 3, 1, activation_fn=None, scope=ld_tconv.format(8))
+        inet = tf.keras.layers.Conv2D(12, 3, 1, activation=None, scope=ld_tconv.format(8))(inet)
         self.log('conv:1 {} + {} activation'.format(inet.shape, None))
-        inet = tf.depth_to_space(inet, 2, name=ld_d2s.format(8))
+        inet = tf.nn.depth_to_space(inet, 2, name=ld_d2s.format(8))
         self.log('dts {}'.format(inet.shape))
 
         with tf.name_scope(ld_norm):
@@ -500,6 +501,7 @@ class TwitterDCN(DCN):
 
         self.y = y
         self.latent = latent
+        self._model = tf.keras.Model(inputs=[self.x], outputs=[self.y])
 
     @property
     def model_code(self):

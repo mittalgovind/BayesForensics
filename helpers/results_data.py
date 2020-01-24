@@ -101,6 +101,8 @@ def manipulation_progress(cases, root_dir=ROOT_DIRNAME):
         d_ssim = data['nip']['validation']['ssim']
         d_accuracy = data['forensics']['validation']['accuracy']
 
+        print(len(d_accuracy), len(d_psnr), len(d_ssim))
+
         df = df.append(pd.DataFrame({
             'camera': [camera] * len(d_accuracy),
             'nip': [nip_model] * len(d_accuracy),

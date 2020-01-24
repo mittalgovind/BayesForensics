@@ -163,6 +163,7 @@ class JPEG(TFModel):
         # Remember settings
         self.codec = codec
         self.quality = quality
+        self.loss =  tf.keras.losses.MeanSquaredError()
         # self.rounding_approximation_steps = rounding_approximation_steps
         # self.init_quality = quality
 
