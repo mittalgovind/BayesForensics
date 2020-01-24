@@ -10,6 +10,23 @@ from helpers import tf_helpers, paramspec
 from helpers.utils import upsampling_kernel, bilin_kernel, gamma_kernels
 
 
+@tf.function
+def mse(a, b):
+    return tf.reduce_mean(tf.math.pow(255 * a - 255 * b, 2.0))
+
+@tf.function
+def mae(a, b):
+    return tf.reduce_mean(tf.math.abs(255 * a - 255 * b))
+
+@tf.function
+def ssiml(a, b):
+    return 255 * (1 - tf.image.ssim(a, b, 1.0))
+
+@tf.function
+def msssiml(a, b):
+    return 255 * (1 - tf.image.ssim_multiscale(a, b, 1.0))
+
+
 class NIPModel(TFModel):
     """
     Abstract class for implementing neural imaging pipelines. Specific classes are expected to implement the
@@ -56,11 +73,14 @@ class NIPModel(TFModel):
         
         # The loss
         if loss_metric == 'L2':
-            self.loss = tf.keras.losses.MeanSquaredError()
+            # self.loss = tf.keras.losses.MeanSquaredError()
+            self.loss = mse 
         elif loss_metric == 'L1':
-            self.loss = tf.keras.losses.MeanAbsoluteError() #(255.0 * y, 255.0 * self.y_gt)
+            self.loss = mae
         elif loss_metric == 'SSIM':
-            self.loss = lambda a, b : 255 * (1 - tf.image.ssim_multiscale(a, b, 1.0))
+            self.loss = ssiml
+        elif loss_metric == 'MS-SSIM':
+            self.loss = msssiml
         else:
             raise ValueError('Unsupported loss metric!')
 

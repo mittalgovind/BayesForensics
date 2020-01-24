@@ -128,11 +128,15 @@ class FAN(TFModel):
         """
         return self._model(batch_x)
 
-    def process_and_decide(self, batch_x):
+    def process_and_decide(self, batch_x, with_confidence=False):
         """
         Returns class probabilities for an image batch. The input is fed to the NIP if the model is chained properly.
         """
-        return self._model(batch_x).numpy().argmax(axis=1)
+        probs = self._model(batch_x)
+        if with_confidence:
+            return probs.numpy().argmax(axis=1), probs.numpy().max(axis=1)
+        else:
+            return probs.numpy().argmax(axis=1)
     
     def process_with_loss(self, batch_x, batch_y):
         """

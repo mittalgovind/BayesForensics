@@ -12,7 +12,7 @@ supported_plots = ['accuracy', 'scatter-psnr', 'scatter-ssim', 'progress', 'conf
 
 
 def save_df(df, dirname, df_filename):
-    if args.df is not None:
+    if dirname is not None:
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
         df.to_csv(os.path.join(dirname, df_filename), index=False)
