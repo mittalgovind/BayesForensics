@@ -60,7 +60,8 @@ class FAN(TFModel):
         """
         super().__init__(label)
         self.n_classes = n_classes
-            
+
+        # Set-up and validate hyper-parameters            
         self._h = paramspec.ParamSpec({
             'n_filters': (32, int, (4, 128)),
             'n_fscale': (2, float, (0.25, 4)),
@@ -73,10 +74,6 @@ class FAN(TFModel):
         params = locals()
         self._h.update(**{k: params[k] for k in self._h.keys()})
 
-        # Setup inputs:
-        # - if possible take external tensor as input, otherwise create a placeholder
-        # - if external input is given (from a NIP model), remember the input to the NIP model to facilitate 
-        #   convenient operation of the class (see helper methods 'process*')
         self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, 3))
             
         # Setup a GT placeholder
@@ -85,7 +82,7 @@ class FAN(TFModel):
         # Basic parameters
         activation = tf_helpers.activation_mapping[self._h.activation]
 
-
+        # Constrained convolution with a learned residual filter
         net = ConstrainedConv2D()(self.x)
 
         # Standard convolutional layers
@@ -99,24 +96,25 @@ class FAN(TFModel):
 
         # GAP / Feature formation
         if use_gap:
-            net = tf.keras.layers.GlobalAveragePooling2D()(net) #tf.reduce_mean(net, axis=(1, 2), name='gap')
+            net = tf.keras.layers.GlobalAveragePooling2D()(net)
         else:
             net = tf.keras.layers.Flatten()(net)
-                # net = tf.reshape(net, (-1, net.shape[1] * net.shape[2] * net.shape[3]))
-            # Remember extracted features for future debugging
+
+        # Remember extracted features for future debugging
         self.features = net
 
         # Fully-connected classifier
         net = tf.keras.layers.Dense(512, activation=activation)(net)
         if dropout > 0: net = tf.keras.layers.Dropout(dropout)(net)
+        
         net = tf.keras.layers.Dense(128, activation=activation)(net)        
         if dropout > 0: net = tf.keras.layers.Dropout(dropout)(net)
+        
         self.y = tf.keras.layers.Dense(n_classes, activation=tf.keras.activations.softmax)(net)
 
         self._model = tf.keras.Model(inputs=self.x, outputs=self.y)        
         self.optimizer = tf.keras.optimizers.Adam()
         self.loss = tf.keras.losses.SparseCategoricalCrossentropy()
-
 
     def reset_performance_stats(self):
         self.performance = {
@@ -128,75 +126,33 @@ class FAN(TFModel):
         """
         Returns the predicted class for an image batch. The input is fed to the NIP if the model is chained properly.
         """
-        return self._model(batch_x).numpy().argmax(axis=1)
-            # y = self.sess.run(self.y_, feed_dict={
-            #     self.x if not self.use_nip_input else self.nip_input: batch_x
-            # })
-            # return np.argmax(y, axis=1)
+        return self._model(batch_x)
 
-    def process_soft(self, batch_x):
+    def process_and_decide(self, batch_x):
         """
         Returns class probabilities for an image batch. The input is fed to the NIP if the model is chained properly.
         """
-        return self._model(batch_x).numpy()
+        return self._model(batch_x).numpy().argmax(axis=1)
     
-    # def process_direct(self, batch_x, with_confidence=False):
-    #     """
-    #     Returns the predicted class for an image batch. The input is always fed to the FAN model directly.
-    #     """
-    #     with self.graph.as_default():
-    #         y = self.sess.run(self.y_, feed_dict={
-    #             self.x: batch_x
-    #         })
-    #         return (np.argmax(y, axis=1), np.max(y, axis=1)) if with_confidence else np.argmax(y, axis=1)
-
     def process_with_loss(self, batch_x, batch_y):
         """
         Returns the predicted class and loss for an image batch.
         """
-        logits = self._model(batch_x).numpy()
-        return logits.argmax(axis=1), self.loss(logits, batch_y).numpy()
-        # with self.graph.as_default():
-        #     y, loss_value = self.sess.run([self.y_, self.loss], feed_dict={
-        #         self.x if not self.use_nip_input else self.nip_input: batch_x,
-        #         self.y: batch_y
-        #     })
-        #     return np.argmax(y, axis=1), loss_value    
+        probabilities = self._model(batch_x)
+        return probabilities, self.loss(batch_y, probabilities)
     
     def training_step(self, batch_x, batch_y, learning_rate):
         """
         Make a single training step and return current loss. Only the FAN model is updated.
         """
         with tf.GradientTape() as tape:
-
             batch_Y = self._model(batch_x)
-            loss = self.loss(batch_Y, batch_y)
+            loss = self.loss(batch_y, batch_Y)
 
         self.optimizer.lr.assign(learning_rate)
         grads = tape.gradient(loss, self._model.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
-        return loss.numpy()
-
-
-        # with self.graph.as_default():
-        #     _, loss = self.sess.run([self.opt_own, self.loss], feed_dict={
-        #             self.x if not self.use_nip_input else self.nip_input: batch_x,
-        #             self.y: batch_y,
-        #             self.lr: learning_rate
-        #             })
-        #     return loss
-    
-    # def training_step_all_models(self, batch_x, batch_y, learning_rate):
-    #     """
-    #     Make a single training step and return current loss. All relevant models are updated.
-    #     """
-    #     with self.graph.as_default():
-    #         _, loss = self.sess.run([self.opt, self.loss], feed_dict={
-    #                 self.x if not self.use_nip_input else self.nip_input: batch_x,
-    #                 self.y: batch_y,
-    #                 self.lr: learning_rate
-    #                 })
-    #         return loss
+        return loss
 
     def __repr__(self):
         extra_params = ','.join('{}={}'.format(k, v) for k, v in self._h.changed_params().items())

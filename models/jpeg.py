@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
+from models.tfmodel import TFModel
 from compression import jpeg_helpers
 from helpers.utils import jpeg_qtable, is_number
 from helpers import tf_helpers
@@ -120,7 +121,7 @@ class DifferentiableJPEG(tf.keras.Model):
 
         return y
 
-class JPEG:
+class JPEG(TFModel):
     """
     TF model for (a differentiable) approximation of JPEG compression.
     """
