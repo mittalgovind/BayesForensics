@@ -159,10 +159,10 @@ class FAN(TFModel):
         return loss
 
     def __repr__(self):
-        extra_params = ','.join('{}={}'.format(k, v) for k, v in self._h.changed_params().items())
+        extra_params = ','.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in self._h.changed_params().items())
         if len(extra_params) > 0:
             extra_params = ','+extra_params
-        return 'FAN(n_classes={}{})'.format(self.n_classes, extra_params)
+        return '{}(n_classes={}{})'.format(self.class_name, self.n_classes, extra_params)
 
     def summary(self):
         return '{kernel}x{kernel} CNN: 1+{conv}+1 conv layers {gap}+ 2 fc layers [{params:,} parameters]'.format(

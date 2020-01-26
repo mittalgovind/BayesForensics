@@ -10,10 +10,12 @@ from helpers import utils
 class ParamSpec(object):
 
     def __init__(self, specs):
+        self._validate_specs(specs)
+        self.__dict__['_specs'] = specs
+        self.__dict__['_values'] = {}
 
-        # Validate the specs
+    def _validate_specs(self, specs):
         for key, spec in specs.items():
-
             if type(spec) is not tuple and len(spec) != 3:
                 raise ValueError('Invalid parameter specification for key {} - expected tuple of length 3'.format(key))
 
@@ -26,8 +28,9 @@ class ParamSpec(object):
             if utils.is_numeric_type(spec[1]) and not any(type(spec[2]) is s for s in [tuple, set]):
                 raise ValueError('Numeric data types can be validated by a range (2-elem tuple), or enum (set)')
 
-        self.__dict__['_specs'] = specs
-        self.__dict__['_values'] = {}
+    def add(self, specs):
+        self._validate_specs(specs)
+        self._specs.update(specs)
 
     def __getattr__(self, name):
         if name in self._values:

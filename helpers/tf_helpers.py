@@ -264,6 +264,155 @@ def quantization(x, scope, rounding='soft', approx_steps=1, codebook_tensor=None
 
 #     return deconv_output
 
+class Quantization(tf.keras.layers.Layer):
+
+    def __init__(self, rounding='soft', v=50, gamma=25, latent_bpf=4, trainable=False):
+        super(Quantization, self).__init__()
+
+        if rounding not in {'round', 'sin', 'soft', 'identity', 'soft-codebook'}:
+            raise ValueError('Unsupported quantization: {}'.format(rounding))
+
+        self.rounding = rounding
+        self.approx_steps = 2
+        self.v = v
+        self.gamma = gamma
+        self.latent_bpf = latent_bpf
+        self.trainable = trainable
+
+        qmin = -2 ** (self.latent_bpf - 1) + 1
+        qmax = 2 ** (self.latent_bpf - 1)
+                            
+        if self.trainable:
+            self.codebook = self.add_weight(initializer=tf.constant_initializer(np.arange(qmin, qmax + 1)), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)
+        else:
+            self.codebook = tf.constant(np.arange(qmin, qmax + 1), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)
+
+    # def build(self, input_shape):
+    #     # Initialize the quantization codebook
+
+    def call(self, x):
+
+        if self.rounding == 'round':
+            x = tf.round(x)
+
+        elif self.rounding == 'sin':
+            x = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
+
+        elif self.rounding == 'soft':
+            x_ = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
+            x = tf.add(tf.stop_gradient(tf.round(x) - x_), x_)
+
+        elif self.rounding == 'harmonic':
+            xa = x - tf.sin(2 * np.pi * x) / np.pi
+            for k in range(2, self.approx_steps):
+                xa += tf.pow(-1.0, k) * tf.sin(2 * np.pi * k * x) / (k * np.pi)
+            x = xa
+
+        elif self.rounding == 'identity':
+            x = x
+
+        elif self.rounding == 'soft-codebook':
+
+            prec_dtype = tf.float64
+            eps = 1e-72
+
+            assert(self.codebook.shape[0] == 1)
+            assert(self.codebook.shape[1] > 1)
+
+            values = tf.reshape(x, (-1, 1))
+
+            if self.v <= 0:
+                # Gaussian soft quantization
+                weights = tf.exp(-self.gamma * tf.pow(tf.cast(values, dtype=prec_dtype) - tf.cast(self.codebook, dtype=prec_dtype), 2))
+            else:
+                # t-Student soft quantization
+                dff = tf.cast(values, dtype=prec_dtype) - tf.cast(self.codebook, dtype=prec_dtype)
+                dff = self.gamma * dff
+                weights = tf.pow((1 + tf.pow(dff, 2)/self.v), -(self.v+1)/2)
+
+            weights = (weights + eps) / (tf.reduce_sum(weights + eps, axis=1, keepdims=True))
+
+            assert(weights.shape[1] == np.prod(self.codebook.shape))
+
+            soft = tf.reduce_mean(tf.matmul(weights, tf.transpose(tf.cast(self.codebook, dtype=prec_dtype))), axis=1)
+            soft = tf.cast(soft, dtype=tf.float32)
+            soft = tf.reshape(soft, tf.shape(x))
+
+            hard = tf.gather(self.codebook, tf.argmax(weights, axis=1), axis=1)
+            hard = tf.reshape(hard, tf.shape(x))
+
+            x = tf.stop_gradient(hard - soft) + soft
+            x = tf.identity(x)
+
+        return x
+
+
+class DiscreteLatent(tf.keras.layers.Layer):
+
+    def __init__(self, rounding='soft', v=50, gamma=25, latent_bpf=4, trainable_codebook=False, trainable_scale=True, use_batchnorm=False, scope=''):
+        super(DiscreteLatent, self).__init__()
+        self.trainable_scale = trainable_scale
+        self.use_batchnorm = use_batchnorm
+        self.rounding = rounding
+        self.v = v
+        self.gamma = gamma
+        self.latent_bpf = latent_bpf
+        self.trainable_codebook = trainable_codebook
+        self.scope = scope
+
+    def build(self, input_shape):
+        self.bn = tf.keras.layers.BatchNormalization() if self.use_batchnorm else None
+        # with tf.name_scope('test'):
+        self.scaling_factor = self.add_weight(shape=(), dtype=tf.float32, initializer=tf.constant_initializer(1), name='latent_scaling')
+        self.quantization = Quantization(self.rounding, self.v, self.gamma, self.latent_bpf, self.trainable_codebook)
+
+    def call(self, inputs):
+        """
+        Set up quantization of the latent space. The following attributes will be used (see constructor for details):
+        - self.use_gdn
+        - self.use_batchnorm
+        - self.scale_latent
+        - self._codebook
+        - self._h.rounding
+
+        The following new attributes will be set:
+        - self.latent_pre (original real-values)
+        - self.latent_post (quantized)
+
+        :param net: the real-valued latent tensor
+        :return: the quantized latent tensor
+        """
+        # latent = tf.identity(net, name='{}/encoder/latent_raw'.format(self.scoped_name))
+
+        # If requested, add batch norm to normalize the latent representation
+        latent = self.bn(inputs) if self.bn is not None else inputs
+            # self.is_training = tf.placeholder(tf.bool, shape=(), name='{}/is_training'.format(self.scoped_name))
+            # latent = tf.contrib.layers.batch_norm(latent, scale=False, is_training=self.is_training,
+            #                                       name='{}/encoder/bn_{}'.format(self.scoped_name, 0))
+            # self.log('batch norm: {}'.format(latent.shape))
+
+        # Learn a scaling factor for the latent features to encourage greater values (facilitates quantization)
+        if self.trainable_scale:
+            latent = latent * self.scaling_factor
+            # scaling_factor = 1
+            # # alphas = tf.Variable(scaling_factor, dtype=tf.float32, name='{}/encoder/latent_scaling'.format(self.scoped_name))
+            # alphas = tf.Variable(scaling_factor, dtype=tf.float32)
+            # # alphas = tf.get_variable(, shape=(), dtype=tf.float32, initializer=tf.constant_initializer(scaling_factor))
+            # latent = tf.multiply(alphas, latent, name='{}/encoder/latent_scaled'.format(self.scoped_name))
+            # self.log('scaling latent representation - init:{}'.format(scaling_factor))
+
+        # Add identity to facilitate better display in the TF graph
+        # latent = tf.identity(latent, name='{}/latent'.format(self.scoped_name))
+        # self.n_latent = int(np.prod(latent.shape[1:]))
+
+        # Quantize the latent representation and remember tensors before and after the process
+        entropy_ = entropy(latent, self.quantization.codebook, self.v, self.gamma)[0]
+        # self.latent_pre = latent
+        latent = self.quantization(latent)
+        # self.latent_post = latent
+
+        return latent, entropy_
+
 
 def identity_initializer():
     def _initializer(shape, dtype=tf.float32, partition_info=None):

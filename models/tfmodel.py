@@ -112,6 +112,32 @@ class TFModel(object):
         self.is_initialized = True
         self.reset_performance_stats()
 
+    def migrate_model(self, dirname, mapping=None, verbose=False):
+        if not dirname.endswith(self.scoped_name):
+            dirname = os.path.join(dirname, self.scoped_name)
+
+        # checkpoint = tf.train.get_checkpoint_state(dirname)
+
+        if verbose:
+            print('# All variables found in the checkpoint')
+            for i, (var_name, _) in enumerate(tf.train.list_variables(dirname)):
+                var = tf.train.load_variable(dirname, var_name)
+                print('{0:3d}.  {1:30s} -> {2.shape}'.format(i, var_name, var))
+
+        if mapping is not None:
+            for var in self._model.trainable_variables:
+                var_name = var.name.replace(':0', '')
+                if var_name not in mapping:
+                    print('warning: mapping for {} = {} not found'.format(var.name, var_name))
+                    continue
+                var_value = tf.train.load_variable(dirname, mapping[var_name])
+                print('{} = {} {} <- {} {}'.format(var.name, var_name, var.shape, mapping[var_name], var_value.shape))
+                var.assign(var_value)
+
+
+        # self._model.load_weights(os.path.join(dirname, self.class_name.lower()))
+
+
     @property
     def class_name(self):
         return type(self).__name__
