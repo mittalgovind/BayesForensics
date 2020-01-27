@@ -5,7 +5,7 @@ from helpers.utils import gkern, repeat_2dfilter
 from IPython.display import display, HTML
 
 activation_mapping = {
-    'leaky_relu' : tf.keras.layers.LeakyReLU(alpha=0.1),
+    'leaky_relu' : tf.keras.layers.LeakyReLU(alpha=0.2),
     'relu': tf.keras.activations.relu,
     'tanh': tf.keras.activations.tanh,
     'sigmoid': tf.keras.activations.sigmoid,

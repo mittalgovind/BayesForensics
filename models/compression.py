@@ -110,59 +110,6 @@ class DCN(TFModel):
     def construct_model(self, params):
         raise NotImplementedError('Not implemented!')
 
-    # def _setup_latent_space(self, net):
-    #     """
-    #     Set up quantization of the latent space. The following attributes will be used (see constructor for details):
-    #     - self.use_gdn
-    #     - self.use_batchnorm
-    #     - self.scale_latent
-    #     - self._codebook
-    #     - self._h.rounding
-
-    #     The following new attributes will be set:
-    #     - self.latent_pre (original real-values)
-    #     - self.latent_post (quantized)
-
-    #     :param net: the real-valued latent tensor
-    #     :return: the quantized latent tensor
-    #     """
-    #     latent = tf.identity(net, name='{}/encoder/latent_raw'.format(self.scoped_name))
-
-    #     # If requested, use GDN to Gaussianize the data
-    #     if self.use_gdn:
-    #         latent = tf.contrib.layers.GDN(latent)
-    #         self.log('GDN: {}'.format(latent.shape))
-
-    #     # If requested, add batch norm to normalize the latent representation
-    #     if self.use_batchnorm:
-    #         self.is_training = tf.placeholder(tf.bool, shape=(), name='{}/is_training'.format(self.scoped_name))
-    #         latent = tf.contrib.layers.batch_norm(latent, scale=False, is_training=self.is_training,
-    #                                               name='{}/encoder/bn_{}'.format(self.scoped_name, 0))
-    #         self.log('batch norm: {}'.format(latent.shape))
-
-    #     # Learn a scaling factor for the latent features to encourage greater values (facilitates quantization)
-    #     if self.scale_latent:
-    #         scaling_factor = 1
-    #         # alphas = tf.Variable(scaling_factor, dtype=tf.float32, name='{}/encoder/latent_scaling'.format(self.scoped_name))
-    #         alphas = tf.Variable(scaling_factor, dtype=tf.float32)
-    #         # alphas = tf.get_variable(, shape=(), dtype=tf.float32, initializer=tf.constant_initializer(scaling_factor))
-    #         latent = tf.multiply(alphas, latent, name='{}/encoder/latent_scaled'.format(self.scoped_name))
-    #         self.log('scaling latent representation - init:{}'.format(scaling_factor))
-
-    #     # Add identity to facilitate better display in the TF graph
-    #     latent = tf.identity(latent, name='{}/latent'.format(self.scoped_name))
-    #     self.n_latent = int(np.prod(latent.shape[1:]))
-
-    #     # Quantize the latent representation and remember tensors before and after the process
-    #     self.latent_pre = latent
-    #     latent = tf_helpers.quantization(latent, '{}/quantization'.format(self.scoped_name),
-    #                                      self._h.rounding, codebook_tensor=self._codebook)
-    #     self.log('quantization with {} rounding'.format(self._h.rounding))
-    #     self.latent_post = latent
-    #     self.log('latent size: {} + quant:{}'.format(latent.shape, self._h.rounding))
-
-    #     return latent
-
     def reset_performance_stats(self):
         self.performance = {
             'loss': {'training': [], 'validation': []},
@@ -246,7 +193,7 @@ class DCN(TFModel):
             y = self.sess.run(self.y, feed_dict)
             return y.clip(0, 1)
             
-    def process(self, batch_x, dropout_keep_prob=1.0, is_training=None, direct=False):
+    def process(self, batch_x):
         """
         Process the image through the whole model (encoder-quantization-decoder).
         :param batch_x: Input tensor (N, H, W, 3:rgb) or (N, H, W, 4:rggb) for RAW data chained through a NIP
@@ -255,20 +202,6 @@ class DCN(TFModel):
         :param direct: controls whether the input is a RAW image (chained through a NIP) or direct RGB input
         """
         return self._model(batch_x)[0]
-        # with self.graph.as_default():
-            
-        #     feed_dict={
-        #         self.x if (direct or not self.use_nip_input) else self.nip_input: batch_x
-        #     }
-            
-        #     if hasattr(self, 'dropout'):
-        #         feed_dict[self.dropout] = dropout_keep_prob
-                
-        #     if hasattr(self, 'is_training'):
-        #         feed_dict[self.is_training] = is_training if is_training is not None else self.default_val_is_train
-              
-        #     y = self.sess.run(self.y, feed_dict)
-        #     return y.clip(0, 1)
 
     def training_step(self, batch_x, learning_rate, dropout_keep_prob=1.0):
         """
@@ -377,19 +310,6 @@ class TwitterDCN(DCN):
         self.n_latent = int(np.prod(self.latent_shape))
 
         activation = tf_helpers.activation_mapping[self._h.activation]
-
-        self.log('Building Twitter DCN with d-latent={}'.format(self.n_latent))
-
-        # Set-up op naming templates -----------------------------------------------------------------------------------
-        le_norm = '{}/encoder/normalization'.format(self.scoped_name)
-        le_conv = '{}/encoder/conv_{{}}'.format(self.scoped_name)
-        le_relu = '{}/encoder/conv_{{}}/lrelu'.format(self.scoped_name)
-        le_sum = '{}/encoder/sum_{{}}'.format(self.scoped_name)
-        ld_norm = '{}/decoder/normalization'.format(self.scoped_name)
-        ld_conv = '{}/decoder/conv_{{}}'.format(self.scoped_name)
-        ld_tconv = '{}/decoder/tconv_{{}}'.format(self.scoped_name)
-        ld_d2s = '{}/decoder/d2s_{{}}'.format(self.scoped_name)
-        ld_sum = '{}/decoder/sum_{{}}'.format(self.scoped_name)
 
         # Encoder ------------------------------------------------------------------------------------------------------
 
