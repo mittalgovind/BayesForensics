@@ -3,33 +3,8 @@ import tensorflow as tf
 
 import helpers.tf_helpers
 from models.tfmodel import TFModel
+from models.layers import ConstrainedConv2D
 from helpers import utils, paramspec, tf_helpers
-
-
-class ConstrainedConv2D(tf.keras.layers.Layer):
-
-    def __init__(self, filter_strength=100):
-        super(ConstrainedConv2D, self).__init__()
-        self.filter_strength = filter_strength
-
-    def build(self, input_shape):
-        f = np.array([[0, 0, 0, 0, 0], [0, -1, -2, -1, 0], [0, -2, 12, -2, 0], [0, -1, -2, -1, 0], [0, 0, 0, 0, 0]])        
-        rf = utils.repeat_2dfilter(f, 3)        
-        self.kernel = self.add_weight("kernel", shape=(5, 5, 3, 3), initializer=tf.constant_initializer(rf))
-
-    def call(self, input):
-        # Mask for normalizing the residual filter                
-        tf_ind = tf.constant(utils.center_mask_2dfilter(5, 3), dtype=tf.float32)
-
-        # Normalize the residual filter
-        nf = self.kernel * (1 - tf_ind)
-        df = tf.tile(tf.reshape(tf.reduce_sum(nf, axis=(0,1,2)), [1, 1, 1, 3]), [5, 5, 3, 1])
-        nf = self.filter_strength * nf / df
-        nf = nf - self.filter_strength * tf_ind
-
-        # Convolution with the residual filter
-        xp = tf.pad(input, [[0, 0], [2, 2], [2, 2], [0, 0]], 'SYMMETRIC')
-        return tf.nn.conv2d(xp, nf, [1, 1, 1, 1], 'VALID')
 
 
 class FAN(TFModel):

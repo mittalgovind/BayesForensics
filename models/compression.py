@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
+from models.layers import DiscreteLatent
 from models.tfmodel import TFModel
 from helpers import tf_helpers, paramspec
 
@@ -37,7 +38,7 @@ class DCN(TFModel):
     latent_post attributes.
     """
 
-    def __init__(self, label=None, patch_size=128, latent_bpf=5, rounding='soft-codebook', train_codebook=False, entropy_weight=250, scale_latent=True, use_batchnorm=False, verbose=False, loss_metric='L2', **kwargs):
+    def __init__(self, label=None, patch_size=128, latent_bpf=5, rounding='soft-codebook', train_codebook=False, entropy_weight=250, scale_latent=True, use_batchnorm=False, loss_metric='L2', **kwargs):
         """
         Creates a forensic analysis network.
 
@@ -59,26 +60,24 @@ class DCN(TFModel):
         })
         params = locals()
         self._h.update(**{k: params[k] for k in self._h.keys()})
-
-        self.verbose = verbose
         self.patch_size = patch_size
 
         self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, 3))
 
         # Prepare the quantization layer        
-        self.discrete_latent = tf_helpers.DiscreteLatent(self._h.rounding, self._h.latent_bpf, scope='{}/encoder'.format(self.scoped_name))
+        self.discrete_latent = DiscreteLatent(self._h.rounding, self._h.latent_bpf)
 
         # Construct the actual model -------------------------------------------------------------------------------
         self.construct_model(**kwargs)
         
-        # Overwrite the output to guarantee correct data range and maintain gradient propagation
-        self.y = tf.stop_gradient(tf.clip_by_value(self.y, 0, 1) - self.y) + self.y
-
         # Check if the sub-class has set all expected attributes
-        setup_status = {key: hasattr(self, key) for key in ['y', 'discrete_latent']}
+        setup_status = {key: hasattr(self, key) for key in ['y', '_model', '_encoder', '_decoder']}
 
         if not all(setup_status.values()):
             raise NotImplementedError('The model construction function has failed to set-up some attributes: {}'.format([key for key, value in setup_status.items() if not value]))
+
+        # Overwrite the output to guarantee correct data range and maintain gradient propagation
+        self.y = tf.stop_gradient(tf.clip_by_value(self.y, 0, 1) - self.y) + self.y
 
         # Add entropy estimation and model optimization operations -------------------------------------------------
         with tf.name_scope('{}/optimization'.format(self.scoped_name)):
@@ -103,9 +102,9 @@ class DCN(TFModel):
             # Optimization
             self.opt = tf.keras.optimizers.Adam()
 
-    def log(self, message):
-        if self.verbose:
-            print(' ', message)
+    # def log(self, message):
+    #     if self.verbose:
+    #         print(' ', message)
 
     def construct_model(self, params):
         raise NotImplementedError('Not implemented!')
@@ -118,18 +117,18 @@ class DCN(TFModel):
             'psnr': {'training': [], 'validation': []}
         }
 
-    def get_tf_histogram(self, batch_x, is_training=None):
-        with self.graph.as_default():
-            feed_dict = {
-                self.x if not self.use_nip_input else self.nip_input: batch_x,
-            }
+    # def get_tf_histogram(self, batch_x, is_training=None):
+    #     with self.graph.as_default():
+    #         feed_dict = {
+    #             self.x if not self.use_nip_input else self.nip_input: batch_x,
+    #         }
 
-            if hasattr(self, 'is_training'):
-                feed_dict[self.is_training] = is_training if is_training is not None else self.default_val_is_train
+    #         if hasattr(self, 'is_training'):
+    #             feed_dict[self.is_training] = is_training if is_training is not None else self.default_val_is_train
 
-            return self.sess.run(self.histogram, feed_dict=feed_dict)
+    #         return self.sess.run(self.histogram, feed_dict=feed_dict)
 
-    def compress(self, batch_x, is_training=None, direct=False):
+    def compress(self, batch_x):
         """
         Compress an input batch to a quantized latent representation.
 
@@ -138,60 +137,38 @@ class DCN(TFModel):
         :param direct: controls whether the input is a RAW image (chained through a NIP) or direct RGB input
         :return:
         """
-        with self.graph.as_default():
-            
-            feed_dict = {
-                self.x if (direct or not self.use_nip_input) else self.nip_input: batch_x,
-            }            
-            
-            if hasattr(self, 'is_training'):
-                feed_dict[self.is_training] = is_training if is_training is not None else self.default_val_is_train
+        return self._encoder(np.expand_dims(batch_x, axis=0) if batch_x.ndim == 3 else batch_x)
 
-            y = self.sess.run(self.latent_post, feed_dict=feed_dict)
-            return y
+    # def compress_soft(self, batch_x, is_training=None, direct=False):
+    #     """
+    #     Compress an input batch to a pre-quantization real-valued latent representation.
 
-    def compress_soft(self, batch_x, is_training=None, direct=False):
-        """
-        Compress an input batch to a pre-quantization real-valued latent representation.
+    #     :param batch_x: Input tensor (N, H, W, 3:rgb) or (N, H, W, 4:rggb) for RAW data chained through a NIP
+    #     :param is_training: can be used to override the default 'is_training' flag (may be useful for models with BN)
+    #     :param direct: controls whether the input is a RAW image (chained through a NIP) or direct RGB input
+    #     :return:
+    #     """
 
-        :param batch_x: Input tensor (N, H, W, 3:rgb) or (N, H, W, 4:rggb) for RAW data chained through a NIP
-        :param is_training: can be used to override the default 'is_training' flag (may be useful for models with BN)
-        :param direct: controls whether the input is a RAW image (chained through a NIP) or direct RGB input
-        :return:
-        """
-
-        with self.graph.as_default():
+    #     with self.graph.as_default():
             
-            feed_dict = {
-                self.x if (direct or not self.use_nip_input) else self.nip_input: batch_x,
-            }
+    #         feed_dict = {
+    #             self.x if (direct or not self.use_nip_input) else self.nip_input: batch_x,
+    #         }
             
-            if hasattr(self, 'is_training'):
-                feed_dict[self.is_training] = is_training if is_training is not None else self.default_val_is_train
+    #         if hasattr(self, 'is_training'):
+    #             feed_dict[self.is_training] = is_training if is_training is not None else self.default_val_is_train
             
-            y = self.sess.run(self.latent_pre, feed_dict=feed_dict)
-            return y        
+    #         y = self.sess.run(self.latent_pre, feed_dict=feed_dict)
+    #         return y        
         
-    def decompress(self, batch_z, is_training=None):
+    def decompress(self, batch_z):
         """
         Decompress a batch of images from their quantized latent representations.
         :param batch_z: batch of quantized latent values
         :param is_training: can be used to override the default 'is_training' flag (may be useful for models with BN)
         :return:
         """
-        with self.graph.as_default():
-            
-            feed_dict = {
-                self.latent_post: batch_z
-            }
-            if hasattr(self, 'dropout'):
-                feed_dict[self.dropout] = 1.0
-
-            if hasattr(self, 'is_training'):
-                feed_dict[self.is_training] = is_training if is_training is not None else self.default_val_is_train
-
-            y = self.sess.run(self.y, feed_dict)
-            return y.clip(0, 1)
+        return self._decoder(np.expand_dims(batch_z, axis=0) if batch_z.ndim == 3 else batch_z)
             
     def process(self, batch_x):
         """
@@ -269,19 +246,8 @@ class DCN(TFModel):
     def get_hyperparameters(self):
         return self._h.to_json()
 
-    def get_codebook(self, bpf=None, lloyd=False):
-        if hasattr(self, '_h') and hasattr(self._h, 'rounding'):
-
-            bpf = bpf or self._h.latent_bpf
-
-            if self._h.rounding in {'soft', 'identity'}:
-                qmin = -2 ** (bpf - 1) + 1
-                qmax = 2 ** (bpf - 1)
-                return np.arange(qmin, qmax + 1).reshape((-1,))
-            else:
-                return self.sess.run(self._codebook).reshape((-1,))
-        else:
-            return self.sess.run(self._codebook).reshape((-1,))
+    def get_codebook(self):
+        return self.discrete_latent.quantization.codebook.numpy().reshape((-1,))
 
     def __repr__(self):
         extra_params = ','.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in self._h.changed_params().items())
@@ -339,7 +305,9 @@ class TwitterDCN(DCN):
 
         # Decoder ------------------------------------------------------------------------------------------------------
 
-        inet = tf.keras.layers.Conv2D(512, 3, 1, padding='SAME', activation=None)(self.latent)
+        self.latent_input = tf.keras.Input(dtype=tf.float32, shape=self.latent.shape[1:])
+
+        inet = tf.keras.layers.Conv2D(512, 3, 1, padding='SAME', activation=None)(self.latent_input)
         inet = tf.nn.depth_to_space(inet, 2)
 
         resnet = tf.keras.layers.Conv2D(128, 3, 1, padding='SAME', activation=activation)(inet)
@@ -363,7 +331,14 @@ class TwitterDCN(DCN):
         y = (inet + 1) / 2
 
         self.y = y
-        self._model = tf.keras.Model(inputs=[self.x], outputs=[self.y, self.entropy])
+        
+        # Create separate models to enable separate encoding / decoding steps
+        self._encoder = tf.keras.Model(inputs=[self.x], outputs=[self.latent, self.entropy])
+        self._decoder = tf.keras.Model(inputs=[self.latent_input], outputs=[self.y])
+
+        # Combine the models to enable compression simulation, training and 1-step model saving / loading
+        encoded = self._encoder(self.x)
+        self._model = tf.keras.Model(inputs=[self.x], outputs=[self._decoder(encoded[0]), encoded[1]])
 
     @property
     def model_code(self):
