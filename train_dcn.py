@@ -156,8 +156,6 @@ def main():
 
         print('## Scenario {} - {} / {}'.format(index, counter + 1, len(parameters)))
         # Create TF session and graph
-        graph = tf.Graph()
-        sess = tf.Session(graph=graph)
 
         # Create a DCN according to the spec
         dcn_params = {k: v for k, v in params.to_dict().items() if not utils.is_nan(v)}
@@ -173,7 +171,7 @@ def main():
             model_log[model_code] = [index]
 
         if not args.dry:
-            train_dcn({'dcn': dcn}, training_spec, data, args.out_dir)
+            train_dcn(dcn, training_spec, data, args.out_dir)
 
         # Fill the table with results, if requested
         if args.fill is not None:
@@ -188,10 +186,6 @@ def main():
                 parameters.loc[index, 'ssim'] = results['performance']['ssim']['validation'][-1]
                 parameters.loc[index, 'loss'] = results['performance']['loss']['validation'][-1]
                 parameters.loc[index, 'entropy'] = results['performance']['entropy']['training'][-1]
-
-        # Cleanup
-        sess.close()
-        del graph
 
     if args.fill is not None:
         if args.fill == '-':

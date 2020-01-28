@@ -320,7 +320,6 @@ def restore_model(dir_name, patch_size=None, fetch_stats=False):
 
     parameters = training_progress['dcn']['args']
     parameters['patch_size'] = patch_size
-    parameters['default_val_is_train'] = False
 
     model = getattr(compression, training_progress['dcn']['model'])(**parameters)
     model.load_model(dir_name)

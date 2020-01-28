@@ -76,9 +76,6 @@ class DCN(TFModel):
         if not all(setup_status.values()):
             raise NotImplementedError('The model construction function has failed to set-up some attributes: {}'.format([key for key, value in setup_status.items() if not value]))
 
-        # Overwrite the output to guarantee correct data range and maintain gradient propagation
-        self.y = tf.stop_gradient(tf.clip_by_value(self.y, 0, 1) - self.y) + self.y
-
         # Add entropy estimation and model optimization operations -------------------------------------------------
         with tf.name_scope('{}/optimization'.format(self.scoped_name)):
 
@@ -100,7 +97,7 @@ class DCN(TFModel):
             # self.log('Initializing loss: {} {}'.format(self.loss_metric, loss_entropy_label))
             
             # Optimization
-            self.opt = tf.keras.optimizers.Adam()
+            self.optimizer = tf.keras.optimizers.Adam()
 
     # def log(self, message):
     #     if self.verbose:
@@ -137,7 +134,7 @@ class DCN(TFModel):
         :param direct: controls whether the input is a RAW image (chained through a NIP) or direct RGB input
         :return:
         """
-        return self._encoder(np.expand_dims(batch_x, axis=0) if batch_x.ndim == 3 else batch_x)
+        return self._encoder(np.expand_dims(batch_x, axis=0) if batch_x.ndim == 3 else batch_x)[0]
 
     # def compress_soft(self, batch_x, is_training=None, direct=False):
     #     """
@@ -180,27 +177,41 @@ class DCN(TFModel):
         """
         return self._model(batch_x)[0]
 
-    def training_step(self, batch_x, learning_rate, dropout_keep_prob=1.0):
+    def training_step(self, batch_x, learning_rate=1e-4):
         """
         Make a single training step and return current loss. Only the FAN model is updated.
         """
-        with self.graph.as_default():
-            feed_dict = {
-                    self.x if not self.use_nip_input else self.nip_input: batch_x,
-                    self.lr: learning_rate
-            }
-            if hasattr(self, 'dropout'):
-                feed_dict[self.dropout] = dropout_keep_prob
-                
-            if hasattr(self, 'is_training'):
-                feed_dict[self.is_training] = True                
-            
-            _, loss, ssim, entropy = self.sess.run([self.opt, self.loss, self.ssim, self.entropy], feed_dict)
-            return {
+        with tf.GradientTape() as tape:
+            batch_Y, entropy = self._model(batch_x)
+            loss = self.loss(batch_x, batch_Y, entropy)
+            ssim = self.ssim(tf.convert_to_tensor(batch_x), tf.convert_to_tensor(batch_Y))
+
+        self.optimizer.lr.assign(learning_rate)
+        grads = tape.gradient(loss, self._model.trainable_weights)
+        self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
+        return {
                 'loss': np.sqrt(2 * loss),  # The L2 loss in TF is computed differently (half of non-square rooted norm)
                 'ssim': ssim,
                 'entropy': entropy
             }
+                
+        # with self.graph.as_default():
+        #     feed_dict = {
+        #             self.x if not self.use_nip_input else self.nip_input: batch_x,
+        #             self.lr: learning_rate
+        #     }
+        #     if hasattr(self, 'dropout'):
+        #         feed_dict[self.dropout] = dropout_keep_prob
+                
+        #     if hasattr(self, 'is_training'):
+        #         feed_dict[self.is_training] = True                
+            
+        #     _, loss, ssim, entropy = self.sess.run([self.opt, self.loss, self.ssim, self.entropy], feed_dict)
+        #     return {
+        #         'loss': np.sqrt(2 * loss),  # The L2 loss in TF is computed differently (half of non-square rooted norm)
+        #         'ssim': ssim,
+        #         'entropy': entropy
+        #     }
 
     def compression_stats(self, patch_size=None, n_latent_bytes=None):
         """
@@ -230,8 +241,8 @@ class DCN(TFModel):
         }
     
     def summary(self):
-        return 'DCN with a {}-dim {} bpf latent representation [{:,} params]'.format(
-            'x'.join(str(x) for x in self.latent_shape[1:]), 
+        return 'DCN with a {}-dim {}-bpf latent representation [{:,} params]'.format(
+            'x'.join(str(x) for x in self.latent_shape), 
             self._h.latent_bpf,
             self.count_parameters()
         )
@@ -241,7 +252,7 @@ class DCN(TFModel):
         if not hasattr(self, 'n_latent'):
             raise ValueError('The model does not report the latent space dimensionality.')
         
-        return '{}-{}D'.format(type(self).__name__, self.n_latent)        
+        return '{}-{}C'.format(type(self).__name__, self._h.n_features)        
 
     def get_hyperparameters(self):
         return self._h.to_json()
@@ -272,8 +283,12 @@ class TwitterDCN(DCN):
         params = locals()
         self._h.update(**{k: params[k] for k in self._h.keys() if k in params})
 
-        self.latent_shape = (1, self.patch_size // 8, self.patch_size // 8, self._h.n_features)
-        self.n_latent = int(np.prod(self.latent_shape))
+        if self.patch_size is None:
+            self.latent_shape = (None, None, self._h.n_features)
+            self.n_latent = None
+        else:
+            self.latent_shape = (self.patch_size // 8, self.patch_size // 8, self._h.n_features)
+            self.n_latent = int(np.prod(self.latent_shape))
 
         activation = tf_helpers.activation_mapping[self._h.activation]
 
@@ -330,7 +345,9 @@ class TwitterDCN(DCN):
 
         y = (inet + 1) / 2
 
-        self.y = y
+        # Overwrite the output to guarantee correct data range and maintain gradient propagation
+        # self.y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
+        self.y = tf.clip_by_value(y, 0, 1)
         
         # Create separate models to enable separate encoding / decoding steps
         self._encoder = tf.keras.Model(inputs=[self.x], outputs=[self.latent, self.entropy])
@@ -344,14 +361,14 @@ class TwitterDCN(DCN):
     def model_code(self):
         parameter_summary = []
 
-        if hasattr(self, 'latent_shape'):
-            parameter_summary.append('x'.join(str(x) for x in self.latent_shape[1:]))
+        # if hasattr(self, 'latent_shape'):
+        #     parameter_summary.append('x'.join(str(x) for x in self.latent_shape))
 
-        parameter_summary.append('r:{}'.format(self._h.rounding))
+        parameter_summary.append(self._h.rounding)
         parameter_summary.append(
             'Q+{}bpf'.format(self._h.latent_bpf) if self._h.train_codebook else 'Q-{}bpf'.format(self._h.latent_bpf))
         parameter_summary.append('S+' if self._h.scale_latent else 'S-')
         if self._h.entropy_weight is not None:
             parameter_summary.append('H+{:.2f}'.format(self._h.entropy_weight))
 
-        return '{}/{}'.format(super().model_code, '-'.join(parameter_summary))
+        return '{}/{}'.format(super().model_code, '_'.join(parameter_summary))

@@ -338,7 +338,7 @@ def bin_egdes(code_book):
 
 def batch_gamma(batch_p, gamma=None):
     if gamma is None:
-        gamma = np.array(np.random.uniform(low=0.25, high=3, size=(len(batch_p), 1, 1, 1)))
+        gamma = np.array(np.random.uniform(low=0.25, high=3, size=(len(batch_p), 1, 1, 1)), dtype=np.float32)
     elif type(gamma) is float:
         gamma = gamma * np.ones((len(batch_p), 1, 1, 1))
 
