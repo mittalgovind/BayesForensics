@@ -80,9 +80,6 @@ class TFModel(object):
         if not os.path.exists(dirname):
             os.makedirs(dirname)
         
-        # with self.graph.as_default():
-        #     self.saver.save(self.sess, os.path.join(dirname, self.class_name.lower()), global_step=epoch)
-
         self._model.save_weights(os.path.join(dirname, self.class_name.lower()))
 
     def load_model(self, dirname):
@@ -90,33 +87,12 @@ class TFModel(object):
             dirname = os.path.join(dirname, self.scoped_name)
         print('<', os.path.join(dirname, self.class_name.lower()))
         self._model.load_weights(os.path.join(dirname, self.class_name.lower()))
-
-        # self.init()
-
-        # # Try to load the model from the given directory
-        # latest_checkpoint = tf.train.latest_checkpoint(dirname)
-
-        # # If no model available, append current model's scoped name
-        # if latest_checkpoint is None:
-        #     dirname = os.path.join(dirname, self.scoped_name)
-        #     latest_checkpoint = tf.train.latest_checkpoint(dirname)
-
-        # if latest_checkpoint is None:
-        #     raise RuntimeError('Model checkpoint not found at {}'.format(dirname))
-
-        # with self.graph.as_default():
-        #     # Use the slim package to load the checkpoint - this gives a chance to ignore missing variables
-        #     init_assign_op, init_feed_dict = slim.assign_from_checkpoint(latest_checkpoint, self.parameters, ignore_missing_vars=True)
-        #     self.sess.run(init_assign_op, feed_dict=init_feed_dict)
-
         self.is_initialized = True
         self.reset_performance_stats()
 
     def migrate_model(self, dirname, mapping=None, verbose=False):
         if not dirname.endswith(self.scoped_name):
             dirname = os.path.join(dirname, self.scoped_name)
-
-        # checkpoint = tf.train.get_checkpoint_state(dirname)
 
         if verbose:
             print('# All variables found in the checkpoint')
@@ -133,10 +109,9 @@ class TFModel(object):
                 var_value = tf.train.load_variable(dirname, mapping[var_name])
                 print('{} = {} {} <- {} {}'.format(var.name, var_name, var.shape, mapping[var_name], var_value.shape))
                 var.assign(var_value)
-
-
-        # self._model.load_weights(os.path.join(dirname, self.class_name.lower()))
-
+        
+        self.is_initialized = True
+        self.reset_performance_stats()
 
     @property
     def class_name(self):

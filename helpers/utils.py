@@ -267,6 +267,11 @@ def jpeg_qtable(quality, channel=0):
     return t
 
 
+def jpeg_qf_estimation(q_mtx, channel=0):
+    errors = [np.mean(np.abs(jpeg_qtable(qf, channel) - q_mtx)) for qf in range(1, 101)]
+    return np.argmin(errors) + 1
+
+
 def repeat_2dfilter(f, channels):
     rf = np.zeros((f.shape[0], f.shape[1], channels, channels))
 

@@ -5,7 +5,7 @@ from helpers import utils, tf_helpers
 class ConstrainedConv2D(tf.keras.layers.Layer):
 
     def __init__(self, filter_strength=100):
-        super(ConstrainedConv2D, self).__init__()
+        super().__init__()
         self.filter_strength = filter_strength
 
     def build(self, input_shape):
@@ -31,7 +31,7 @@ class ConstrainedConv2D(tf.keras.layers.Layer):
 class Quantization(tf.keras.layers.Layer):
 
     def __init__(self, rounding='soft', v=50, gamma=25, latent_bpf=4, trainable=False):
-        super(Quantization, self).__init__()
+        super().__init__()
 
         if rounding not in {'round', 'sin', 'soft', 'identity', 'soft-codebook'}:
             raise ValueError('Unsupported quantization: {}'.format(rounding))
@@ -43,16 +43,19 @@ class Quantization(tf.keras.layers.Layer):
         self.latent_bpf = latent_bpf
         self.trainable = trainable
 
-        qmin = -2 ** (self.latent_bpf - 1) + 1
-        qmax = 2 ** (self.latent_bpf - 1)
-                            
-        if self.trainable:
-            self.codebook = self.add_weight(initializer=tf.constant_initializer(np.arange(qmin, qmax + 1)), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)
+        if rounding == 'soft-codebook':
+            qmin = -2 ** (self.latent_bpf - 1) + 1
+            qmax = 2 ** (self.latent_bpf - 1)
+                                
+            if self.trainable:
+                self.codebook = self.add_weight(initializer=tf.constant_initializer(np.arange(qmin, qmax + 1)), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)
+            else:
+                self.codebook = tf.constant(np.arange(qmin, qmax + 1), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)
         else:
-            self.codebook = tf.constant(np.arange(qmin, qmax + 1), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)
-
-    # def build(self, input_shape):
-    #     # Initialize the quantization codebook
+            if self.trainable:
+                raise ValueError('Only "soft-codebook" quantization can be trainable')
+            else:
+                self.codebook = None
 
     def call(self, x):
 

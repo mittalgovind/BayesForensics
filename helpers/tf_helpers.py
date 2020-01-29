@@ -192,88 +192,66 @@ def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungrou
     display(HTML(iframe))
 
 
-# def quantization(x, scope, rounding='soft', approx_steps=1, codebook_tensor=None, v=50, gamma=25):
+def quantization(x, scope, rounding='soft', approx_steps=1, codebook_tensor=None, v=50, gamma=25):
 
-#     with tf.name_scope(scope):
+    with tf.name_scope(scope):
 
-#         if rounding is None:
-#             x = tf.round(x)
+        if rounding is None:
+            x = tf.round(x)
 
-#         elif rounding == 'sin':
-#             x = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
+        elif rounding == 'sin':
+            x = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
 
-#         elif rounding == 'soft':
-#             x_ = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
-#             x = tf.add(tf.stop_gradient(tf.round(x) - x_), x_)
+        elif rounding == 'soft':
+            x_ = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
+            x = tf.add(tf.stop_gradient(tf.round(x) - x_), x_)
 
-#         elif rounding == 'harmonic':
-#             xa = x - tf.sin(2 * np.pi * x) / np.pi
-#             for k in range(2, approx_steps):
-#                 xa += tf.pow(-1.0, k) * tf.sin(2 * np.pi * k * x) / (k * np.pi)
-#             x = tf.identity(xa)
+        elif rounding == 'harmonic':
+            xa = x - tf.sin(2 * np.pi * x) / np.pi
+            for k in range(2, approx_steps):
+                xa += tf.pow(-1.0, k) * tf.sin(2 * np.pi * k * x) / (k * np.pi)
+            x = tf.identity(xa)
 
-#         elif rounding == 'identity':
-#             x = x
+        elif rounding == 'identity':
+            x = x
 
-#         elif rounding == 'soft-codebook':
+        elif rounding == 'soft-codebook':
 
-#             prec_dtype = tf.float64
-#             eps = 1e-72
+            prec_dtype = tf.float64
+            eps = 1e-72
 
-#             assert(codebook_tensor.shape[0] == 1)
-#             assert(codebook_tensor.shape[1] > 1)
+            assert(codebook_tensor.shape[0] == 1)
+            assert(codebook_tensor.shape[1] > 1)
 
-#             values = tf.reshape(x, (-1, 1))
+            values = tf.reshape(x, (-1, 1))
 
-#             if v <= 0:
-#                 # Gaussian soft quantization
-#                 weights = tf.exp(-gamma * tf.pow(tf.cast(values, dtype=prec_dtype) - tf.cast(codebook_tensor, dtype=prec_dtype), 2))
-#             else:
-#                 # t-Student soft quantization
-#                 dff = tf.cast(values, dtype=prec_dtype) - tf.cast(codebook_tensor, dtype=prec_dtype)
-#                 dff = gamma * dff
-#                 weights = tf.pow((1 + tf.pow(dff, 2)/v), -(v+1)/2)
+            if v <= 0:
+                # Gaussian soft quantization
+                weights = tf.exp(-gamma * tf.pow(tf.cast(values, dtype=prec_dtype) - tf.cast(codebook_tensor, dtype=prec_dtype), 2))
+            else:
+                # t-Student soft quantization
+                dff = tf.cast(values, dtype=prec_dtype) - tf.cast(codebook_tensor, dtype=prec_dtype)
+                dff = gamma * dff
+                weights = tf.pow((1 + tf.pow(dff, 2)/v), -(v+1)/2)
 
-#             weights = (weights + eps) / (tf.reduce_sum(weights + eps, axis=1, keepdims=True))
+            weights = (weights + eps) / (tf.reduce_sum(weights + eps, axis=1, keepdims=True))
 
-#             assert(weights.shape[1] == np.prod(codebook_tensor.shape))
+            assert(weights.shape[1] == np.prod(codebook_tensor.shape))
 
-#             soft = tf.reduce_mean(tf.matmul(weights, tf.transpose(tf.cast(codebook_tensor, dtype=prec_dtype))), axis=1)
-#             soft = tf.cast(soft, dtype=tf.float32)
-#             soft = tf.reshape(soft, tf.shape(x))
+            soft = tf.reduce_mean(tf.matmul(weights, tf.transpose(tf.cast(codebook_tensor, dtype=prec_dtype))), axis=1)
+            soft = tf.cast(soft, dtype=tf.float32)
+            soft = tf.reshape(soft, tf.shape(x))
 
-#             hard = tf.gather(codebook_tensor, tf.argmax(weights, axis=1), axis=1)
-#             hard = tf.reshape(hard, tf.shape(x))
+            hard = tf.gather(codebook_tensor, tf.argmax(weights, axis=1), axis=1)
+            hard = tf.reshape(hard, tf.shape(x))
 
-#             x = tf.stop_gradient(hard - soft) + soft
-#             x = tf.identity(x)
+            x = tf.stop_gradient(hard - soft) + soft
+            x = tf.identity(x)
 
-#         else:
-#             raise ValueError('Unknown quantization! {}'.format(rounding))
+        else:
+            raise ValueError('Unknown quantization! {}'.format(rounding))
 
-#     return x
-
-
-# def upsample_and_concat(x1, x2, output_channels, in_channels, name='upsampling_kernel', scope=None):
-#     with tf.name_scope(scope):
-#         pool_size = 2
-#         deconv_filter = tf.Variable(tf.truncated_normal([pool_size, pool_size, output_channels, in_channels], stddev=0.02), name=name)
-#         deconv = tf.nn.conv2d_transpose(x1, deconv_filter, tf.shape(x2), strides=[1, pool_size, pool_size, 1])
-#         deconv_output = tf.concat([deconv, x2], 3)
-#         deconv_output.set_shape([None, None, None, output_channels * 2])
-
-#     return deconv_output
-
-
-# def identity_initializer():
-#     def _initializer(shape, dtype=tf.float32, partition_info=None):
-#         array = np.zeros(shape, dtype=float)
-#         cx, cy = shape[0]//2, shape[1]//2
-#         for i in range(np.minimum(shape[2],shape[3])):
-#             array[cx, cy, i, i] = 1
-#         return tf.constant(array, dtype=dtype)
-#     return _initializer
-
+    return x
 
 def entropy(values, codebook, v=50, gamma=25):
     # For Gaussian, the best parameters are v=0 and gamma=5

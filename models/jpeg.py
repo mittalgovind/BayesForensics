@@ -1,18 +1,18 @@
 import numpy as np
 import tensorflow as tf
 
+from models.layers import Quantization
 from models.tfmodel import TFModel
 from compression import jpeg_helpers
-from helpers.utils import jpeg_qtable, is_number
+from helpers.utils import jpeg_qtable, jpeg_qf_estimation, is_number
 from helpers import tf_helpers
 
 common_codec = None
 
-
 def is_valid_quality(quality):
     if is_number(quality) and (quality < 1 or quality > 100):
         return False
-    elif hasattr(quality, '__getitem__') and any((x < 1 or x > 100) for x in quality):
+    elif hasattr(quality, '__getitem__') and (any((x < 1 or x > 100) for x in quality) or len(quality) < 2):
         return False
     return True
 
@@ -30,7 +30,7 @@ class DifferentiableJPEG(tf.keras.Model):
         super().__init__(self)
 
         if quality is not None and not is_valid_quality(quality):
-            raise ValueError('Invalid JPEG quality - required number between 1-100 or an iterable of such numbers')
+            raise ValueError('Invalid JPEG quality - required a integer between 1-100 or an iterable with least 2 such numbers')
 
         # Sanitize inputs
         if rounding_approximation is not None and rounding_approximation not in ['sin', 'harmonic', 'soft']:
@@ -52,10 +52,10 @@ class DifferentiableJPEG(tf.keras.Model):
         self.rounding_approximation = rounding_approximation
         self.rounding_approximation_steps = rounding_approximation_steps
 
-        # Transformations
         # RGB to YCbCr conversion
         self._color_F = np.array([[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5], [128, 0.5, -0.418688, -0.081312]], dtype=np.float32)
         self._color_I = np.array([[-1.402 * 128, 1, 0, 1.402], [1.058272 * 128, 1, -0.344136, -0.714136], [-1.772 * 128, 1, 1.772, 0]], dtype=np.float32)
+        
         # DCT
         self._dct_F = np.array([[0.3536, 0.3536, 0.3536, 0.3536, 0.3536, 0.3536, 0.3536, 0.3536],
                                 [0.4904, 0.4157, 0.2778, 0.0975, -0.0975, -0.2778, -0.4157, -0.4904],
@@ -65,7 +65,10 @@ class DifferentiableJPEG(tf.keras.Model):
                                 [0.2778, -0.4904, 0.0975, 0.4157, -0.4157, -0.0975, 0.4904, -0.2778],
                                 [0.1913, -0.4619, 0.4619, -0.1913, -0.1913, 0.4619, -0.4619, 0.1913],
                                 [0.0975, -0.2778, 0.4157, -0.4904, 0.4904, -0.4157, 0.2778, -0.0975]], dtype=np.float32)
-        self._dct_I = np.transpose(self._dct_F)                    
+        self._dct_I = np.transpose(self._dct_F)
+        
+        # Quantization layer
+        self.quantization = Quantization(self.rounding_approximation, self.rounding_approximation_steps)
 
     def call(self, inputs):
         # Remember settings
@@ -107,7 +110,7 @@ class DifferentiableJPEG(tf.keras.Model):
                 Q = tf.concat((Ql, Qc), axis=0)
                 Q = tf.tile(Q, [(tf.shape(inputs)[0]), 1, 1])
                 X = X / Q
-                X = tf_helpers.quantization(X, 'quantization', self.rounding_approximation, self.rounding_approximation_steps)
+                X = self.quantization(X) #tf_helpers.quantization(X, 'quantization', self.rounding_approximation, self.rounding_approximation_steps)
                 X = X * Q
 
             with tf.name_scope('idct'):
@@ -175,7 +178,7 @@ class JPEG(TFModel):
         if codec == 'libjpeg':
             self._model = None
         else:
-            self._model = DifferentiableJPEG(quality, codec)
+            self._model = DifferentiableJPEG(quality, codec, trainable=trainable)
 
         # Remember settings
         self.codec = codec
@@ -185,10 +188,10 @@ class JPEG(TFModel):
     def process(self, batch_x, quality=None):
 
         if quality is None:
-            if isinstance(self.quality, tuple) and len(self.quality) > 2:
+            if hasattr(self.quality, '__getitem__') and len(self.quality) > 2:
                 quality = int(np.random.choice(self.quality))
             
-            elif isinstance(self.quality, tuple) and len(self.quality) == 2:
+            elif hasattr(self.quality, '__getitem__') and len(self.quality) == 2:
                 quality = np.random.randint(self.quality[0], self.quality[1])
             
             elif is_number(self.quality):
@@ -213,7 +216,25 @@ class JPEG(TFModel):
             return y
 
     def __repr__(self):
-        return 'JPEG(codec={}, trainable={})'.format(self.codec, self._model.trainable)
+        return 'JPEG(codec="{}",trainable={},quality={})'.format(self.codec, self._model.trainable, self.quality)
 
     def summary(self):
-        return 'JPEG(codec={})'.format(self.codec)
+        return 'JPEG codec ({}) w. {}'.format(
+            self.codec,
+            self._quality_mode(),
+            )
+
+    def _quality_mode(self):
+        if self._model.trainable:
+            return 'trainable QF~{}/{}'.format(
+                jpeg_qf_estimation(self._model._q_mtx_luma, 0),
+                jpeg_qf_estimation(self._model._q_mtx_chroma, 1)
+                )
+        elif is_number(self.quality):
+            return 'QF={}'.format(self.quality)
+        elif hasattr(self.quality, '__getitem__') and len(self.quality) == 2:
+            return 'QF <- [{}, {}]'.format(*self.quality)
+        elif hasattr(self.quality, '__getitem__') and len(self.quality) > 2:
+            return 'QF <- {{{}}}'.format(','.join(str(x) for x in self.quality))
+        else:
+            return 'unknown QF'

@@ -137,6 +137,31 @@ class NIPModel(TFModel):
             p.update(self._h.to_json())
         return p
 
+    @property
+    def _input_description(self):
+        if self.patch_size_raw is None:
+            return '(rgb)' if self.x.shape[-1] == 3 else '(raw)'
+        else:
+            return 'x'.join(str(x) for x in self.x.shape[1:])
+
+    @property
+    def _output_description(self):
+        if self.patch_size_rgb is None:
+            return '(rgb)' if self.y.shape[-1] == 3 else '(?)'
+        else:
+            return 'x'.join(str(x) for x in self.y.shape[1:])
+
+    @property
+    def patch_size_raw(self):
+        return self.x.shape[1:]
+
+    @property
+    def patch_size_rgb(self):
+        return self.y.shape[1:]
+
+    def summary(self):
+        return '{:s} : {} -> {}'.format(super().summary(), self._input_description, self._output_description)
+
 class UNet(NIPModel):
     """
     The UNet model, rewritten from scratch for TF 2.x
