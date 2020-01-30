@@ -43,19 +43,15 @@ class Quantization(tf.keras.layers.Layer):
         self.latent_bpf = latent_bpf
         self.trainable = trainable
 
-        if rounding == 'soft-codebook':
-            qmin = -2 ** (self.latent_bpf - 1) + 1
-            qmax = 2 ** (self.latent_bpf - 1)
-                                
-            if self.trainable:
-                self.codebook = self.add_weight(initializer=tf.constant_initializer(np.arange(qmin, qmax + 1)), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)
-            else:
-                self.codebook = tf.constant(np.arange(qmin, qmax + 1), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)
+        # Setup codebook
+        # TODO Even if the codebook is not used for quantization, it may be used for entropy estimation somewhere else (should this be fixed?)
+        qmin = -2 ** (self.latent_bpf - 1) + 1
+        qmax = 2 ** (self.latent_bpf - 1)
+                            
+        if self.trainable:
+            self.codebook = self.add_weight(initializer=tf.constant_initializer(np.arange(qmin, qmax + 1)), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)
         else:
-            if self.trainable:
-                raise ValueError('Only "soft-codebook" quantization can be trainable')
-            else:
-                self.codebook = None
+            self.codebook = tf.constant(np.arange(qmin, qmax + 1), shape=(1, 2 ** self.latent_bpf), dtype=tf.float32)
 
     def call(self, x):
 
