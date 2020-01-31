@@ -260,9 +260,9 @@ class DCN(TFModel):
     def get_codebook(self):
         return self.discrete_latent.quantization.codebook.numpy().reshape((-1,))
 
-    def __repr__(self):
-        extra_params = ','.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in self._h.changed_params().items())
-        return '{}({})'.format(self.class_name, extra_params)
+    # def __repr__(self):
+    #     extra_params = ','.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in self._h.changed_params().items())
+    #     return '{}({})'.format(self.class_name, extra_params)
 
 
 class TwitterDCN(DCN):
@@ -320,9 +320,9 @@ class TwitterDCN(DCN):
 
         # Decoder ------------------------------------------------------------------------------------------------------
 
-        # self.latent_input = tf.keras.Input(dtype=tf.float32, shape=self.latent.shape[1:])
+        self.latent_input = tf.keras.Input(dtype=tf.float32, shape=self.latent.shape[1:])
 
-        inet = tf.keras.layers.Conv2D(512, 3, 1, padding='SAME', activation=None)(self.latent)
+        inet = tf.keras.layers.Conv2D(512, 3, 1, padding='SAME', activation=None)(self.latent_input)
         inet = tf.nn.depth_to_space(inet, 2)
 
         resnet = tf.keras.layers.Conv2D(128, 3, 1, padding='SAME', activation=activation)(inet)
@@ -351,17 +351,17 @@ class TwitterDCN(DCN):
         # self.y = tf.clip_by_value(y, 0, 1)
         # self.y = tf.add(tf.stop_gradient(tf.round(y) - y), y)
 
-        self._encoder = None
-        self._decoder = None
+        # self._encoder = None
+        # self._decoder = None
         
         # Create separate models to enable separate encoding / decoding steps
-        # self._encoder = tf.keras.Model(inputs=self.x, outputs=[self.latent, self.entropy], name='encoder')
-        # self._decoder = tf.keras.Model(inputs=self.latent_input, outputs=self.y, name='decoder')
+        self._encoder = tf.keras.Model(inputs=self.x, outputs=[self.latent, self.entropy], name='encoder')
+        self._decoder = tf.keras.Model(inputs=self.latent_input, outputs=self.y, name='decoder')
 
         # Combine the models to enable compression simulation, training and 1-step model saving / loading
-        # latent, entropy = self._encoder(self.x)
-        # self._model = tf.keras.Model(inputs=self.x, outputs=[self._decoder(latent), entropy], name='codec')
-        self._model = tf.keras.Model(inputs=self.x, outputs=[self.y, self.entropy], name='codec')
+        latent, entropy = self._encoder(self.x)
+        self._model = tf.keras.Model(inputs=self.x, outputs=[self._decoder(latent), entropy], name='codec')
+        # self._model = tf.keras.Model(inputs=self.x, outputs=[self.y, self.entropy], name='codec')
 
     @property
     def model_code(self):

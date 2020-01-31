@@ -20,7 +20,7 @@ class TFModel(object):
                                 used as a prefix for TF variables & as a directory name for storing models
     """
 
-    def __init__(self, label, **kwargs):        
+    def __init__(self, label, **kwargs):  
         self._label = '_'+label if label is not None else ''
         self.is_initialized = False
         self._model = None
@@ -39,39 +39,16 @@ class TFModel(object):
     @property
     def parameters(self):
         return self._model.trainable_weights
-        # with self.graph.as_default():
-        #     # TODO the current implementation needs to manually add population statistics from BN layers since these
-        #     # TODO variables are updated manually and are not reported as 'trainable'
-        #     trainable = tf.trainable_variables()
-        #     return [tv for tv in tf.global_variables() if tv.name.startswith('{}/'.format(self.scoped_name)) and (tv in trainable or tv.name.endswith('moving_mean:0') or tv.name.endswith('moving_variance:0'))]
     
     @property
     def variables(self):
        return self._model.variables
-
-    def get_summary_writer(self, dirname):
-        if not hasattr(self, '_summary_writer') or self._summary_writer is None:
-            
-            if not os.path.exists(dirname):
-                os.makedirs(dirname)
-            
-            with self.graph.as_default():
-                self._summary_writer = tf.summary.FileWriter(dirname, self.graph)
-                
-        return self._summary_writer
         
     def count_parameters(self):
         return np.sum([np.prod(tv.shape.as_list()) for tv in self.parameters])
     
     def count_parameters_breakdown(self):
         return OrderedDict([(tv.name, np.prod(tv.shape.as_list())) for tv in self.parameters])
-
-    @property
-    def saver(self):
-        if not hasattr(self, '_saver') or self._saver is None:
-            with self.graph.as_default():
-                self._saver = tf.train.Saver(self.parameters, max_to_keep=5)
-        return self._saver
 
     def save_model(self, dirname, epoch=0):
         if not dirname.endswith(self.scoped_name):
@@ -130,3 +107,7 @@ class TFModel(object):
 
     def get_hyperparameters(self):
         raise NotImplementedError()
+
+    def __repr__(self):
+        extra_params = ','.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in self._h.changed_params().items())
+        return '{}({})'.format(self.class_name, extra_params)

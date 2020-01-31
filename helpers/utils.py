@@ -327,7 +327,9 @@ def qhist(values, code_book, density=False):
     return np.histogram(values.reshape((-1, )), bins=code_book_edges, density=density)[0]
 
 
-def entropy(batch_z, code_book):
+def entropy(batch_z, code_book=None):
+    if code_book is None:
+        code_book = np.arange(-255, 255, 1).reshape((-1,))
     counts = qhist(batch_z, code_book)
     counts = counts.clip(min=1)
     probs = counts / counts.sum()

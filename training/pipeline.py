@@ -121,8 +121,13 @@ def visualize_progress(arch, performance, patch_size, camera_name, out_directory
 def save_progress(model, training_summary, out_directory):
 
     filename = os.path.join(out_directory, 'progress.json')
-    output_stats = {'performance': model.performance, 'args': model.get_hyperparameters()}
-    output_stats.update(training_summary)
+    output_stats = {
+        'performance': model.performance, 
+        'args': model.get_hyperparameters(), 
+        'model': model.class_name, 
+        'init': repr(model), 
+        'summary': training_summary
+    }
     with open(filename, 'w') as f:
         json.dump(output_stats, f, indent=4)
 

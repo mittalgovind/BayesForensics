@@ -103,7 +103,7 @@ def main():
         args.nip_params = args.nip_params or {}
 
         model = getattr(pipelines, pipe)(loss_metric='L2', **args.nip_params)
-        train_nip_model(model, args.camera, args.epochs, validation_loss_threshold=1e-5, patch_size=args.patch_size, resume=args.resume, data=data, out_directory_root=args.out_dir)
+        train_nip_model(model, args.camera, args.epochs, validation_loss_threshold=1e-4, patch_size=args.patch_size, resume=args.resume, data=data, out_directory_root=args.out_dir)
 
 
 if __name__ == "__main__":

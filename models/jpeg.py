@@ -5,7 +5,7 @@ from models.layers import Quantization
 from models.tfmodel import TFModel
 from compression import jpeg_helpers
 from helpers.utils import jpeg_qtable, jpeg_qf_estimation, is_number
-from helpers import tf_helpers
+from helpers import tf_helpers, utils
 
 common_codec = None
 
@@ -68,7 +68,7 @@ class DifferentiableJPEG(tf.keras.Model):
         self._dct_I = np.transpose(self._dct_F)
         
         # Quantization layer
-        self.quantization = Quantization(self.rounding_approximation, self.rounding_approximation_steps)
+        self.quantization = Quantization(self.rounding_approximation, self.rounding_approximation_steps, latent_bpf=9)
 
     def call(self, inputs):
         # Remember settings
@@ -139,14 +139,14 @@ class DifferentiableJPEG(tf.keras.Model):
                 y = y / 255.0                    
                 y = tf.clip_by_value(y, 0, 1)
 
-        return y
+        return y, X
 
 class JPEG(TFModel):
     """
     TF model for (a differentiable) approximation of JPEG compression.
     """
 
-    def __init__(self, quality=None, codec='soft', trainable=False):
+    def __init__(self, quality=None, codec='soft', trainable=False, label=None):
         """
         Creates a JPEG approximation model.
 
@@ -170,6 +170,7 @@ class JPEG(TFModel):
         :param rounding_approximation: None (uses normal rounding), 'sin', 'soft', or 'harmonic'
         :param rounding_approximation_steps: number of approximation terms (for 'harmonic' approx. only)
         """
+        super().__init__(label)
 
         # Sanitize inputs
         if codec is not None and codec not in ['libjpeg', 'soft', 'sin', 'harmonic']:
@@ -185,7 +186,15 @@ class JPEG(TFModel):
         self.quality = quality
         self.loss =  tf.keras.losses.MeanSquaredError()
 
-    def process(self, batch_x, quality=None):
+    def reset_performance_stats(self):
+        self.performance = {
+            # 'loss': {'training': [], 'validation': []},
+            'entropy': {'training': [], 'validation': []},
+            'ssim': {'training': [], 'validation': []},
+            'psnr': {'training': [], 'validation': []}
+        }
+
+    def process(self, batch_x, quality=None, return_entropy=False):
 
         if quality is None:
             if hasattr(self.quality, '__getitem__') and len(self.quality) > 2:
@@ -208,12 +217,15 @@ class JPEG(TFModel):
                 self._model._q_mtx_luma = jpeg_qtable(quality, 0)
                 self._model._q_mtx_chroma = jpeg_qtable(quality, 1)
             
-            y = self._model(batch_x)
+            y, X = self._model(batch_x)
 
             if quality != self.quality:
                 self._model._q_mtx_luma, self._model._q_mtx_chroma = old_q_luma, old_q_chroma
 
-            return y
+            if return_entropy:
+                entropy = tf_helpers.entropy(X.numpy(), self._model.quantization.codebook)[0]
+
+            return y, entropy if return_entropy else y
 
     def __repr__(self):
         return 'JPEG(codec="{}",trainable={},quality={})'.format(self.codec, self._model.trainable, self.quality)

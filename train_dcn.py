@@ -14,6 +14,9 @@ from models import compression
 from training.compression import train_dcn
 import pandas as pd
 
+print('TF: ', tf.__version__)
+print('GPUs: ', tf.config.experimental.list_physical_devices('GPU'))
+
 # Disable unimportant logging and import TF
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -159,8 +162,7 @@ def main():
 
         # Create a DCN according to the spec
         dcn_params = {k: v for k, v in params.to_dict().items() if not utils.is_nan(v)}
-        dcn_params['default_val_is_train'] = training_spec['validation_is_training']
-        dcn = getattr(compression, args.dcn)(sess, graph, None, patch_size=training_spec['patch_size'], **dcn_params)
+        dcn = getattr(compression, args.dcn)(patch_size=training_spec['patch_size'], **dcn_params)
 
         model_code = dcn.model_code
 

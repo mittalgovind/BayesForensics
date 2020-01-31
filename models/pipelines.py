@@ -178,8 +178,6 @@ class UNet(NIPModel):
         self._h.update(**kwargs)
         lrelu = tf_helpers.activation_mapping[self._h.activation]
         
-        # lrelu = tf.keras.layers.LeakyReLU(alpha=0.1)
-
         _layers = OrderedDict()
         _tensors = OrderedDict()
         _tensors['ep0'] = self.x
@@ -228,15 +226,22 @@ class INet(NIPModel):
     """
     
     def construct_model(self, random_init=False, kernel=5, trainable_upsampling=False, cfa_pattern='gbrg'):
-        self.trainable_upsampling = trainable_upsampling
-        self.cfa_pattern = cfa_pattern
+        
+        self._h = paramspec.ParamSpec({
+            'random_init': (False, bool, None),
+            'kernel': (5, int, (3, 11)),
+            'trainable_upsampling': (False, bool, None),
+            'cfa_pattern': ('gbrg', str, {'gbrg', 'rggb', 'bggr'})
+        })
+        params = locals()
+        self._h.update(**{k: params[k] for k in self._h.keys() if k in params})
 
         # Initialize the upsampling kernel
-        upk = upsampling_kernel(cfa_pattern)
+        upk = upsampling_kernel(self._h.cfa_pattern)
 
-        if random_init:
+        if self._h.random_init:
             # upk = np.random.normal(0, 0.1, (4, 12))
-            dmf = np.random.normal(0, 0.1, (kernel, kernel, 3, 3))
+            dmf = np.random.normal(0, 0.1, (self._h.kernel, self._h.kernel, 3, 3))
             gamma_d1k = np.random.normal(0, 0.1, (3, 12))
             gamma_d1b = np.zeros((12, ))
             gamma_d2k = np.random.normal(0, 0.1, (12, 3))
@@ -244,7 +249,7 @@ class INet(NIPModel):
             srgbk = np.eye(3)
         else:    
             # Prepare demosaicing kernels (bilinear)
-            dmf = bilin_kernel(kernel)
+            dmf = bilin_kernel(self._h.kernel)
 
             # Prepare gamma correction kernels (obtained from a pre-trained toy model)
             gamma_d1k, gamma_d1b, gamma_d2k, gamma_d2b = gamma_kernels()
@@ -255,13 +260,13 @@ class INet(NIPModel):
                                 [ 0.06269717, -0.40055895,  1.33786178]]).transpose()
 
         # Up-sample the input back the full resolution
-        h12 = tf.keras.layers.Conv2D(12, 1, kernel_initializer=tf.constant_initializer(upk), use_bias=False, activation=None, trainable=trainable_upsampling)(self.x)
+        h12 = tf.keras.layers.Conv2D(12, 1, kernel_initializer=tf.constant_initializer(upk), use_bias=False, activation=None, trainable=self._h.trainable_upsampling)(self.x)
 
         # Demosaicing
-        pad = (kernel - 1) // 2
+        pad = (self._h.kernel - 1) // 2
         bayer = tf.nn.depth_to_space(h12, 2)
         bayer = tf.pad(bayer, tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]]), 'REFLECT')
-        rgb = tf.keras.layers.Conv2D(3, kernel, kernel_initializer=tf.constant_initializer(dmf), use_bias=False, activation=None, padding='VALID')(bayer)
+        rgb = tf.keras.layers.Conv2D(3, self._h.kernel, kernel_initializer=tf.constant_initializer(dmf), use_bias=False, activation=None, padding='VALID')(bayer)
 
         # Color space conversion
         srgb = tf.keras.layers.Conv2D(3, 1, kernel_initializer=tf.constant_initializer(srgbk), use_bias=False, activation=None)(rgb,)
@@ -282,18 +287,26 @@ class DNet(NIPModel):
 
     def construct_model(self, n_layers=15, kernel=3, n_features=64):
 
+        self._h = paramspec.ParamSpec({
+            'n_layers': (15, int, (1, 32)),
+            'kernel': (3, int, (3, 11)),
+            'n_features': (64, int, (4, 128)),
+        })
+        params = locals()
+        self._h.update(**{k: params[k] for k in self._h.keys() if k in params})
+
         k_initializer = tf.keras.initializers.VarianceScaling
 
         # Initialize the upsampling kernel
         upk = upsampling_kernel()
 
         # Padding size
-        pad = (kernel - 1) // 2
+        pad = (self._h.kernel - 1) // 2
 
         # Convolutions on the sub-sampled input tensor
         deep_x = self.x
-        for r in range(n_layers):
-            deep_y = tf.keras.layers.Conv2D(12 if r == n_layers - 1 else n_features, kernel, activation=tf.keras.activations.relu, padding='VALID', kernel_initializer=k_initializer)(deep_x)
+        for r in range(self._h.n_layers):
+            deep_y = tf.keras.layers.Conv2D(12 if r == self._h.n_layers - 1 else self._h.n_features, self._h.kernel, activation=tf.keras.activations.relu, padding='VALID', kernel_initializer=k_initializer)(deep_x)
             deep_x = tf.pad(deep_y, tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]]), 'REFLECT')
 
         # Up-sample the input
@@ -305,7 +318,7 @@ class DNet(NIPModel):
         bayer_features = tf.concat((features, bayer), axis=3)            
 
         # Project the concatenated 6-D features (R G B bayer from input + 3 channels from convolutions)
-        pu = tf.keras.layers.Conv2D(n_features, kernel, kernel_initializer=k_initializer, use_bias=True, activation=tf.keras.activations.relu, padding='VALID', bias_initializer=tf.zeros_initializer)(bayer_features)
+        pu = tf.keras.layers.Conv2D(self._h.n_features, self._h.kernel, kernel_initializer=k_initializer, use_bias=True, activation=tf.keras.activations.relu, padding='VALID', bias_initializer=tf.zeros_initializer)(bayer_features)
 
         # Final 1x1 conv to project each 64-D feature vector into the RGB colorspace
         pu = tf.pad(pu, tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]]), 'REFLECT')

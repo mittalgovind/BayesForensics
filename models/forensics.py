@@ -95,6 +95,7 @@ class FAN(TFModel):
         self.performance = {
             'loss': {'training': [], 'validation': []},
             'accuracy': {'validation': []},
+            'confusion': [],
         }
 
     def process(self, batch_x, direct=True):
