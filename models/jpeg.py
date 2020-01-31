@@ -236,6 +236,9 @@ class JPEG(TFModel):
             self._quality_mode(),
             )
 
+    def estimate_qf(self, channel=0):
+        return jpeg_qf_estimation(self._model._q_mtx_luma, channel)
+
     def _quality_mode(self):
         if self._model.trainable:
             return 'trainable QF~{}/{}'.format(
