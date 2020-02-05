@@ -132,7 +132,7 @@ class IPDataset(object):
                                                                                      self.count_training,
                                                                                      self.count_validation)
 
-    def summary(self):
+    def shapes(self):
         stats = {
             'path': self._data_directory,
         }
@@ -143,8 +143,7 @@ class IPDataset(object):
 
         return stats
 
-    @property
-    def description(self):
+    def summary(self):
         if self._loaded_data == 'xy':
             db_type = 'raw+rgb'
         elif self._loaded_data == 'y':

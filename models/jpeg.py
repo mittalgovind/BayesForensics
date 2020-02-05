@@ -7,7 +7,7 @@ from compression import jpeg_helpers
 from helpers.utils import jpeg_qtable, jpeg_qf_estimation, is_number
 from helpers import tf_helpers, utils
 
-common_codec = None
+_common_codec = None
 
 def is_valid_quality(quality):
     if is_number(quality) and (quality < 1 or quality > 100):
@@ -19,9 +19,10 @@ def is_valid_quality(quality):
 
 @tf.function
 def differentiable_jpeg(x, quality):
-    if common_codec is None:
-        common_codec = DifferentiableJPEG(None, 'soft')
-    return common_codec(x, quality)
+    global _common_codec
+    if _common_codec is None:
+        _common_codec = JPEG(None, 'soft')
+    return _common_codec.process(x, quality)[0]
 
 
 class DifferentiableJPEG(tf.keras.Model):

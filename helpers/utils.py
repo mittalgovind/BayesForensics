@@ -272,11 +272,11 @@ def jpeg_qf_estimation(q_mtx, channel=0):
     return np.argmin(errors) + 1
 
 
-def repeat_2dfilter(f, channels):
-    rf = np.zeros((f.shape[0], f.shape[1], channels, channels))
+def repeat_2dfilter(f, channels, pad=0):
+    rf = np.zeros((f.shape[0] + 2 * pad, f.shape[1] + 2 * pad, channels, channels))
 
     for r in range(channels):
-        rf[:, :, r, r] = f
+        rf[:, :, r, r] = np.pad(f, [pad, pad], 'constant')
 
     return rf
 

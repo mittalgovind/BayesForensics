@@ -148,7 +148,8 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
     model_output_dirname = os.path.join(directory, dcn.model_code, dcn.scoped_name)
     
     if os.path.isdir(model_output_dirname) and not overwrite:
-        raise FileExistsError('Directory {} exists, skipping... (use overwrite=True)'.format(model_output_dirname))
+        print('WARNING Directory {} exists, skipping... (use overwrite=True)'.format(model_output_dirname))
+        return
 
     if not os.path.exists(model_output_dirname):
         os.makedirs(model_output_dirname)
