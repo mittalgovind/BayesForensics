@@ -15,8 +15,8 @@ def discover_files(data_directory, n_images=120, v_images=30, extension='png', r
     :param randomize: whether to shuffle files before the split
     """
 
-    files = coreutils.listdir(data_directory, '.*\.{}$'.format(extension))
-    print('In total {} files available'.format(len(files)), flush=True)
+    files = coreutils.listdir(data_directory, '.*\\.{}$'.format(extension))
+    print('{}: in total {} files available'.format(data_directory, len(files)), flush=True)
 
     if randomize:
         np.random.seed(randomize)

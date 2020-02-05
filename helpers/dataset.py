@@ -24,8 +24,6 @@ class IPDataset(object):
         else:
             self.H, self.W = (2 * dim for dim in self.data['training']['x'].shape[1:3])
 
-        print('Loaded dataset with {}x{} images'.format(self.W, self.H))
-
     def __getitem__(self, key):
         if key in ['training', 'validation']:
             return self.data[key]
