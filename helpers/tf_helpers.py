@@ -12,6 +12,11 @@ activation_mapping = {
     'softsign': tf.keras.activations.softsign
 }
 
+def corr(a, b):
+    a = (a - tf.reduce_mean(a, axis=[1, 2, 3], keepdims=True)) / (tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True))
+    b = (b - tf.reduce_mean(b, axis=[1, 2, 3], keepdims=True)) / (tf.math.reduce_std(b, axis=[1, 2, 3], keepdims=True))
+    c = tf.reduce_mean(a * b, axis=[1, 2, 3])
+    return c
 
 def manipulation_resample(x, factor=0.5, method='bilinear'):
     with tf.name_scope('resampling_filter'):

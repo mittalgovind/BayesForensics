@@ -136,8 +136,8 @@ class IPDataset(object):
         }
 
         for k in self._loaded_data:
-            stats['training/{}'.format(k)] = str(self.data['training'][k].shape)
-            stats['validation/{}'.format(k)] = str(self.data['validation'][k].shape)
+            stats['training/{}'.format(k)] = self.data['training'][k].shape
+            stats['validation/{}'.format(k)] = self.data['validation'][k].shape
 
         return stats
 
