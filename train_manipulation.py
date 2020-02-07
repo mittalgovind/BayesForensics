@@ -35,9 +35,10 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
         os.makedirs(root_directory)
 
     # Lazy loading to minimize delays when checking cli parameters
-    from training.manipulation import construct_models, train_manipulation_nip
+    from training.manipulation import train_manipulation_nip
+    from workflows import camera_to_browser
 
-    camera_names = camera_names or ['Nikon D90', 'Nikon D7000', 'Canon EOS 5D', 'Canon EOS 40D']
+    camera_names = camera_names or ['D90', 'D7000', 'EOS-5D', 'EOS-40D']
 
     training = {
         'use_pretrained_nip': use_pretrained,
@@ -81,7 +82,7 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
     compression_params = {}
     if jpeg_quality is not None:
         compression_params['quality'] = jpeg_quality
-        compression_params['rounding_approximation'] = jpeg_mode
+        compression_params['codec'] = jpeg_mode
     else:
         if dcn_model in codec.dcn_presets:
             dcn_model = codec.dcn_presets[dcn_model]
@@ -97,14 +98,17 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
     # Parse manipulations
     manipulations = manipulations or ['sharpen', 'resample', 'gaussian', 'jpeg']
 
-    distribution_spec = {
+    distribution = {
         'downsampling': downsampling,
         'compression': compression,
         'compression_params': compression_params
     }
 
     # Construct the TF model
-    tf_ops, distribution = construct_models(nip_model, patch_size=training['patch_size'], trainable=trainables, distribution=distribution_spec, manipulations=manipulations, loss_metric=loss_metric)
+    flow = camera_to_browser.Camera2Browser(nip_model, manipulations, distribution, trainables, patch_size=training['patch_size'])
+    print('\n# Workflow details')
+    print(flow.details())
+    # tf_ops, distribution = construct_models(nip_model, patch_size=training['patch_size'], trainable=trainables, distribution=distribution_spec, manipulations=manipulations, loss_metric=loss_metric)
 
     for camera_name in camera_names:
         
@@ -142,7 +146,8 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
                     training['lambda_nip'] = lr
                     training['lambda_dcn'] = lc
                     training['run_number'] = rep
-                    train_manipulation_nip(tf_ops, training, distribution, data, {'root': root_directory, 'nip_snapshots': nip_directory})
+                    train_manipulation_nip(flow, training, data, {'root': root_directory, 'nip_snapshots': nip_directory})
+                    # train_manipulation_nip(tf_ops, training, distribution, data, {'root': root_directory, 'nip_snapshots': nip_directory})
 
                 
 def main():
@@ -205,10 +210,11 @@ def main():
     # Split manipulations
     args.manipulations = args.manipulations.strip().split(',')
 
-    batch_training(args.nip_model, args.cameras, args.root_dir, args.loss_metric, args.trainables,
-                   args.jpeg_quality, args.jpeg_mode, args.manipulations, args.dcn_model, args.downsampling, patch=args.patch // 2,
-                   use_pretrained=not args.from_scratch, start_repetition=args.start, end_repetition=args.end, n_epochs=args.epochs,
-                   nip_directory=args.nip_directory, split=args.split, lambdas_nip=args.lambdas_nip, lambdas_dcn=args.lambdas_dcn)
+    batch_training(args.nip_model, args.cameras, args.root_dir, 
+        args.loss_metric, args.trainables, args.jpeg_quality, args.jpeg_mode, 
+        args.manipulations, args.dcn_model, args.downsampling, patch=args.patch // 2,
+        use_pretrained=not args.from_scratch, start_repetition=args.start, end_repetition=args.end, n_epochs=args.epochs,
+        nip_directory=args.nip_directory, split=args.split, lambdas_nip=args.lambdas_nip, lambdas_dcn=args.lambdas_dcn)
 
 
 if __name__ == "__main__":

@@ -72,6 +72,8 @@ def main():
     group = parser.add_argument_group('General settings')
     group.add_argument('--patch', dest='patch', action='store', default=64, type=int,
                         help='patch size')
+    group.add_argument('--images', dest='images', action='store', default=-1, type=int,
+                        help='number of validation images (defaults to -1 - use all in the directory)')
     group.add_argument('--patches', dest='patches', action='store', default=1, type=int,
                         help='number of validation patches')
     group.add_argument('--data', dest='data', action='store', default='./data/rgb/32k',
@@ -106,7 +108,7 @@ def main():
     data = dataset.IPDataset(args.data, n_images=0, v_images=-1, load='y', val_rgb_patch_size=2 * args.patch, val_n_patches=args.patches)
 
     print('Found {} candidate training sessions ({})'.format(len(json_files), args.dir))
-    print('Data: {}'.format(data.description))
+    print('Data: {}'.format(data.summary()))
 
     for filename in json_files:
         if args.re is None or re.findall(args.re, filename):
