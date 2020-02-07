@@ -108,7 +108,6 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
     flow = camera_to_browser.Camera2Browser(nip_model, manipulations, distribution, trainables, patch_size=training['patch_size'])
     print('\n# Workflow details')
     print(flow.details())
-    # tf_ops, distribution = construct_models(nip_model, patch_size=training['patch_size'], trainable=trainables, distribution=distribution_spec, manipulations=manipulations, loss_metric=loss_metric)
 
     for camera_name in camera_names:
         
@@ -137,8 +136,7 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
         # Find available images
         data = dataset.IPDataset(data_directory, n_images=training['n_images'], v_images=training['v_images'], load=load, val_rgb_patch_size=patch_mul * training['patch_size'], val_n_patches=training['val_n_patches'])
 
-        # data = dataset.IPDataset(data_directory, n_images=training['n_images'], v_images=training['v_images'], load=load, val_rgb_patch_size=training['patch_size'], val_n_patches=training['val_n_patches'])
-
+        print('\n# Training loop: {} repetitions / {} NIP lambdas {} / {} DCN lambdas {}'.format(end_repetition - start_repetition, len(lambdas_nip), lambdas_nip, len(lambdas_dcn), lambdas_dcn))
         # Repeat evaluation
         for rep in range(start_repetition, end_repetition):
             for lr in lambdas_nip:
@@ -147,7 +145,6 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
                     training['lambda_dcn'] = lc
                     training['run_number'] = rep
                     train_manipulation_nip(flow, training, data, {'root': root_directory, 'nip_snapshots': nip_directory})
-                    # train_manipulation_nip(tf_ops, training, distribution, data, {'root': root_directory, 'nip_snapshots': nip_directory})
 
                 
 def main():
