@@ -10,61 +10,15 @@ import numpy as np
 from pathlib import Path
 
 from helpers import coreutils, dataset, results_data
-from training.manipulation import construct_models
-from training.validation import confusion
+from training.validation import validate_fan
 from compression import codec
+
+from workflows import camera_to_browser
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('test')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
-
-def validate_fan(output_directory, manipulations, data, patch=64, dcn_model=None, downsampling='pool', jpeg_quality=50):
-
-    # Define the distribution channel ----------------------------------------------------------------------------------
-    compression_params = {}
-    if jpeg_quality is not None:
-        compression_params['quality'] = jpeg_quality
-        compression_params['rounding_approximation'] = 'soft'
-    else:
-        if dcn_model in codec.dcn_presets:
-            dcn_model = codec.dcn_presets[dcn_model]
-        compression_params['dirname'] = dcn_model
-
-    if jpeg_quality is not None:
-        compression = 'jpeg'
-    elif dcn_model is not None:
-        compression = 'dcn'
-    else:
-        compression = 'none'
-
-    # Parse manipulations
-    manipulations = manipulations or ['sharpen', 'resample', 'gaussian', 'jpeg']
-
-    distribution_spec = {
-        'downsampling': downsampling,
-        'compression': compression,
-        'compression_params': compression_params
-    }
-
-    # Construct the TF model
-    tf_ops, distribution = construct_models('ONet', patch_size=patch, trainable=set(), distribution=distribution_spec, manipulations=manipulations, loss_metric='L2')
-
-    # Load pre-trained models
-    if 'dirname' in distribution['compression_params']: tf_ops['dcn'].load_model(
-        distribution['compression_params']['dirname'])
-    tf_ops['fan'].load_model(os.path.join(output_directory))
-
-    # Create a function which generates labels for each batch
-    def batch_labels(batch_size, n_classes):
-        return np.concatenate([x * np.ones((batch_size,), dtype=np.int32) for x in range(n_classes)])
-
-    n_classes = len(distribution['forensics_classes'])
-
-    # Compute the confusion matrix
-    conf_mat = confusion(tf_ops['fan'], data, lambda x: batch_labels(x, n_classes))
-    return conf_mat, distribution['forensics_classes']
 
 
 def main():
@@ -76,7 +30,7 @@ def main():
                         help='number of validation images (defaults to -1 - use all in the directory)')
     group.add_argument('--patches', dest='patches', action='store', default=1, type=int,
                         help='number of validation patches')
-    group.add_argument('--data', dest='data', action='store', default='./data/rgb/32k',
+    group.add_argument('--data', dest='data', action='store', default='./data/rgb/native12k',
                         help='directory with test RGB images')
 
     group = parser.add_argument_group('Training session selection')
@@ -88,8 +42,10 @@ def main():
     group = parser.add_argument_group('Override training settings')
     group.add_argument('--jpeg', dest='jpeg', action='store', default=None, type=int,
                         help='Override JPEG quality level (distribution channel)')
+    group.add_argument('--codec', dest='jpeg_codec', action='store', default=None, type=str,
+                        help='Override JPEG codec settings (libjpeg, soft, sin)')
     group.add_argument('--dcn', dest='dcn_model', action='store', default=None,
-                        help='DCN compression model path')
+                        help='Coverride DCN model directory')
     group.add_argument('--manip', dest='manipulations', action='store', default=None,
                        help='Included manipulations, e.g., : {}'.format('sharpen,jpeg,resample,gaussian'))
 
@@ -105,10 +61,10 @@ def main():
         sys.exit(0)
 
     # Load training / validation data
-    data = dataset.IPDataset(args.data, n_images=0, v_images=-1, load='y', val_rgb_patch_size=2 * args.patch, val_n_patches=args.patches)
+    data = dataset.IPDataset(args.data, n_images=0, v_images=args.images, load='y', val_rgb_patch_size=2 * args.patch, val_n_patches=args.patches)
 
-    print('Found {} candidate training sessions ({})'.format(len(json_files), args.dir))
     print('Data: {}'.format(data.summary()))
+    print('Found {} candidate training sessions ({})'.format(len(json_files), args.dir))
 
     for filename in json_files:
         if args.re is None or re.findall(args.re, filename):
@@ -118,52 +74,40 @@ def main():
 
             # Setup manipulations
             if args.manipulations is None:
-                manipulations = eval(coreutils.getkey(training_log, 'summary/Classes'))
-                # TODO More elegant solution needed
-                manipulations.remove('native')
-                if 'jpg' in manipulations:
-                    manipulations.append('jpeg')
-                    manipulations.remove('jpg')
+                manipulations = coreutils.getkey(training_log, 'manipulations')
+                if 'native' in manipulations: manipulations.remove('native')
             else:
+                print('info: overriding manipulation list with {}'.format(args.manipulations))
                 manipulations = args.manipulations
 
-            accuracy = coreutils.getkey(training_log, 'forensics/validation/accuracy')[-1]
-            compression = coreutils.getkey(training_log, 'summary/Channel Compression')
-            downsampling = coreutils.getkey(training_log, 'summary/Channel Downsampling')
+            # TODO This is good
+            try:
+                accuracy = coreutils.getkey(training_log, 'forensics/performance/accuracy/validation')[-1]
+            except:
+                accuracy = np.nan
+            distribution = coreutils.getkey(training_log, 'distribution') 
 
-            # Setup compression
-            if compression.startswith('jpeg'):
-                # Override from CLI arguments or read from training log
-                if args.jpeg is not None:
-                    jpeg = args.jpeg
-                else:
-                    jpeg = int(re.findall('\(([0-9]+),', compression)[0])
-                dcn_model = None
-            else:
-                jpeg = None
+            if args.jpeg is not None:
+                print('info: overriding JPEG quality with {}'.format(args.jpeg))
+                distribution['compression_params']['quality'] = args.jpeg
 
-                if args.dcn_model is not None:
-                    # Override from CLI arguments
-                    dcn_model = args.dcn_model
-                else:
-                    # Otherwise, read from the training log
-                    if 'dcn' in coreutils.getkey(training_log, 'summary/Joint optimization'):
-                        # If the DCN is trainable, load the fine-tuned model
-                        dcn_model = os.path.join(os.path.split(filename)[0], 'models')
-                    else:
-                        # If not trainable, load a baseline DCN model
-                        compression_params = eval(coreutils.getkey(training_log, 'summary/Channel Compression Parameters'))
-                        dcn_model = compression_params['dirname']
+            if args.jpeg_codec is not None:
+                print('info: overriding JPEG codec with {}'.format(args.jpeg_codec))
+                distribution['compression_params']['codec'] = args.jpeg_codec
 
-            print('\n> {}'.format(filename))
-            print('Compression: {}'.format(compression))
-            print('Downsampling: {}'.format(downsampling))
+            if args.dcn_model is not None:
+                print('info: overriding DCN model with {}'.format(args.dcn_model))
+                distribution['compression_params']['dirname'] = args.dcn_model
 
-            conf_mat, labels = validate_fan(os.path.join(os.path.split(filename)[0], 'models'), manipulations, data, args.patch, dcn_model, downsampling, jpeg)
+            print('\n[{}]'.format(os.path.split(filename)[0]))
+            flow = camera_to_browser.Camera2Browser('ONet', manipulations, distribution, {}, patch_size=args.patch)
+            flow.fan.load_model(os.path.join(os.path.split(filename)[0], 'models'))
+            print(flow.summary())
 
-            print(results_data.confusion_to_text((100*conf_mat).round(0), labels, filename, 'txt'))
-            print('Accuracy: {:.2f} // Expected {:.2f}'.format(np.mean(np.diag(conf_mat)), accuracy))
-            print(';{};{:.4f};{:.4f}'.format(os.path.split(filename)[0], np.mean(np.diag(conf_mat)), accuracy))
+            _, conf = validate_fan(flow, data)
+            
+            print('Accuracy validated/expected: {:.4f} / {:.4f}'.format(np.mean(np.diag(conf)), accuracy))
+            print(results_data.confusion_to_text((100*conf).round(0), flow._forensics_classes, filename, 'txt'))
 
 
 if __name__ == "__main__":

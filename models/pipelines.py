@@ -64,12 +64,17 @@ class NIPModel(TFModel):
         self.out_shape_mx = out_shape_mx
         self.construct_model(**kwargs)
 
+        setup_status = {key: hasattr(self, key) for key in ['y', '_model']}
+
+        if not all(setup_status.values()):
+            raise NotImplementedError('The model construction function has failed to set-up some attributes: {}'.format([key for key, value in setup_status.items() if not value]))
+
         # Configure loss and model optimization
         self.loss_metric = loss_metric
         self.construct_loss(loss_metric)
 
     def construct_loss(self, loss_metric):
-        y = self.yy if hasattr(self, 'yy') else self.y
+        # y = self.yy if hasattr(self, 'yy') else self.y
         
         # The loss
         if loss_metric == 'L2':
@@ -214,8 +219,9 @@ class UNet(NIPModel):
         _tensors['dts'] = tf.nn.depth_to_space(_tensors['dc{}'.format(self._h.n_steps)], 2)
 
         # Add NIP outputs
-        self.yy = _tensors['dts']
-        self.y = tf.clip_by_value(_tensors['dts'], 0, 1)
+        y = _tensors['dts']
+        # self.y = tf.clip_by_value(_tensors['dts'], 0, 1)
+        self.y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
 
         # Construct the Keras model
         self._model = tf.keras.Model(inputs=[self.x], outputs=[self.y], name='unet')
@@ -273,9 +279,10 @@ class INet(NIPModel):
 
         # Gamma correction
         rgb_g0 = tf.keras.layers.Conv2D(12, 1, kernel_initializer=tf.constant_initializer(gamma_d1k), bias_initializer=tf.constant_initializer(gamma_d1b), use_bias=True, activation=tf.keras.activations.tanh)(srgb)
-        self.yy = tf.keras.layers.Conv2D(3, 1, kernel_initializer=tf.constant_initializer(gamma_d2k), bias_initializer=tf.constant_initializer(gamma_d2b), use_bias=True, activation=None)(rgb_g0)
+        y = tf.keras.layers.Conv2D(3, 1, kernel_initializer=tf.constant_initializer(gamma_d2k), bias_initializer=tf.constant_initializer(gamma_d2b), use_bias=True, activation=None)(rgb_g0)
     
-        self.y = tf.clip_by_value(self.yy, 0, 1, name='{}/y'.format(self.scoped_name))
+        # self.y = tf.clip_by_value(self.yy, 0, 1, name='{}/y'.format(self.scoped_name))
+        self.y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
         self._model = tf.keras.Model(inputs=[self.x], outputs=[self.y])
 
 
@@ -323,8 +330,9 @@ class DNet(NIPModel):
         # Final 1x1 conv to project each 64-D feature vector into the RGB colorspace
         pu = tf.pad(pu, tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]]), 'REFLECT')
 
-        self.yy = tf.keras.layers.Conv2D(3, 1, kernel_initializer=tf.ones_initializer, use_bias=False, activation=None, padding='VALID')(pu)
-        self.y = tf.clip_by_value(self.yy, 0, 1, name='{}/y'.format(self.scoped_name))
+        y = tf.keras.layers.Conv2D(3, 1, kernel_initializer=tf.ones_initializer, use_bias=False, activation=None, padding='VALID')(pu)
+        # self.y = tf.clip_by_value(self.yy, 0, 1, name='{}/y'.format(self.scoped_name))
+        self.y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
         self._model = tf.keras.Model(inputs=[self.x], outputs=[self.y])
 
 
@@ -337,6 +345,6 @@ class ONet(NIPModel):
     """
 
     def construct_model(self):
-        self.x = self.y_gt
-        self.yy = self.y_gt
-        self.y = self.y_gt
+        self.x = tf.keras.Input(dtype=tf.float32, shape=(None, None, 3))
+        self.y = tf.identity(self.x)
+        self._model = tf.keras.Model(inputs=self.x, outputs=self.y)
