@@ -211,6 +211,8 @@ class JPEG(TFModel):
                 raise ValueError('Invalid quality! {}'.format(quality))
 
         if self._model is None:
+            if not isinstance(batch_x, np.ndarray):
+                batch_x = batch_x.numpy()
             return jpeg_helpers.compress_batch(batch_x, quality)[0]
         else:
             if quality != self.quality:
