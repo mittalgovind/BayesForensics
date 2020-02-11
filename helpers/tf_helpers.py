@@ -12,6 +12,22 @@ activation_mapping = {
     'softsign': tf.keras.activations.softsign
 }
 
+@tf.function
+def mse(a, b):
+    return tf.reduce_mean(tf.math.pow(255 * a - 255 * b, 2.0))
+
+@tf.function
+def mae(a, b):
+    return tf.reduce_mean(tf.math.abs(255 * a - 255 * b))
+
+@tf.function
+def ssim_loss(a, b):
+    return 255 * (1 - tf.image.ssim(a, b, 1.0))
+
+@tf.function
+def msssim_loss(a, b):
+    return 255 * (1 - tf.image.ssim_multiscale(a, b, 1.0))
+
 def corr(a, b):
     a = (a - tf.reduce_mean(a, axis=[1, 2, 3], keepdims=True)) / (tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True))
     b = (b - tf.reduce_mean(b, axis=[1, 2, 3], keepdims=True)) / (tf.math.reduce_std(b, axis=[1, 2, 3], keepdims=True))

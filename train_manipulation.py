@@ -3,6 +3,7 @@
 
 # Basic imports
 import os
+import re
 import argparse
 
 # Disable unimportant logging and import TF
@@ -33,6 +34,13 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
 
     if not os.path.isdir(root_directory):
         os.makedirs(root_directory)
+
+    if re.match('^[0-9]$', jpeg_quality):
+        jpeg_quality = int(jpeg_quality)
+    elif re.match('^[0-9\\,]+$', jpeg_quality):
+        jpeg_quality = tuple(int(x) for x in re.findall('([0-9]+)', jpeg_quality)) 
+    else:
+        raise FileNotFoundError('Invalid JPEG quality: expecting a number or comma separated numbers & got {}'.format(jpeg_quality))
 
     # Lazy loading to minimize delays when checking cli parameters
     from training.manipulation import train_manipulation_nip
@@ -193,7 +201,7 @@ def main():
 
     # Distribution channel
     group = parser.add_argument_group('distribution channel')
-    group.add_argument('--jpeg', dest='jpeg_quality', action='store', default=None, type=int,
+    group.add_argument('--jpeg', dest='jpeg_quality', action='store', default=None, type=str,
                         help='JPEG quality level (distribution channel)')
     group.add_argument('--jpeg_mode', dest='jpeg_mode', action='store', default='soft',
                         help='JPEG approximation mode: sin, soft, harmonic')

@@ -79,10 +79,6 @@ class DCN(TFModel):
         # Add entropy estimation and model optimization operations -------------------------------------------------
         with tf.name_scope('{}/optimization'.format(self.scoped_name)):
 
-            # Estimate entropy of the latent representation
-            # with tf.name_scope('entropy'):
-            #     self.entropy, self.histogram, self.weights = tf_helpers.entropy(self.latent_pre, self._codebook)
-
             # Loss and SSIM
             self.ssim = lambda a, b: tf.reduce_mean(tf.image.ssim(a, b, max_val=1))
             
@@ -91,17 +87,10 @@ class DCN(TFModel):
                     return tf.nn.l2_loss(image_target - image_compressed) + self._h.entropy_weight * entropy
                 self.loss = mse_entropy
             else:
-                raise NotImplementedError('Loss metric {} not supported.'.format(loss_metric))
-            
-            # loss_entropy_label = '+ {:.2f} * entropy'.format(self.entropy_weight) if self.entropy_weight is not None else ''
-            # self.log('Initializing loss: {} {}'.format(self.loss_metric, loss_entropy_label))
-            
+                raise NotImplementedError('Loss metric {} not supported yet.'.format(loss_metric))
+                        
             # Optimization
             self.optimizer = tf.keras.optimizers.Adam()
-
-    # def log(self, message):
-    #     if self.verbose:
-    #         print(' ', message)
 
     def construct_model(self, params):
         raise NotImplementedError('Not implemented!')
@@ -135,28 +124,6 @@ class DCN(TFModel):
         :return:
         """
         return self._encoder(np.expand_dims(batch_x, axis=0) if batch_x.ndim == 3 else batch_x)[0]
-
-    # def compress_soft(self, batch_x, is_training=None, direct=False):
-    #     """
-    #     Compress an input batch to a pre-quantization real-valued latent representation.
-
-    #     :param batch_x: Input tensor (N, H, W, 3:rgb) or (N, H, W, 4:rggb) for RAW data chained through a NIP
-    #     :param is_training: can be used to override the default 'is_training' flag (may be useful for models with BN)
-    #     :param direct: controls whether the input is a RAW image (chained through a NIP) or direct RGB input
-    #     :return:
-    #     """
-
-    #     with self.graph.as_default():
-            
-    #         feed_dict = {
-    #             self.x if (direct or not self.use_nip_input) else self.nip_input: batch_x,
-    #         }
-            
-    #         if hasattr(self, 'is_training'):
-    #             feed_dict[self.is_training] = is_training if is_training is not None else self.default_val_is_train
-            
-    #         y = self.sess.run(self.latent_pre, feed_dict=feed_dict)
-    #         return y        
         
     def decompress(self, batch_z):
         """
@@ -194,24 +161,6 @@ class DCN(TFModel):
                 'ssim': ssim,
                 'entropy': entropy
             }
-                
-        # with self.graph.as_default():
-        #     feed_dict = {
-        #             self.x if not self.use_nip_input else self.nip_input: batch_x,
-        #             self.lr: learning_rate
-        #     }
-        #     if hasattr(self, 'dropout'):
-        #         feed_dict[self.dropout] = dropout_keep_prob
-                
-        #     if hasattr(self, 'is_training'):
-        #         feed_dict[self.is_training] = True                
-            
-        #     _, loss, ssim, entropy = self.sess.run([self.opt, self.loss, self.ssim, self.entropy], feed_dict)
-        #     return {
-        #         'loss': np.sqrt(2 * loss),  # The L2 loss in TF is computed differently (half of non-square rooted norm)
-        #         'ssim': ssim,
-        #         'entropy': entropy
-        #     }
 
     def compression_stats(self, patch_size=None, n_latent_bytes=None):
         """
@@ -259,10 +208,6 @@ class DCN(TFModel):
 
     def get_codebook(self):
         return self.discrete_latent.quantization.codebook.numpy().reshape((-1,))
-
-    # def __repr__(self):
-    #     extra_params = ','.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in self._h.changed_params().items())
-    #     return '{}({})'.format(self.class_name, extra_params)
 
 
 class TwitterDCN(DCN):
@@ -346,13 +291,7 @@ class TwitterDCN(DCN):
         y = (inet + 1) / 2
 
         # Overwrite the output to guarantee correct data range and maintain gradient propagation
-        # self.y = y
         self.y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
-        # self.y = tf.clip_by_value(y, 0, 1)
-        # self.y = tf.add(tf.stop_gradient(tf.round(y) - y), y)
-
-        # self._encoder = None
-        # self._decoder = None
         
         # Create separate models to enable separate encoding / decoding steps
         self._encoder = tf.keras.Model(inputs=self.x, outputs=[self.latent, self.entropy], name='encoder')
@@ -361,14 +300,10 @@ class TwitterDCN(DCN):
         # Combine the models to enable compression simulation, training and 1-step model saving / loading
         latent, entropy = self._encoder(self.x)
         self._model = tf.keras.Model(inputs=self.x, outputs=[self._decoder(latent), entropy], name='codec')
-        # self._model = tf.keras.Model(inputs=self.x, outputs=[self.y, self.entropy], name='codec')
 
     @property
     def model_code(self):
         parameter_summary = []
-
-        # if hasattr(self, 'latent_shape'):
-        #     parameter_summary.append('x'.join(str(x) for x in self.latent_shape))
 
         parameter_summary.append(self._h.rounding)
         parameter_summary.append(

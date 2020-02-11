@@ -1,6 +1,7 @@
 import numpy as np
 from skimage import metrics
 
+
 def ssim(a, b):
     if a.ndim == 4 and a.shape[0] == 1:
         a = a.squeeze()
