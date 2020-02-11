@@ -31,7 +31,7 @@ class DifferentiableJPEG(tf.keras.Model):
         super().__init__(self)
 
         if quality is not None and not is_valid_quality(quality):
-            raise ValueError('Invalid JPEG quality - required a integer between 1-100 or an iterable with least 2 such numbers')
+            raise ValueError('Invalid JPEG quality - requires an integer between 1-100 or an iterable with least 2 such numbers')
 
         # Sanitize inputs
         if rounding_approximation is not None and rounding_approximation not in ['sin', 'harmonic', 'soft']:

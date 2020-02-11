@@ -35,12 +35,12 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
     if not os.path.isdir(root_directory):
         os.makedirs(root_directory)
 
-    if re.match('^[0-9]$', jpeg_quality):
+    if re.match('^[0-9]+$', jpeg_quality):
         jpeg_quality = int(jpeg_quality)
     elif re.match('^[0-9\\,]+$', jpeg_quality):
         jpeg_quality = tuple(int(x) for x in re.findall('([0-9]+)', jpeg_quality)) 
     else:
-        raise FileNotFoundError('Invalid JPEG quality: expecting a number or comma separated numbers & got {}'.format(jpeg_quality))
+        raise FileNotFoundError('Invalid JPEG quality: expecting a number or comma separated numbers & got: {}'.format(jpeg_quality))
 
     # Lazy loading to minimize delays when checking cli parameters
     from training.manipulation import train_manipulation_nip
