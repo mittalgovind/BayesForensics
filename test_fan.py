@@ -13,7 +13,7 @@ from helpers import coreutils, dataset, results_data
 from training.validation import validate_fan
 from compression import codec
 
-from workflows import camera_to_browser
+from workflows import manipulation_classification
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -100,7 +100,7 @@ def main():
                 distribution['compression_params']['dirname'] = args.dcn_model
 
             print('\n[{}]'.format(os.path.split(filename)[0]))
-            flow = camera_to_browser.Camera2Browser('ONet', manipulations, distribution, {}, patch_size=args.patch)
+            flow = manipulation_classification.ManipulationClassification('ONet', manipulations, distribution, {}, patch_size=args.patch)
             flow.fan.load_model(os.path.join(os.path.split(filename)[0], 'models'))
             print(flow.summary())
 

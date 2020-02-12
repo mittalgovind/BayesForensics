@@ -12,56 +12,33 @@ from helpers.utils import upsampling_kernel, bilin_kernel, gamma_kernels
 
 class NIPModel(TFModel):
     """
-    Abstract class for implementing neural imaging pipelines. Specific classes are expected to implement the
-    'construct_model' method that builds the model, and 'parameters' method which lists its parameters. See existing
-    classes for examples.
+    Abstract class for implementing neural imaging pipelines. Specific classes are expected to 
+    implement the 'construct_model' method that builds the model. See existing classes for examples.
     """
 
-    def __init__(self, loss_metric='L2', patch_size=None, label=None, reuse_placeholders=None, in_channels=4, out_shape_mx=2, **kwargs):
+    def __init__(self, loss_metric='L2', patch_size=None, label=None, in_channels=4, **kwargs):
         """
         Base constructor with common setup.
 
-        :param sess: TF session or None (creates a new one)
-        :param graph: TF graph or None (creates a new one)
         :param loss_metric: loss metric for NIP optimization (L2, L1, SSIM)
         :param patch_size: Optionally patch size can be given to fix placeholder dimensions (can be None)
-        :param label: A string prefix for the model (useful when multiple NIPs are used in a single TF graph)
-        :param reuse_placeholders: Give a dictionary with 'x' and 'y' keys if multiple NIPs should use the same inputs
+        :param label: A suffix to the scoped name (used when saving the model)
+        :param in_channels: number of channels in the input RAW image (defaults to 4 for RGGB)
         :param kwargs: Additional arguments for specific NIP implementations
         """
         super().__init__(label)
-
-        # Initialize input placeholders and run 'construct_model' to build the model and
-        # setup its output as self.y
-        self.y = None  # This will be set up later by child classes
-
-        if reuse_placeholders is not None:
-            self.x = reuse_placeholders['x']
-            self.y_gt = reuse_placeholders['y']
-        else:
-            out_patch_size = out_shape_mx * patch_size if patch_size is not None else None
-            self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, in_channels), name='x')
-            self.y_gt = tf.keras.Input(dtype=tf.float32, shape=(out_patch_size, out_patch_size, 3), name='y')
-        
+        self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, in_channels), name='x')
         self.in_channels = in_channels
-        self.out_shape_mx = out_shape_mx
         self.construct_model(**kwargs)
-
-        setup_status = {key: hasattr(self, key) for key in ['y', '_model']}
-
-        if not all(setup_status.values()):
-            raise NotImplementedError('The model construction function has failed to set-up some attributes: {}'.format([key for key, value in setup_status.items() if not value]))
+        self._has_attributes(['y', '_model'])
 
         # Configure loss and model optimization
         self.loss_metric = loss_metric
         self.construct_loss(loss_metric)
+        self.optimizer = tf.keras.optimizers.Adam()
 
     def construct_loss(self, loss_metric):
-        # y = self.yy if hasattr(self, 'yy') else self.y
-        
-        # The loss
         if loss_metric == 'L2':
-            # self.loss = tf.keras.losses.MeanSquaredError()
             self.loss = tf_helpers.mse 
         elif loss_metric == 'L1':
             self.loss = tf_helpers.mae
@@ -72,16 +49,15 @@ class NIPModel(TFModel):
         else:
             raise ValueError('Unsupported loss metric!')
 
-        self.optimizer = tf.keras.optimizers.Adam()
-    
     def construct_model(self):
         """
-        Constructs the NIP model. The method should use self.x as RAW image input, and set self.y as the model output.
-        The output is expected to be clipped to [0,1]. For better optimization stability, the model can set self.yy to
-        non-clipped output (will be used for gradient computation).
+        Constructs the NIP model. The model should be a tf.keras.Model instance available via the
+        self._model attribute. The method should use self.x as RAW image input, and set self.y as 
+        the model output. The output is expected to be clipped to [0,1]. For better optimization 
+        stability, it's better not to backpropagate through clipping:
 
-        A string prefix (self.scoped_name) should be used for variables / named scopes to facilitate using multiple NIPs
-        in a single TF graph.
+        self.y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
+        self._model = tf.keras.Model(inputs=[self.x], outputs=[self.y])
         """
         raise NotImplementedError()
 
@@ -117,10 +93,7 @@ class NIPModel(TFModel):
         }
 
     def get_hyperparameters(self):
-        p = {
-            'in_channels': self.in_channels,
-            'out_shape_mx': self.out_shape_mx 
-        }
+        p = {'in_channels': self.in_channels}
         if hasattr(self, '_h'):
             p.update(self._h.to_json())
         return p
@@ -157,7 +130,7 @@ class UNet(NIPModel):
     """
         
     def construct_model(self, **kwargs):
-        # Define expected hyper parameters and their values ------------------------------------------------------------
+        # Define and validate hyper-parameters
         self._h = paramspec.ParamSpec({
             'n_steps': (5, int, (2, 6)),
             'activation': ('leaky_relu', str, set(tf_helpers.activation_mapping.keys()))

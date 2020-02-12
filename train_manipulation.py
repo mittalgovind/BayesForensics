@@ -44,7 +44,7 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
 
     # Lazy loading to minimize delays when checking cli parameters
     from training.manipulation import train_manipulation_nip
-    from workflows import camera_to_browser
+    from workflows import manipulation_classification
 
     camera_names = camera_names or ['D90', 'D7000', 'EOS-5D', 'EOS-40D']
 
@@ -60,7 +60,7 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
         'val_n_patches': int(split.split(':')[2]),
     }
 
-    # Setup trainable elements and regularization ----------------------------------------------------------------------
+    # Setup trainable elements and regularization -------------------------------------------------
 
     trainables = trainables if trainables is not None else set()
     for tr in trainables:
@@ -71,7 +71,6 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
 
     if lambdas_nip is None or len(lambdas_nip) == 0:
         lambdas_nip = [1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 0.1, 0.25, 0.5, 1] if 'nip' in trainables else [0]
-
     else:
         lambdas_nip = [float(x) for x in lambdas_nip]
 
@@ -79,14 +78,14 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
         lambdas_dcn = [0.1, 0.05, 0.01, 0.005, 0.001] if 'dcn' in trainables else [0]
     else:
         lambdas_dcn = [float(x) for x in lambdas_dcn]
-
+        
+    # Setup the distribution channel --------------------------------------------------------------
     if downsampling not in ['pool', 'bilinear', 'none']:
         raise ValueError('Unsupported channel down-sampling')
 
     if dcn_model is None and jpeg_quality is None:
         jpeg_quality = 50
-        
-    # Define the distribution channel ----------------------------------------------------------------------------------
+
     compression_params = {}
     if jpeg_quality is not None:
         compression_params['quality'] = jpeg_quality
@@ -103,27 +102,26 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
     else:
         compression = 'none'
 
-    # Parse manipulations
-    manipulations = manipulations or ['sharpen', 'resample', 'gaussian', 'jpeg']
-
     distribution = {
         'downsampling': downsampling,
         'compression': compression,
         'compression_params': compression_params
     }
 
-    # Construct the TF model
-    flow = camera_to_browser.Camera2Browser(nip_model, manipulations, distribution, trainables, patch_size=training['patch_size'])
+    # Construct the workflow ----------------------------------------------------------------------
+    manipulations = manipulations or ['sharpen', 'resample', 'gaussian', 'jpeg']
+
+    flow = manipulation_classification.ManipulationClassification(nip_model, manipulations, distribution, trainables, patch_size=training['patch_size'])
     print('\n# Workflow details')
     print(flow.details())
 
+    # Iterate over cameras and train the entire workflow ------------------------------------------ 
     for camera_name in camera_names:
         
         print('\n# Loading data for {}'.format(camera_name))
-        
         training['camera_name'] = camera_name
         
-        # Load the dataset
+        # Find the right dataset to load
         if nip_model == 'ONet':
             # TODO Dirty hack - if the NIP model is the dummy empty model, load RGB images only
             data_directory = os.path.join(root_directory, 'rgb', camera_name)
@@ -138,14 +136,14 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
         # If the target root directory has no training images, fallback to use the default root
         if not os.path.isdir(data_directory):
             print('WARNING Training images not found in the target root directory - using default root as image source')
-            data_directory = data_directory.replace(root_directory, 'data/')
-            data_directory = data_directory.replace('//', '/')
+            data_directory = data_directory.replace(root_directory, 'data/').replace('//', '/')
 
-        # Find available images
+        # Load the image dataset
         data = dataset.IPDataset(data_directory, n_images=training['n_images'], v_images=training['v_images'], load=load, val_rgb_patch_size=patch_mul * training['patch_size'], val_n_patches=training['val_n_patches'])
 
         print('\n# Training loop: {} repetitions / {} NIP lambdas {} / {} DCN lambdas {}'.format(end_repetition - start_repetition, len(lambdas_nip), lambdas_nip, len(lambdas_dcn), lambdas_dcn))
-        # Repeat evaluation
+        
+        # Repeat training with different loss weights
         for rep in range(start_repetition, end_repetition):
             for lr in lambdas_nip:
                 for lc in lambdas_dcn:

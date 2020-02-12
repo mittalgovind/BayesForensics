@@ -69,13 +69,8 @@ class DCN(TFModel):
 
         # Construct the actual model -------------------------------------------------------------------------------
         self.construct_model(**kwargs)
+        self._has_attributes(['y', '_model', '_encoder', '_decoder'])
         
-        # Check if the sub-class has set all expected attributes
-        setup_status = {key: hasattr(self, key) for key in ['y', '_model', '_encoder', '_decoder']}
-
-        if not all(setup_status.values()):
-            raise NotImplementedError('The model construction function has failed to set-up some attributes: {}'.format([key for key, value in setup_status.items() if not value]))
-
         # Add entropy estimation and model optimization operations -------------------------------------------------
         with tf.name_scope('{}/optimization'.format(self.scoped_name)):
 
