@@ -61,7 +61,7 @@ class NIPModel(TFModel):
         """
         raise NotImplementedError()
 
-    def training_step(self, batch_x, batch_y, learning_rate):
+    def training_step(self, batch_x, batch_y, learning_rate=None):
         """
         Make a single training step and return the loss.
         """
@@ -70,7 +70,7 @@ class NIPModel(TFModel):
             batch_Y = self._model(batch_x)
             loss = self.loss(batch_Y, batch_y)
 
-        self.optimizer.lr.assign(learning_rate)
+        if learning_rate is not None: self.optimizer.lr.assign(learning_rate)
         grads = tape.gradient(loss, self._model.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
         return loss.numpy()

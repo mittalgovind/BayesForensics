@@ -43,14 +43,14 @@ def manipulation_resample(x, factor=0.5, method='bilinear'):
 def manipulation_awgn(x, strength=0.025):
     with tf.name_scope('awgn'):
         im_awgn = x + strength * tf.random.normal(tf.shape(x))
-        im_awgn = quantization(255.0 * im_awgn, 'quantization', 'soft')
+        im_awgn = soft_quantization(255.0 * im_awgn)
         return tf.clip_by_value(im_awgn / 255.0, 0, 1)
 
 
 def manipulation_gamma(x, strength=2.0):
     with tf.name_scope('gamma_filter'):
         im_gamma = tf.pow(x, strength, name='squared')
-        im_gamma = quantization(255.0 * im_gamma, 'quantization', 'soft')
+        im_gamma = soft_quantization(255.0 * im_gamma)
         return tf.pow(tf.clip_by_value(im_gamma, 1, 255) / 255.0, 1/strength, name='sqrt')
 
 
@@ -149,18 +149,8 @@ def residual(x, hsv=False):
 
         return y
 
-# def memory_usage_tf(sess):
-#     return 0 #sess.run(tf.contrib.memory_stats.BytesInUse())
 
-
-# def memory_usage_tf_variables(global_vars=True):
-#     bytes = 0
-#     for tv in (tf.trainable_variables() if not global_vars else tf.global_variables()):
-#         bytes += np.prod(tv.shape.as_list()) * tv.dtype.size
-#     return bytes
-
-
-def strip_consts(graph_def, max_const_size=32):
+def _strip_consts(graph_def, max_const_size=32):
     """Strip large constant values from graph_def."""
     strip_def = tf.compat.v1.GraphDef()
     for n0 in graph_def.node:
@@ -175,9 +165,12 @@ def strip_consts(graph_def, max_const_size=32):
 
 
 def show_model(model, show_shapes=True, expand_nested=False):
+    """ Generate a static diagram of a tf.keras.Model. """
     return tf.keras.utils.plot_model(model, show_shapes=show_shapes, expand_nested=expand_nested, dpi=50)
 
+
 def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungroup_gradients=False):
+    """ Generate a dynamic visualization of a tf.keras.Model using Tensorboard. """
 
     if isinstance(graph_def, tf.keras.Model):
         graph_def = graph_def.inputs[0].graph.as_graph_def()
@@ -189,7 +182,7 @@ def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungrou
     if hasattr(graph_def, 'as_graph_def'):
         graph_def = graph_def.as_graph_def()
 
-    strip_def = strip_consts(graph_def, max_const_size=max_const_size)
+    strip_def = _strip_consts(graph_def, max_const_size=max_const_size)
     data = str(strip_def)
 
     if ungroup_gradients:
@@ -213,66 +206,10 @@ def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungrou
     display(HTML(iframe))
 
 
-def quantization(x, scope, rounding='soft', approx_steps=1, codebook_tensor=None, v=50, gamma=25):
+def soft_quantization(x):
+    x_ = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
+    return tf.add(tf.stop_gradient(tf.round(x) - x_), x_)
 
-    with tf.name_scope(scope):
-
-        if rounding is None:
-            x = tf.round(x)
-
-        elif rounding == 'sin':
-            x = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
-
-        elif rounding == 'soft':
-            x_ = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
-            x = tf.add(tf.stop_gradient(tf.round(x) - x_), x_)
-
-        elif rounding == 'harmonic':
-            xa = x - tf.sin(2 * np.pi * x) / np.pi
-            for k in range(2, approx_steps):
-                xa += tf.pow(-1.0, k) * tf.sin(2 * np.pi * k * x) / (k * np.pi)
-            x = tf.identity(xa)
-
-        elif rounding == 'identity':
-            x = x
-
-        elif rounding == 'soft-codebook':
-
-            prec_dtype = tf.float64
-            eps = 1e-72
-
-            assert(codebook_tensor.shape[0] == 1)
-            assert(codebook_tensor.shape[1] > 1)
-
-            values = tf.reshape(x, (-1, 1))
-
-            if v <= 0:
-                # Gaussian soft quantization
-                weights = tf.exp(-gamma * tf.pow(tf.cast(values, dtype=prec_dtype) - tf.cast(codebook_tensor, dtype=prec_dtype), 2))
-            else:
-                # t-Student soft quantization
-                dff = tf.cast(values, dtype=prec_dtype) - tf.cast(codebook_tensor, dtype=prec_dtype)
-                dff = gamma * dff
-                weights = tf.pow((1 + tf.pow(dff, 2)/v), -(v+1)/2)
-
-            weights = (weights + eps) / (tf.reduce_sum(weights + eps, axis=1, keepdims=True))
-
-            assert(weights.shape[1] == np.prod(codebook_tensor.shape))
-
-            soft = tf.reduce_mean(tf.matmul(weights, tf.transpose(tf.cast(codebook_tensor, dtype=prec_dtype))), axis=1)
-            soft = tf.cast(soft, dtype=tf.float32)
-            soft = tf.reshape(soft, tf.shape(x))
-
-            hard = tf.gather(codebook_tensor, tf.argmax(weights, axis=1), axis=1)
-            hard = tf.reshape(hard, tf.shape(x))
-
-            x = tf.stop_gradient(hard - soft) + soft
-            x = tf.identity(x)
-
-        else:
-            raise ValueError('Unknown quantization! {}'.format(rounding))
-
-    return x
 
 def entropy(values, codebook, v=50, gamma=25):
     # For Gaussian, the best parameters are v=0 and gamma=5

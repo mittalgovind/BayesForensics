@@ -128,4 +128,4 @@ class TFModel(object):
     def _has_attributes(self, attrs, message='Expected attributes not found: {}'):
         setup_status = {key: hasattr(self, key) for key in attrs}
         if not all(setup_status.values()):
-            raise NotImplementedError(message.format([key for key, value in setup_status.items() if not value])
+            raise NotImplementedError(message.format([key for key, value in setup_status.items() if not value]))

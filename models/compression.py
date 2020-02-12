@@ -8,43 +8,37 @@ from helpers import tf_helpers, paramspec
 
 class DCN(TFModel):
     """
-    An abstract class for deriving image compression models.
+    An abstract class for learned image compression models. Override 'construct_model' in child classes to 
+    create specific models.
 
     # Attributes set-up by the abstract class:
       x                    - model input
-      patch_size           - patch size
-      latent_bpf           - number of bits per feature of the latent representation
-      train_codebook       - whether the codebook
-      codebook             - the quantization code book (TF)
-      entropy_weight       - entropy regularization strength for model loss
-      default_val_is_train - used to set default value for the 'is_training' flag during model inference
-                             (useful for models with batch normalization)
-      scale_latent         - bool flag indicating scaling of the latent representation
-      use_batchnorm        - bool flag indicating the use of batch norm in the model
-
-      weights              - soft quantization weights (TF)
-      histogram            - latent space histogram based on soft quantization (TF)
-      entropy              - entropy estimation (TF)
+      _h                   - basic hyper-parameters - see helpers.ParamSpec
+      ssim                 - function to compute the SSIM
+      loss                 - function to compute the loss
+      optimizer            - TF optimizer
 
     # Attributes that need to be set-up by the derived classes:
-      y
-      latent_pre           - latent representation before quantization
-      latent_post          - latent representation after quantization
-      latent_shape         - shape of the latent tensor (before flattening)
-      n_latent             - dimensionality of the latent representation
-      _h                   - hyper parameters
+      y                    - output tensor
+      _model               - tf.keras.Model of the entire codec (for training)
+      _encoder             - tf.keras.Model of just the encoder
+      _decoder             - tf.keras.Model of just the decoder
 
-    For setting up quantization, use the provided self._setup_latent_space method - it will create the latent_pre and
-    latent_post attributes.
+    For setting up quantization, use the provided DiscreteLatent layer (self.discrete_latent).
     """
 
     def __init__(self, label=None, patch_size=128, latent_bpf=5, rounding='soft-codebook', train_codebook=False, entropy_weight=250, scale_latent=True, use_batchnorm=False, loss_metric='L2', **kwargs):
         """
-        Creates a forensic analysis network.
-
-        :param sess: TF session or None (creates a new one)
-        :param graph: TF graph or None (creates a new one)
-        :param label: a suffix for the name scope of the model
+        :param label: A suffix to the scoped name (used when saving the model)
+        :param patch_size: patch size, specify the number to access model statistics (can be set to None)
+        :param latent_bpf: precision of latent space quantization (in bits per feature)
+        :param rounding: rounding method, best to use the default 'soft-codebook'
+        :param train_codebook: set to true to make the quantization codebook trainable (not tested)
+        :param entropy_weight: weight of the entropy term in the training loss
+        :param scale_latent: whether to use a trainable scaling factor for the latent representation (typically needed)
+        :param use_batchnorm: self-explanatory, currently not used, intended for future models
+        :param loss_metric: currently not used, only L2 (with entropy regularization) is implemented 
+        :param **kwargs: additional arguments for child classes
         """
         super().__init__(label)
 
@@ -67,36 +61,28 @@ class DCN(TFModel):
         # Prepare the quantization layer        
         self.discrete_latent = DiscreteLatent(self._h.rounding, self._h.latent_bpf)
 
-        # Construct the actual model -------------------------------------------------------------------------------
+        # Construct the neural network model
         self.construct_model(**kwargs)
         self._has_attributes(['y', '_model', '_encoder', '_decoder'])
         
-        # Add entropy estimation and model optimization operations -------------------------------------------------
-        with tf.name_scope('{}/optimization'.format(self.scoped_name)):
-
-            # Loss and SSIM
-            self.ssim = lambda a, b: tf.reduce_mean(tf.image.ssim(a, b, max_val=1))
-            
-            if loss_metric == 'L2':
-                def mse_entropy(image_target, image_compressed, entropy):
-                    return tf.nn.l2_loss(image_target - image_compressed) + self._h.entropy_weight * entropy
-                self.loss = mse_entropy
-            else:
-                raise NotImplementedError('Loss metric {} not supported yet.'.format(loss_metric))
-                        
-            # Optimization
-            self.optimizer = tf.keras.optimizers.Adam()
+        # Loss and SSIM
+        self.ssim = lambda a, b: tf.reduce_mean(tf.image.ssim(a, b, max_val=1))
+        
+        if loss_metric == 'L2':
+            def mse_entropy(image_target, image_compressed, entropy):
+                return tf.nn.l2_loss(image_target - image_compressed) + self._h.entropy_weight * entropy
+            self.loss = mse_entropy
+        else:
+            raise NotImplementedError('Loss metric {} not supported yet.'.format(loss_metric))
+                    
+        # Optimization
+        self.optimizer = tf.keras.optimizers.Adam()
 
     def construct_model(self, params):
         raise NotImplementedError('Not implemented!')
 
     def reset_performance_stats(self):
-        self.performance = {
-            'loss': {'training': [], 'validation': []},
-            'entropy': {'training': [], 'validation': []},
-            'ssim': {'training': [], 'validation': []},
-            'psnr': {'training': [], 'validation': []}
-        }
+        self.performance = {k: {'training': [], 'validation': []} for k in ['loss', 'entropy', 'ssim', 'psnr']}
 
     # def get_tf_histogram(self, batch_x, is_training=None):
     #     with self.graph.as_default():
@@ -110,45 +96,26 @@ class DCN(TFModel):
     #         return self.sess.run(self.histogram, feed_dict=feed_dict)
 
     def compress(self, batch_x):
-        """
-        Compress an input batch to a quantized latent representation.
-
-        :param batch_x: Input tensor (N, H, W, 3:rgb) or (N, H, W, 4:rggb) for RAW data chained through a NIP
-        :param is_training: can be used to override the default 'is_training' flag (may be useful for models with BN)
-        :param direct: controls whether the input is a RAW image (chained through a NIP) or direct RGB input
-        :return:
-        """
+        """ Compress an input batch (NHW3:rgb) to a quantized latent representation. """
         return self._encoder(np.expand_dims(batch_x, axis=0) if batch_x.ndim == 3 else batch_x)[0]
         
     def decompress(self, batch_z):
-        """
-        Decompress a batch of images from their quantized latent representations.
-        :param batch_z: batch of quantized latent values
-        :param is_training: can be used to override the default 'is_training' flag (may be useful for models with BN)
-        :return:
-        """
+        """ Decompress a batch of images from their quantized latent representations. """
         return self._decoder(np.expand_dims(batch_z, axis=0) if batch_z.ndim == 3 else batch_z)
             
     def process(self, batch_x):
-        """
-        Process the image through the whole model (encoder-quantization-decoder).
-        :param batch_x: Input tensor (N, H, W, 3:rgb) or (N, H, W, 4:rggb) for RAW data chained through a NIP
-        :param dropout_keep_prob: set keep probability in case of using Dropout
-        :param is_training: can be used to override the default 'is_training' flag (may be useful for models with BN)
-        :param direct: controls whether the input is a RAW image (chained through a NIP) or direct RGB input
-        """
+        """ Process a batch of images (NHW3:rgb) through the entire model (encoder-quantization-decoder). """
         return self._model(batch_x)[0]
 
-    def training_step(self, batch_x, learning_rate=1e-4):
-        """
-        Make a single training step and return current loss. Only the FAN model is updated.
-        """
+    def training_step(self, batch_x, learning_rate=None):
+        """ Make a single training step and return the current loss. """
         with tf.GradientTape() as tape:
             batch_Y, entropy = self._model(batch_x)
             loss = self.loss(batch_x, batch_Y, entropy)
-            ssim = self.ssim(tf.convert_to_tensor(batch_x), tf.convert_to_tensor(batch_Y))
+        
+        ssim = self.ssim(tf.convert_to_tensor(batch_x), tf.convert_to_tensor(batch_Y))
 
-        self.optimizer.lr.assign(learning_rate)
+        if learning_rate is not None: self.optimizer.lr.assign(learning_rate)
         grads = tape.gradient(loss, self._model.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
         return {
@@ -159,14 +126,14 @@ class DCN(TFModel):
 
     def compression_stats(self, patch_size=None, n_latent_bytes=None):
         """
-        Get expected compression stats for the model:
+        Get expected compression stats:
             - data rate
             - bits per pixel (bpp)
             - bits per feature (bpf)
             - bytes
 
         :param patch_size: Can be used to override the default input size
-        :param n_latent_bytes: Can be used to override the default bpf; Specified per feature.
+        :param n_latent_bytes: Can be used to override the default bpf; Specified in bytes per feature.
         :return:
         """
 
@@ -207,16 +174,19 @@ class DCN(TFModel):
 
 class TwitterDCN(DCN):
     """
-    Auto-encoder architecture described in:
-    [1] L. Theis, W. Shi, A. Cunningham, and F. Huszár, “Lossy Image Compression with Compressive
-    coders,” Mar. 2017.
+    Adaptation of the auto-encoder architecture described in:
+    [1] Theis, Shi, Cunningham & Huszár, “Lossy Image Compression with Compressive coders,” Mar. 2017.
+
+    # Extra-hyperparameters
+      n_features: number of features in the latent representation (per spatial location)
+      activation: activation function (see helpers.tf_helpers.activation_mapping for available activations)
     """
 
     def construct_model(self, n_features=32, activation='leaky_relu'):
 
         # Define expected hyper parameters and their values ------------------------------------------------------------
         self._h.add({
-            'n_features': (96, int, (4, 128)),
+            'n_features': (32, int, (4, 128)),
             'activation': ('leaky_relu', str, set(tf_helpers.activation_mapping.keys()))
         })
 

@@ -10,11 +10,11 @@ from helpers import tf_helpers, utils
 _common_codec = None
 
 def is_valid_quality(quality):
-    if is_number(quality) and (quality < 1 or quality > 100):
-        return False
-    elif hasattr(quality, '__getitem__') and (any((x < 1 or x > 100) for x in quality) or len(quality) < 2):
-        return False
-    return True
+    if is_number(quality) and quality >= 1 and quality <= 100:
+        return True
+    elif hasattr(quality, '__getitem__') and len(quality) > 1 and all((x >= 1 and x <= 100) for x in quality):
+        return True
+    return False
 
 
 @tf.function
@@ -144,32 +144,25 @@ class DifferentiableJPEG(tf.keras.Model):
 
 class JPEG(TFModel):
     """
-    TF model for (a differentiable) approximation of JPEG compression.
+    Generic model that provides JPEG compression to the framework. It can use either:
+      1. a differentiable approximation of the JPEG codec,
+      2. the standard JPEG codec (libjpeg via imageio)
+    Typically (1) is used for training, and (2) is used for final validation.
+
+    The class also provides randomization of the compression quality - useful for data augmentation.
+
+    For ad-hoc compression needs, consider using 'differentiable_jpeg()' which delegates to a single, 
+    lazy initialized, instance of the codec.
+
+    For use-cases outside of the framework, the 'DifferentiableJPEG' class (tf.keras.Model) may be more appropriate.
     """
 
     def __init__(self, quality=None, codec='soft', trainable=False, label=None):
         """
-        Creates a JPEG approximation model.
-
-        Sample usage (separately):
-
-            jpg = DJPG()
-            batch_y = jpg.process(batch_x, quality=50)
-            
-        Sample usage (plugged in after a NIP model):
-            
-            nip = UNet(sess, tf.get_default_graph(), patch_size=patch_size, loss_metric='L2')
-            jpg = DJPG(sess, tf.get_default_graph(), nip.y, nip.x, quality=50, rounding_approximation='sin')
-            ...
-            fan = FAN(sess, tf.get_default_graph(), n_classes=2, x=imb_out, nip_input=model_a.x, n_convolutions=4)
-
-        :param sess: TF session or None (creates a new one)
-        :param graph: TF graph or None (creates a new one)
-        :param x: input to the DJPG module (TF tensor) or None (creates a placeholder)
-        :param nip_input: input to the NIP (if part of a larger model) or None
         :param quality: JPEG quality level or None (can be specified later)
-        :param rounding_approximation: None (uses normal rounding), 'sin', 'soft', or 'harmonic'
-        :param rounding_approximation_steps: number of approximation terms (for 'harmonic' approx. only)
+        :param codec: 'libjpeg', 'soft', 'sin', 'harmonic'
+        :param trainable: set true to make the quantization tables trainable (under development)
+        :param label: A suffix to the scoped name (used when saving the model)
         """
         super().__init__(label)
 
@@ -188,27 +181,32 @@ class JPEG(TFModel):
         self.loss =  tf.keras.losses.MeanSquaredError()
 
     def reset_performance_stats(self):
-        self.performance = {
-            # 'loss': {'training': [], 'validation': []},
-            'entropy': {'training': [], 'validation': []},
-            'ssim': {'training': [], 'validation': []},
-            'psnr': {'training': [], 'validation': []}
-        }
+        self.performance = {k: {'training': [], 'validation': []} for k in ['entropy', 'ssim', 'psnr']}
 
     def process(self, batch_x, quality=None, return_entropy=False):
+        """ Compress a batch of images (NHW3:rgb) with a given quality factor:
 
-        if quality is None:
-            if hasattr(self.quality, '__getitem__') and len(self.quality) > 2:
-                quality = int(np.random.choice(self.quality))
-            
-            elif hasattr(self.quality, '__getitem__') and len(self.quality) == 2:
-                quality = np.random.randint(self.quality[0], self.quality[1])
-            
-            elif is_number(self.quality):
-                quality = int(self.quality)
-            
-            else:
-                raise ValueError('Invalid quality! {}'.format(quality))
+        - if quality is a number - use this quality level
+        - if quality is an iterable with 2 numbers - use a random integer from that range
+        - if quality is an iterable with >2 numbers - use a random value from that set
+        """
+
+        quality = self.quality if quality is None else quality
+
+        if not is_valid_quality(quality):
+            raise ValueError('Invalid or unspecified JPEG quality!')
+
+        if hasattr(quality, '__getitem__') and len(quality) > 2:
+            quality = int(np.random.choice(quality))
+        
+        elif hasattr(quality, '__getitem__') and len(quality) == 2:
+            quality = np.random.randint(quality[0], quality[1])
+        
+        elif is_number(quality) and quality >= 1 and quality <= 100:
+            quality = int(quality)
+        
+        else:
+            raise ValueError('Invalid quality! {}'.format(quality))
 
         if self._model is None:
             if not isinstance(batch_x, np.ndarray):
@@ -231,7 +229,7 @@ class JPEG(TFModel):
             return y, entropy if return_entropy else y
 
     def __repr__(self):
-        return 'JPEG(codec="{}",trainable={},quality={})'.format(self.codec, self._model.trainable, self.quality)
+        return 'JPEG(quality={},codec="{}",trainable={})'.format(self.quality, self.codec, self._model.trainable)
 
     def summary(self):
         return 'JPEG codec ({}) w. {}'.format(
@@ -240,9 +238,11 @@ class JPEG(TFModel):
             )
 
     def estimate_qf(self, channel=0):
+        """ Estimate current JPEG quality factor (smallest difference wrt IJG tables) using luma (channel=0) or chroma (1) tables. """
         return jpeg_qf_estimation(self._model._q_mtx_luma, channel)
 
     def _quality_mode(self):
+        """ Human-readable assessment of the current JPEG quality settings. """
         if self._model.trainable:
             return 'trainable QF~{}/{}'.format(
                 jpeg_qf_estimation(self._model._q_mtx_luma, 0),

@@ -3,18 +3,40 @@ import tensorflow as tf
 from helpers import utils, tf_helpers
 
 class ConstrainedConv2D(tf.keras.layers.Layer):
+    """
+    Implementation of a trainable constrained residual filter (based on [1] and extended to RGB inputs). 
+    The layer learns a 2D convolution filter (5, 5, 3, 3) where:
 
-    def __init__(self, filter_strength=100):
+    - a central pixel in each channel [2, 2, i, i] is set to a fixed negative value
+    - each output channel is normalized to sum to 0 [:, :, :, i]
+    
+    For example, an intra-channel filter [:, :, i, i] may look like:
+
+    [  -0.73    0.41   -1.24   -1.26    0.69]
+    [  -0.29    7.91   17.53    8.6     0.29]
+    [  -0.62   16.7  -100.0    16.1     0.22]
+    [   0.54    9.3    16.05    8.19    0.98]
+    [  -0.57   -0.7    -0.4     1.22   -0.13]
+
+    The layer is pre-initialized with a simple residual filter with no intra-channel interactions.
+
+    # References
+
+    [1] Bayar & Stamm, Constrained convolutional neural networks: A new approach towards general purpose image 
+        manipulation detection. IEEE Transactions on Information Forensics and Security, 13 (11), 2018
+    """
+
+    def __init__(self, filter_strength=100, trainable=True):
         super().__init__()
         self.filter_strength = filter_strength
 
-    def build(self, input_shape):
-        f = np.array([[0, 0, 0, 0, 0], [0, -1, -2, -1, 0], [0, -2, 12, -2, 0], [0, -1, -2, -1, 0], [0, 0, 0, 0, 0]])        
-        rf = utils.repeat_2dfilter(f, 3)        
-        self.kernel = self.add_weight("kernel", shape=(5, 5, 3, 3), initializer=tf.constant_initializer(rf))
+        f = np.array([[0, 0, 0, 0, 0], [0, -1, -2, -1, 0], [0, -2, 12, -2, 0], [0, -1, -2, -1, 0], [0, 0, 0, 0, 0]])
+        self.kernel = self.add_weight("kernel", shape=(5, 5, 3, 3), 
+            initializer=tf.constant_initializer(utils.repeat_2dfilter(f, 3)), 
+            trainable=trainable)
 
     def call(self, input):
-        # Mask for normalizing the residual filter                
+        # Mask for normalizing the residual filter
         tf_ind = tf.constant(utils.center_mask_2dfilter(5, 3), dtype=tf.float32)
 
         # Normalize the residual filter
@@ -29,15 +51,47 @@ class ConstrainedConv2D(tf.keras.layers.Layer):
 
 
 class Quantization(tf.keras.layers.Layer):
+    """
+    A (differentiable) quantization layer. Supported quantization modes:
 
-    def __init__(self, rounding='soft', v=50, gamma=25, latent_bpf=4, trainable=False):
+    - round: simple rounding; NOT differentiable
+    - sin: sinusoidal approximation to rounding both during forward and backward pass; differentiable
+    - soft: simple rounding in the forward pass, sinusoidal approx. in the backward pass; differentiable
+    - identity: identity function, potentially useful when debugging  
+    - harmonic: harmonic approximation based on Taylor expansion up to 'taylor_terms' terms; differentiable
+    - soft-codebook: soft approximation based on distance to quantization code-book entires; differentiable
+
+    The quantization codebook is set-up based on the desired number of bits per feature ('latent_bpf'), e.g.:
+    - 3 bpf will yield a codebook with 8=2^3 entries -> [-3, -2, -1, 0, 1, 2, 3, 4]
+
+    The distance w.r.t. code-book entires can be computed with a Gaussian or t-Student kernel. 
+
+    """
+
+    def __init__(self, rounding='soft', v=50, gamma=25, latent_bpf=4, trainable=False, taylor_terms=1):
+        """
+        Note that not all parameters are applicable to all approximation modes.
+
+        :param rounding: method of rounding approximation
+
+        # Soft-codebook approximation
+
+        :param v: degrees of freedom for the distance kernel (0 -> Gaussian, >0 -> t-Student)
+        :param gamma: controls the scale of the kernel
+        :param latent_bpf: range of the of the quantization codebook - specified in bits/feature
+        :param trainable: option to make the codebook trainable (not tested)
+
+        # Harmonic approximation
+
+        :param taylor_terms: number of terms for the harmonic Taylor approximation
+        """
         super().__init__()
 
-        if rounding not in {'round', 'sin', 'soft', 'identity', 'soft-codebook'}:
+        if rounding not in {'round', 'sin', 'soft', 'identity', 'harmonic', 'soft-codebook'}:
             raise ValueError('Unsupported quantization: {}'.format(rounding))
 
         self.rounding = rounding
-        self.approx_steps = 2
+        self.taylor_terms = taylor_terms
         self.v = v
         self.gamma = gamma
         self.latent_bpf = latent_bpf
@@ -67,7 +121,7 @@ class Quantization(tf.keras.layers.Layer):
 
         elif self.rounding == 'harmonic':
             xa = x - tf.sin(2 * np.pi * x) / np.pi
-            for k in range(2, self.approx_steps):
+            for k in range(2, self.taylor_terms):
                 xa += tf.pow(-1.0, k) * tf.sin(2 * np.pi * k * x) / (k * np.pi)
             x = xa
 
@@ -111,6 +165,12 @@ class Quantization(tf.keras.layers.Layer):
 
 
 class DiscreteLatent(tf.keras.layers.Layer):
+    """
+    A quantization layer with additional control over representation entropy. The layer adds a trainable scaling factor
+    which can help increase activation range to match the quantization codebook.
+
+    See also: 'Quantization' layer
+    """
 
     def __init__(self, rounding='soft', v=50, gamma=25, latent_bpf=4, trainable_codebook=False, trainable_scale=True):
         super(DiscreteLatent, self).__init__()
@@ -122,37 +182,15 @@ class DiscreteLatent(tf.keras.layers.Layer):
         self.trainable_codebook = trainable_codebook
         if self.trainable_scale:
             self.scaling_factor = self.add_weight(shape=(), dtype=tf.float32, initializer=tf.constant_initializer(1), name='latent_scaling')
-        self.quantization = Quantization(self.rounding, self.v, self.gamma, self.latent_bpf, self.trainable_codebook)
+        self.quantization = Quantization(rounding, v, gamma, latent_bpf, trainable_codebook)
 
     def call(self, inputs):
-        """
-        Set up quantization of the latent space. The following attributes will be used (see constructor for details):
-        - self.use_gdn
-        - self.use_batchnorm
-        - self.scale_latent
-        - self._codebook
-        - self._h.rounding
-
-        The following new attributes will be set:
-        - self.latent_pre (original real-values)
-        - self.latent_post (quantized)
-
-        :param net: the real-valued latent tensor
-        :return: the quantized latent tensor
-        """
-        # If requested, add batch norm to normalize the latent representation
         latent = inputs
-
-        # Learn a scaling factor for the latent features to encourage greater values (facilitates quantization)
         if self.trainable_scale:
             latent = latent * self.scaling_factor
 
-        # Quantize the latent representation and remember tensors before and after the process
-        entropy_ = tf_helpers.entropy(latent, self.quantization.codebook, self.v, self.gamma)[0]
-
-        # self.latent_pre = latent
         latent = self.quantization(latent)
-        # self.latent_post = latent
+        entropy_ = tf_helpers.entropy(latent, self.quantization.codebook, self.v, self.gamma)[0]
 
         return latent, entropy_
 
