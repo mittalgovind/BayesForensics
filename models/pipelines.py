@@ -1,3 +1,4 @@
+import os
 import sys
 import inspect
 import numpy as np
@@ -122,6 +123,16 @@ class NIPModel(TFModel):
 
     def summary(self):
         return '{:s} : {} -> {}'.format(super().summary(), self._input_description, self._output_description)
+
+    def load_model(self, dirname):
+        if '/' not in dirname:
+            dirname = os.path.join('data/models/nip', dirname)
+        super().load_model(dirname)
+
+    def save_model(self, dirname, epoch=0):
+        if '/' not in dirname:
+            dirname = os.path.join('data/models/nip', dirname)
+        super().save_model(dirname, epoch=epoch)
 
 class UNet(NIPModel):
     """

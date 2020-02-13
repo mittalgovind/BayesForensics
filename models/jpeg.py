@@ -181,7 +181,7 @@ class JPEG(TFModel):
         self.loss =  tf.keras.losses.MeanSquaredError()
 
     def reset_performance_stats(self):
-        self.performance = {k: {'training': [], 'validation': []} for k in ['entropy', 'ssim', 'psnr']}
+        self._reset_performance(['entropy', 'ssim', 'psnr'])
 
     def process(self, batch_x, quality=None, return_entropy=False):
         """ Compress a batch of images (NHW3:rgb) with a given quality factor:
@@ -224,7 +224,7 @@ class JPEG(TFModel):
                 self._model._q_mtx_luma, self._model._q_mtx_chroma = old_q_luma, old_q_chroma
 
             if return_entropy:
-                entropy = tf_helpers.entropy(X.numpy(), self._model.quantization.codebook)[0]
+                entropy = tf_helpers.entropy(X, self._model.quantization.codebook)[0]
 
             return y, entropy if return_entropy else y
 

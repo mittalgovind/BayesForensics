@@ -6,6 +6,26 @@ import types
 
 from helpers import utils
 
+def item_passes(check):
+    def wrapper(items):
+        for i in items:
+            if not check(i):
+                return False
+        return True
+    return wrapper
+
+
+def numbers_in_range(dtype, min_value=None, max_value=None):
+    def wrapper(items):
+        for i in items:
+            if not isinstance(i, dtype):
+                return False
+            if min_value is not None and i < min_value:
+                return False
+            if max_value is not None and i > max_value:
+                return False
+        return True
+    return wrapper
 
 class ParamSpec(object):
 
@@ -81,7 +101,7 @@ class ParamSpec(object):
             return None
     
     def __repr__(self):
-        return 'ParamSpec()'
+        return '{}({})'.format(type(self).__name__, self.to_dict())
 
     def to_dict(self):
         params = {key: spec[0] for key, spec in self._specs.items()}

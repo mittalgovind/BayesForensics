@@ -33,10 +33,12 @@ class TFModel(object):
         self._model = None
         self.reset_performance_stats()        
 
+    @staticmethod
+    def _reset_performance(metrics):
+        return {k: {'training': [], 'validation': []} for k in metrics}
+
     def reset_performance_stats(self):
-        self.performance = {
-            'loss': {'training': [], 'validation': []},
-        }
+        self.performance = self._reset_performance(['loss'])
 
     @property
     def parameters(self):

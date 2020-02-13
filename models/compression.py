@@ -82,7 +82,7 @@ class DCN(TFModel):
         raise NotImplementedError('Not implemented!')
 
     def reset_performance_stats(self):
-        self.performance = {k: {'training': [], 'validation': []} for k in ['loss', 'entropy', 'ssim', 'psnr']}
+        self._reset_performance(['loss', 'entropy', 'ssim', 'psnr'])
 
     # def get_tf_histogram(self, batch_x, is_training=None):
     #     with self.graph.as_default():
@@ -103,9 +103,13 @@ class DCN(TFModel):
         """ Decompress a batch of images from their quantized latent representations. """
         return self._decoder(np.expand_dims(batch_z, axis=0) if batch_z.ndim == 3 else batch_z)
             
-    def process(self, batch_x):
+    def process(self, batch_x, return_entropy=False):
         """ Process a batch of images (NHW3:rgb) through the entire model (encoder-quantization-decoder). """
-        return self._model(batch_x)[0]
+        batch_y, entropy = self._model(batch_x)
+        if return_entropy:
+            return batch_y, entropy
+        else:
+            return batch_y
 
     def training_step(self, batch_x, learning_rate=None):
         """ Make a single training step and return the current loss. """
