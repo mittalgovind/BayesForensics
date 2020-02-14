@@ -373,3 +373,19 @@ def dct_mask(size=128, band=0.1, sigma=1):
     m[0, 0] = 0
     m = m / m.sum()
     return m
+
+def binary_hist_accuracy(matching, missing, cc=None, return_index=False):
+    """ Estimate binary detection accuracy from response distributions for matching and missing samples. """
+    if isinstance(cc, int):
+        cc_range = np.ceil(np.max(np.abs(matching)) * 50) / 50
+        cc = np.linspace(-cc_range, cc_range, cc)
+
+    accuracies = []
+    for thresh in cc:
+        accuracies.append(0.5 * (np.mean(matching >= thresh) + np.mean(missing < thresh)))
+    
+    if return_index:
+        return max(accuracies), np.argmax(accuracies)
+    else:
+        return max(accuracies), cc[np.argmax(accuracies)]
+

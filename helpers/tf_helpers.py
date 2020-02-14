@@ -166,7 +166,7 @@ def _strip_consts(graph_def, max_const_size=32):
 
 def show_model(model, show_shapes=True, expand_nested=False):
     """ Generate a static diagram of a tf.keras.Model. """
-    return tf.keras.utils.plot_model(model, show_shapes=show_shapes, expand_nested=expand_nested, dpi=50)
+    return tf.keras.utils.plot_model(model, show_shapes=show_shapes, expand_nested=expand_nested, dpi=72)
 
 
 def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungroup_gradients=False):

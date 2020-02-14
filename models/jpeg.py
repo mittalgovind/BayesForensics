@@ -225,34 +225,39 @@ class JPEG(TFModel):
 
             if return_entropy:
                 entropy = tf_helpers.entropy(X, self._model.quantization.codebook)[0]
+                return y, entropy
 
-            return y, entropy if return_entropy else y
+            return y
 
     def __repr__(self):
         return 'JPEG(quality={},codec="{}",trainable={})'.format(self.quality, self.codec, self._model.trainable)
 
-    def summary(self):
+    def summary(self, quality=None):
         return 'JPEG codec ({}) w. {}'.format(
             self.codec,
             self._quality_mode(),
             )
 
+    def summary_compact(self, quality=None):
+        return 'JPEG {}'.format(self._quality_mode(quality))
+
     def estimate_qf(self, channel=0):
         """ Estimate current JPEG quality factor (smallest difference wrt IJG tables) using luma (channel=0) or chroma (1) tables. """
         return jpeg_qf_estimation(self._model._q_mtx_luma, channel)
 
-    def _quality_mode(self):
+    def _quality_mode(self, quality=None):
         """ Human-readable assessment of the current JPEG quality settings. """
+        quality = quality or self.quality
         if self._model.trainable:
             return 'trainable QF~{}/{}'.format(
                 jpeg_qf_estimation(self._model._q_mtx_luma, 0),
                 jpeg_qf_estimation(self._model._q_mtx_chroma, 1)
                 )
-        elif is_number(self.quality):
-            return 'QF={}'.format(self.quality)
-        elif hasattr(self.quality, '__getitem__') and len(self.quality) == 2:
-            return 'QF <- [{}, {}]'.format(*self.quality)
-        elif hasattr(self.quality, '__getitem__') and len(self.quality) > 2:
-            return 'QF <- {{{}}}'.format(','.join(str(x) for x in self.quality))
+        elif is_number(quality):
+            return 'QF={}'.format(quality)
+        elif hasattr(quality, '__getitem__') and len(quality) == 2:
+            return 'QF~[{},{}]'.format(*quality)
+        elif hasattr(quality, '__getitem__') and len(quality) > 2:
+            return 'QF~{{{}}}'.format(','.join(str(x) for x in quality))
         else:
-            return 'unknown QF'
+            return 'QF=?'
