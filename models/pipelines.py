@@ -7,6 +7,7 @@ import tensorflow as tf
 from collections import OrderedDict
 
 from models.tfmodel import TFModel
+from models import layers
 from helpers import tf_helpers, paramspec
 from helpers.utils import upsampling_kernel, bilin_kernel, gamma_kernels
 
@@ -315,3 +316,125 @@ class ONet(NIPModel):
         self.x = tf.keras.Input(dtype=tf.float32, shape=(None, None, 3))
         self.y = tf.identity(self.x)
         self._model = tf.keras.Model(inputs=self.x, outputs=self.y)
+
+
+class TensorISP():
+    """ Toy ISP implemented in Tensorflow."""
+
+    def process(self, x, srgb_mat=None, cfa_pattern='gbrg', brightness='percentile'):
+
+        kernel = 5
+
+        # Initialize upsampling and demosaicing kernels
+        upk = upsampling_kernel(cfa_pattern).reshape((1, 1, 4, 12))
+        dmf = bilin_kernel(kernel)
+
+        # Setup sRGB color conversion
+        if srgb_mat is None:
+            srgb_mat = np.eye(3)
+        srgb_mat = srgb_mat.T.reshape((1, 1, 3, 3))
+
+        # Demosaicing & color space conversion
+        pad = (kernel - 1) // 2
+        h12 = tf.nn.conv2d(x, upk, [1, 1, 1, 1], 'SAME')
+        bayer = tf.nn.depth_to_space(h12, 2)
+        bayer = tf.pad(bayer, tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]]), 'REFLECT')
+        rgb = tf.nn.conv2d(bayer, dmf, [1, 1, 1, 1], 'VALID')
+        
+        # RGB -> sRGB
+        rgb = tf.nn.conv2d(rgb, srgb_mat, [1, 1, 1, 1], 'SAME')
+
+        # Brightness correction
+        if brightness is not None:
+            if brightness == 'percentile':
+                percentile = 0.5
+                rgb -= np.percentile(rgb, percentile)
+                rgb /= np.percentile(rgb, 100 - percentile)
+            elif brightness == 'shift':
+                mult = 0.25 / tf.reduce_mean(rgb)
+                rgb *= mult
+            else:
+                raise ValueError('Brightness normalization not recognized!')
+
+        # Gamma correction
+        y = rgb
+        y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
+        y = tf.pow(y, 1/2.2)
+    
+        return y
+
+
+class _ClassicISP(tf.keras.Model):
+
+    def __init__(self, srgb_mat=None, kernel=5, c_filters=(3,), cfa_pattern='gbrg', brightness=None, **kwargs):
+        super().__init__()
+        
+        up = upsampling_kernel(cfa_pattern).reshape((1, 1, 4, 12)).astype(np.float32)
+        self._upsampling_kernel = tf.convert_to_tensor(up)
+
+        if srgb_mat is None:
+            srgb_mat = np.eye(3, dtype=np.float32)
+
+        self._srgb_mat = tf.convert_to_tensor(srgb_mat.T.reshape((1, 1, 3, 3)))
+        self._demosaicing = layers.DemosaicingLayer(c_filters, kernel, 'leaky_relu', True)
+        self._brightness = brightness
+
+    def call(self, inputs):
+        h12 = tf.nn.conv2d(inputs, self._upsampling_kernel, [1, 1, 1, 1], 'SAME')
+        bayer = tf.nn.depth_to_space(h12, 2)
+
+        rgb = self._demosaicing(bayer)
+        rgb = tf.nn.conv2d(rgb, self._srgb_mat, [1, 1, 1, 1], 'SAME')
+
+        # Brightness correction
+        if self._brightness == 'percentile':
+            percentile = 0.5
+            rgb -= np.percentile(rgb, percentile)
+            rgb /= np.percentile(rgb, 100 - percentile)
+        elif self._brightness == 'shift':
+            mult = 0.25 / tf.reduce_mean(rgb)
+            rgb *= mult
+            
+        # Gamma correction
+        y = rgb
+        y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
+        return tf.pow(y, 1/2.2)
+
+
+class ClassicISP(NIPModel):
+    """
+    A tensorflow implementation of a simple camera ISP model. 
+    """
+
+    def construct_model(self, srgb_mat=None, kernel=5, c_filters=(), cfa_pattern='gbrg', brightness=None):
+        
+        self._h = paramspec.ParamSpec({
+            'kernel': (5, int, (3, 11)),
+            'c_filters': ((), tuple, paramspec.numbers_in_range(int, 1, 1024)),
+            'cfa_pattern': ('gbrg', str, {'gbrg', 'rggb', 'bggr'})
+        })
+        params = locals()
+        self._h.update(**{k: params[k] for k in self._h.keys() if k in params})
+        self._model = _ClassicISP(**self._h.to_dict())
+        self.y = None
+
+    def set_cfa_pattern(self, cfa_pattern):
+        if cfa_pattern is not None:
+            up = upsampling_kernel(cfa_pattern).reshape((1, 1, 4, 12)).astype(np.float32)
+            self._model._upsampling_kernel = tf.convert_to_tensor(up)
+
+    def set_srgb_conversion(self, srgb_mat):
+        if srgb_mat is not None:
+            srgb = srgb_mat.T.reshape((1, 1, 3, 3)).astype(np.float32)
+            self._model._srgb_mat = tf.convert_to_tensor(srgb)
+
+    def process(self, batch_x, cfa_pattern=None, srgb_mat=None):
+        """
+        Develop RAW input and return RGB image.
+        """
+        if batch_x.ndim == 3:
+            batch_x = np.expand_dims(batch_x, 0)
+
+        self.set_cfa_pattern(cfa_pattern)
+        self.set_srgb_conversion(srgb_mat)
+        return self._model(batch_x)

@@ -194,3 +194,47 @@ class DiscreteLatent(tf.keras.layers.Layer):
 
         return latent, entropy_
 
+
+class DemosaicingLayer(tf.keras.layers.Layer):
+        
+    def __init__(self, c_filters, kernel, activation, residual, **kwargs):
+        """
+        :param c_filters: a tuple with the numbers of filters for initial conv layers
+        :param io_filters: the number of filters in the final 1x1 convolution
+        :param kernel: kernel size for the initial convolutions
+        :param activation: activation function (string, see tf_helpers.activation_mapping)
+        """
+        super().__init__(**kwargs)
+        activation = tf_helpers.activation_mapping[activation]
+        if residual:
+            self._bilinear_kernel = utils.bilin_kernel(kernel)
+            self._pad = (kernel - 1) // 2
+            self._bilinear = tf.keras.layers.Conv2D(3, kernel, kernel_initializer=tf.constant_initializer(self._bilinear_kernel), use_bias=False, activation=None, padding='VALID', trainable=False)
+        else:
+            self._bilinear = None        
+        self._layers = []
+
+        # Setup conv layers
+        for n_filters in c_filters:
+            self._layers.append(tf.keras.layers.Conv2D(n_filters, kernel, 1, 'same', activation=activation))
+
+        # Final 1x1 conv to project all features to the RGB color space
+        self._layers.append(tf.keras.layers.Conv2D(3, 1, 1, 'same'))
+        
+    def call(self, inputs):
+        if self._bilinear is None:
+            f = inputs
+            for l in self._layers:
+                f = l(f)
+            return f
+        else:
+            bayer = tf.pad(inputs, tf.constant([[0, 0], [self._pad, self._pad], [self._pad, self._pad], [0, 0]]), 'REFLECT')
+            x = self._bilinear(bayer)
+            if len(self._layers) > 1:
+                f = inputs
+                for l in self._layers:
+                    f = l(f)
+            else:
+                f = 0
+            return x - f
+

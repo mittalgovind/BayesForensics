@@ -150,10 +150,9 @@ def upsampling_kernel(cfa_pattern='gbrg'):
     """
     Possible initializations of up-sampling kernels for matching the 12-feature-layer format needed by depth-to-space.
     (Ideally, this should match the CFA pattern of the camera).
-    :param cfa_pattern: 'GBRG'
+    :param cfa_pattern: CFA pattern, e.g., 'GBRG'
     """
 
-    # TODO Implement other CFA patterns
     if cfa_pattern.upper() == 'GBRG':
         #                R  G  B  R  G  B  R  G  B  R  G  B
         #                1  1  1  2  2  2  3  3  3  4  4  4
@@ -162,6 +161,22 @@ def upsampling_kernel(cfa_pattern='gbrg'):
                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
                         [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
                        ])
+    elif cfa_pattern.upper() == 'RGGB':
+        #                R  G  B  R  G  B  R  G  B  R  G  B
+        #                1  1  1  2  2  2  3  3  3  4  4  4
+        upk = np.array([[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],                 
+                        [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+                       ])                       
+    elif cfa_pattern.upper() == 'BGGR':
+        #                R  G  B  R  G  B  R  G  B  R  G  B
+        #                1  1  1  2  2  2  3  3  3  4  4  4
+        upk = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],                 
+                        [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                        [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                       ])                       
     else:
         raise ValueError('Unsupported CFA pattern: {}'.format(cfa_pattern))
         
