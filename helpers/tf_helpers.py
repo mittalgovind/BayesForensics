@@ -22,11 +22,11 @@ def mae(a, b):
 
 @tf.function
 def ssim_loss(a, b):
-    return 255 * (1 - tf.image.ssim(a, b, 1.0))
+    return tf.reduce_mean(255 * (1 - tf.image.ssim(a, b, 1.0)))
 
 @tf.function
 def msssim_loss(a, b):
-    return 255 * (1 - tf.image.ssim_multiscale(a, b, 1.0))
+    return tf.reduce_mean(255 * (1 - tf.image.ssim_multiscale(a, b, 1.0)))
 
 def corr(a, b):
     a = (a - tf.reduce_mean(a, axis=[1, 2, 3], keepdims=True)) / (tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True))

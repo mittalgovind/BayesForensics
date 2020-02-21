@@ -74,6 +74,10 @@ class NIPModel(TFModel):
 
         if learning_rate is not None: self.optimizer.lr.assign(learning_rate)
         grads = tape.gradient(loss, self._model.trainable_weights)
+
+        if any(np.sum(np.isnan(x)) > 0 for x in grads):
+            raise RuntimeError('∇ NaNs: {}'.format({p.name: np.mean(np.isnan(x)) for x, p in zip(grads, self._model.trainable_weights)}))
+
         self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
         return loss.numpy()
         
@@ -319,7 +323,11 @@ class ONet(NIPModel):
 
 
 class TensorISP():
-    """ Toy ISP implemented in Tensorflow."""
+    """ 
+    Toy ISP implemented in Tensorflow. This class is intended for debugging and testing - for
+    use in most situations, please use a more flexible 'ClassicISP' which integrates with 
+    the rest of the framework.
+    """
 
     def process(self, x, srgb_mat=None, cfa_pattern='gbrg', brightness='percentile'):
 
@@ -365,8 +373,11 @@ class TensorISP():
 
 
 class _ClassicISP(tf.keras.Model):
+    """
+    A flexible version of a classic camera ISP.
+    """
 
-    def __init__(self, srgb_mat=None, kernel=5, c_filters=(3,), cfa_pattern='gbrg', brightness=None, **kwargs):
+    def __init__(self, srgb_mat=None, kernel=5, c_filters=(3,), cfa_pattern='gbrg', residual=False, brightness=None, **kwargs):
         super().__init__()
         
         up = upsampling_kernel(cfa_pattern).reshape((1, 1, 4, 12)).astype(np.float32)
@@ -376,7 +387,7 @@ class _ClassicISP(tf.keras.Model):
             srgb_mat = np.eye(3, dtype=np.float32)
 
         self._srgb_mat = tf.convert_to_tensor(srgb_mat.T.reshape((1, 1, 3, 3)))
-        self._demosaicing = layers.DemosaicingLayer(c_filters, kernel, 'leaky_relu', True)
+        self._demosaicing = layers.DemosaicingLayer(c_filters, kernel, 'leaky_relu', residual)
         self._brightness = brightness
 
     def call(self, inputs):
@@ -397,21 +408,31 @@ class _ClassicISP(tf.keras.Model):
             
         # Gamma correction
         y = rgb
-        y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
-        return tf.pow(y, 1/2.2)
+        y = tf.stop_gradient(tf.clip_by_value(y, 1.0/255, 1) - y) + y
+        y = tf.pow(y, 1/2.2)
+        return y
 
 
 class ClassicISP(NIPModel):
     """
-    A tensorflow implementation of a simple camera ISP model. 
+    A tensorflow implementation of a simple camera ISP. The model expects RAW Bayer stacks
+    with 4 channels (RGGB) as input, and replicates steps of a simple pipeline:
+        - upsample half-resolution RGGB stacks to full-resolution RGB Bayer images
+        - demosaicing (simple CNN model)
+        - RGB -> sRGB color conversion (based on conversion tables from the camera)
+        - [optional brightness normalization]
+        - gamma correction
+
+    See also: helpers.raw_api.unpack
     """
 
-    def construct_model(self, srgb_mat=None, kernel=5, c_filters=(), cfa_pattern='gbrg', brightness=None):
+    def construct_model(self, srgb_mat=None, kernel=5, c_filters=(), cfa_pattern='gbrg', residual=True, brightness=None):
         
         self._h = paramspec.ParamSpec({
             'kernel': (5, int, (3, 11)),
             'c_filters': ((), tuple, paramspec.numbers_in_range(int, 1, 1024)),
-            'cfa_pattern': ('gbrg', str, {'gbrg', 'rggb', 'bggr'})
+            'cfa_pattern': ('gbrg', str, {'gbrg', 'rggb', 'bggr'}),
+            'residual': (True, bool, None)
         })
         params = locals()
         self._h.update(**{k: params[k] for k in self._h.keys() if k in params})
@@ -420,8 +441,10 @@ class ClassicISP(NIPModel):
 
     def set_cfa_pattern(self, cfa_pattern):
         if cfa_pattern is not None:
+            cfa_pattern = cfa_pattern.lower()
             up = upsampling_kernel(cfa_pattern).reshape((1, 1, 4, 12)).astype(np.float32)
             self._model._upsampling_kernel = tf.convert_to_tensor(up)
+            self._h.update(cfa_pattern=cfa_pattern)
 
     def set_srgb_conversion(self, srgb_mat):
         if srgb_mat is not None:
@@ -429,12 +452,13 @@ class ClassicISP(NIPModel):
             self._model._srgb_mat = tf.convert_to_tensor(srgb)
 
     def process(self, batch_x, cfa_pattern=None, srgb_mat=None):
-        """
-        Develop RAW input and return RGB image.
-        """
         if batch_x.ndim == 3:
             batch_x = np.expand_dims(batch_x, 0)
 
         self.set_cfa_pattern(cfa_pattern)
         self.set_srgb_conversion(srgb_mat)
         return self._model(batch_x)
+
+    @property
+    def model_code(self):
+        return 'ClassicISP_{cfa}_{k}x{k}_{fs}-{of}{r}'.format(fs='-'.join(['{:d}'.format(x) for x in self._h.c_filters]), of=3, k=self._h.kernel, cfa=self._h.cfa_pattern, r='R' if self._h.residual else '')

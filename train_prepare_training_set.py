@@ -69,7 +69,7 @@ def prepare_training_set(camera, target_pipeline, dev_settings, n_images=150, ro
 
         try:
             if not os.path.exists(out_npy):
-                image_bayer = raw_api.stacked_bayer(os.path.join(raw_directory, nef_file), use_wb=True)
+                image_bayer = raw_api.unpack(os.path.join(raw_directory, nef_file))[0]
                 image_bayer = ((2**16 - 1) * image_bayer).astype(np.uint16)
                 np.save(out_npy, image_bayer)
 
