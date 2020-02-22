@@ -59,7 +59,7 @@ class DCN(TFModel):
         self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, 3))
 
         # Prepare the quantization layer        
-        self.discrete_latent = DiscreteLatent(self._h.rounding, self._h.latent_bpf)
+        self.discrete_latent = DiscreteLatent(self._h.rounding, latent_bpf=self._h.latent_bpf)
 
         # Construct the neural network model
         self.construct_model(**kwargs)

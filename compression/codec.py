@@ -122,7 +122,7 @@ def compress(batch_x, model, verbose=False):
     image_stream = io.BytesIO()
 
     # Get latent space representation
-    batch_z = model.compress(batch_x)
+    batch_z = model.compress(batch_x).numpy()
     latent_shape = np.array(batch_z.shape[1:], dtype=np.uint8)
 
     # Write latent space shape to the bytestream
@@ -236,11 +236,11 @@ def decompress(stream, model=None, verbose=False):
 
     # Get the correct DCN model
     if model is None:
-        model = compression.DCN('{}c'.format(n_latent))
+        model = restore_model('{}c'.format(n_latent))
 
-    if model.n_latent != n_latent:
+    if model.latent_shape[-1] != n_latent:
         print('[l3ic decoder]', 'WARNING', 'the specified model ({}c) does not match the coded stream ({}c) - switching'.format(model.n_latent, n_latent))
-        model = compression.DCN('{}c'.format(n_latent))
+        model = restore_model('{}c'.format(n_latent))
 
     code_book = model.get_codebook()
     
@@ -274,12 +274,12 @@ def decompress(stream, model=None, verbose=False):
         print('[l3ic decoder]', 'Layer {} hist:'.format(n), layer_stats)
 
     # Use the DCN decoder to decompress the RGB image
-    return model.decompress(batch_z)
+    return model.decompress(batch_z).numpy()
 
 
 def global_compress(dcn, batch_x):
     # Naive FSE compression of the entire latent repr.
-    batch_z = dcn.compress(batch_x)
+    batch_z = dcn.compress(batch_x).numpy()
     indices, distortion = vq(batch_z.reshape((-1)), dcn.get_codebook())
     return pyfse.compress(bytes(indices.astype(np.uint8)))
 

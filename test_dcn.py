@@ -8,9 +8,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import numpy as np
 import matplotlib.pyplot as plt
-from skimage.measure import compare_ssim
 
-from helpers import plotting, dataset, coreutils, loading, utils
+from helpers import plotting, dataset, coreutils, loading, utils, metrics
 from compression import jpeg_helpers, codec, ratedistortion
 
 supported_plots = ['batch', 'jpeg-match-ssim', 'jpeg-match-bpp', 'jpg-trade-off', 'jp2-trade-off', 'dcn-trade-off', 'bpg-trade-off']
@@ -21,7 +20,7 @@ def match_jpeg(model, batch_x, axes=None, match='ssim'):
     # Compress using DCN and get number of bytes
     batch_y, bytes_dcn = codec.simulate_compression(batch_x, model)
 
-    ssim_dcn = compare_ssim(batch_x.squeeze(), batch_y.squeeze(), multichannel=True, data_range=1)
+    ssim_dcn = metrics.ssim(batch_x.squeeze(), batch_y.squeeze()).mean()
     bpp_dcn = 8 * bytes_dcn / np.prod(batch_x.shape[1:-1])
     target = ssim_dcn if match == 'ssim' else bpp_dcn
 
@@ -36,12 +35,12 @@ def match_jpeg(model, batch_x, axes=None, match='ssim'):
 
     # Compress using JPEG
     batch_j, bytes_jpeg = jpeg_helpers.compress_batch(batch_x[0], jpeg_quality, effective=True)
-    ssim_jpeg = compare_ssim(batch_x.squeeze(), batch_j.squeeze(), multichannel=True, data_range=1)
+    ssim_jpeg = metrics.ssim(batch_x.squeeze(), batch_j.squeeze()).mean()
     bpp_jpg = 8 * bytes_jpeg / np.prod(batch_x.shape[1:-1])
 
     # Get stats
     code_book = model.get_codebook()
-    batch_z = model.compress(batch_x)
+    batch_z = model.compress(batch_x).numpy()
     counts = utils.qhist(batch_z, code_book)
     counts = counts.clip(min=1)
     probs = counts / counts.sum()
@@ -90,8 +89,8 @@ def match_jpeg(model, batch_x, axes=None, match='ssim'):
 def show_example(model, batch_x):
 
     # Compress and decompress model
-    batch_z = model.compress(batch_x)
-    batch_y = model.decompress(batch_z)
+    batch_z = model.compress(batch_x).numpy()
+    batch_y = model.decompress(batch_z).numpy()
 
     # Get empirical histogram of the latent representation
     codebook = model.get_codebook()
@@ -108,7 +107,10 @@ def show_example(model, batch_x):
     hist_emp = hist_emp / hist_emp.sum()
 
     # Get TF histogram estimate based on soft quantization
-    hist = model.get_tf_histogram(batch_x)
+    hist = utils.qhist(batch_z, codebook)
+    hist = hist / hist.sum()
+
+    print(len(codebook), codebook)
 
     # Entropy
     entropy = - np.sum(hist * np.log2(hist))
@@ -129,7 +131,7 @@ def show_example(model, batch_x):
     thumbs_pairs_few = np.concatenate((batch_x[indices], batch_y[indices]), axis=0)
     thumbs_few = (255 * plotting.thumbnails(thumbs_pairs_few, n_cols=len(batch_x))).astype(np.uint8)
 
-    ssim_values = [compare_ssim(batch_x[i], batch_y[i], multichannel=True) for i in range(len(batch_x))]
+    ssim_values = [metrics.ssim(batch_x[i], batch_y[i]).mean() for i in range(len(batch_x))]
 
     plotting.quickshow(thumbs_few, 'Sample reconstructions, ssim={:.3f}'.format(np.mean(ssim_values)), axes=axes[1])
 
