@@ -110,8 +110,6 @@ def show_example(model, batch_x):
     hist = utils.qhist(batch_z, codebook)
     hist = hist / hist.sum()
 
-    print(len(codebook), codebook)
-
     # Entropy
     entropy = - np.sum(hist * np.log2(hist))
     entropy_emp = - np.sum(hist_emp * np.log2(hist_emp))
