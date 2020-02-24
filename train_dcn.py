@@ -158,7 +158,6 @@ def main():
     for counter, (index, params) in enumerate(parameters.drop(columns=['scenario', 'label']).iterrows()):
 
         print('## Scenario {} - {} / {}'.format(index, counter + 1, len(parameters)))
-        # Create TF session and graph
 
         # Create a DCN according to the spec
         dcn_params = {k: v for k, v in params.to_dict().items() if not utils.is_nan(v)}
@@ -191,6 +190,7 @@ def main():
 
     if args.fill is not None:
         if args.fill == '-':
+            print('\n# Training Results')
             print(parameters.to_string())
         elif args.fill.endswith('.csv'):
             print('Saving the results to {}'.format(args.fill))
@@ -199,7 +199,7 @@ def main():
             raise ValueError('Invalid value for the output results file: {}'.format(args.fill))
 
     if args.dry:
-        print('List of instantiated models [{}]:'.format(len(model_log)))
+        print('\n# List of instantiated models [{}]:'.format(len(model_log)))
         for index, key in enumerate(sorted(model_log.keys())):
             print('{}  {:3d}. {} -> {}'.format(' ' if len(model_log[key]) == 1 else '!', index, key, model_log[key]))
 

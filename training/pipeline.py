@@ -12,7 +12,7 @@ from helpers import metrics
 
 
 # Set progress bar width
-TQDM_WIDTH = 120
+TQDM_WIDTH = 140
 
 # Disable unimportant logging and import TF
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -146,7 +146,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
         raise ValueError('Data set error: {}'.format(e))
 
     # Set up training output
-    out_directory = os.path.join(out_directory_root, camera_name, model.scoped_name)
+    out_directory = os.path.join(out_directory_root, camera_name, model.model_code, model.scoped_name)
 
     if os.path.exists(out_directory) and not resume:
         print('WARNING directory {} exists, skipping...'.format(out_directory))
@@ -163,7 +163,6 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
     if not resume:
         losses_buf = deque(maxlen=10)
         loss_local = deque(maxlen=n_batches)
-        model.init()
         start_epoch = 0
     else:
         # Find training summary
@@ -207,7 +206,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
         print('{:30s}: {}'.format(k, v))
     print('', flush=True)
 
-    with tqdm(total=n_epochs, ncols=TQDM_WIDTH, desc='Train {} for {}'.format(type(model).__name__, camera_name)) as pbar:
+    with tqdm(total=n_epochs, ncols=TQDM_WIDTH, desc='{} for {}'.format(model.model_code, camera_name)) as pbar:
         pbar.update(start_epoch)
 
         for epoch in range(start_epoch, n_epochs):

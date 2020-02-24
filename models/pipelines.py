@@ -107,24 +107,24 @@ class NIPModel(TFModel):
     @property
     def _input_description(self):
         if self.patch_size_raw is None:
-            return '(rgb)' if self.x.shape[-1] == 3 else '(raw)'
+            return '(rgb)' if hasattr(self.x, 'shape') and self.x.shape[-1] == 3 else '(raw)'
         else:
             return 'x'.join(str(x) for x in self.x.shape[1:])
 
     @property
     def _output_description(self):
         if self.patch_size_rgb is None:
-            return '(rgb)' if self.y.shape[-1] == 3 else '(?)'
+            return '(rgb)' if hasattr(self.y, 'shape') and self.y.shape[-1] == 3 else '(?)'
         else:
             return 'x'.join(str(x) for x in self.y.shape[1:])
 
     @property
     def patch_size_raw(self):
-        return self.x.shape[1:]
+        return self.x.shape[1:] if hasattr(self.y, 'shape') else None
 
     @property
     def patch_size_rgb(self):
-        return self.y.shape[1:]
+        return self.y.shape[1:] if hasattr(self.y, 'shape') else None
 
     def summary(self):
         return '{:s} : {} -> {}'.format(super().summary(), self._input_description, self._output_description)
@@ -198,6 +198,10 @@ class UNet(NIPModel):
         # Construct the Keras model
         self._model = tf.keras.Model(inputs=[self.x], outputs=[self.y], name='unet')
 
+    @property
+    def model_code(self):
+        return '{}_{}'.format(self.class_name, self._h.n_steps)
+
 class INet(NIPModel):
     """
     A neural pipeline which replicates the steps of a standard imaging pipeline.
@@ -257,6 +261,11 @@ class INet(NIPModel):
         self.y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
         self._model = tf.keras.Model(inputs=[self.x], outputs=[self.y])
 
+    @property
+    def model_code(self):
+        return '{c}_{cfa}{tu}{r}_{k}x{k}'.format(c=self.class_name, cfa=self._h.cfa_pattern, k=self._h.kernel, 
+            tu='T' if self._h.trainable_upsampling else '', r='R' if self._h.random_init else '')
+
 
 class DNet(NIPModel):
     """
@@ -306,6 +315,11 @@ class DNet(NIPModel):
         # self.y = tf.clip_by_value(self.yy, 0, 1, name='{}/y'.format(self.scoped_name))
         self.y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
         self._model = tf.keras.Model(inputs=[self.x], outputs=[self.y])
+
+    @property
+    def model_code(self):
+        return '{c}_{k}x{k}_{l}x{f}f'.format(c=self.class_name, k=self._h.kernel, 
+            f=self._h.n_features, l=self._h.n_layers)
 
 
 supported_models = [name for name, obj in inspect.getmembers(sys.modules[__name__]) if type(obj) is type and issubclass(obj, NIPModel) and name != 'NIPModel']

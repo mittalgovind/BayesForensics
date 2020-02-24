@@ -77,6 +77,7 @@ class DCN(TFModel):
                     
         # Optimization
         self.optimizer = tf.keras.optimizers.Adam()
+        self.reset_performance_stats()
 
     def construct_model(self, params):
         raise NotImplementedError('Not implemented!')
