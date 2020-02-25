@@ -244,7 +244,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
                 model.save_model(out_directory, epoch)
 
                 # Check for convergence
-                if len(model.performance['loss']['validation']) > 10:
+                if validation_loss_threshold is not None and len(model.performance['loss']['validation']) > 10:
                     current = np.mean(model.performance['loss']['validation'][-n_tail:-1])
                     previous = np.mean(model.performance['loss']['validation'][-(n_tail + 1):-2])
                     vloss_change = abs((current - previous) / previous)

@@ -101,6 +101,12 @@ def main():
         print('WARNING', 'JSON parsing error for: ', args.hyperparams_args.replace('\'', '"'))
         sys.exit(2)
 
+    if args.epochs < 0:
+        convergence_threshold = 1e-4
+        args.epochs = abs(args.epochs)
+    else:
+        convergence_threshold = None
+
     print('# Camera ISP Training')
     print('Camera          : {}'.format(args.camera))
     print('NIPs            : {}'.format(args.nips))
@@ -109,6 +115,7 @@ def main():
     print('Input           : {}'.format(data_directory))
     print('Output          : {}'.format(out_directory_root))
     print('Resume          : {}'.format(args.resume))
+    print('Epochs          : {} {}'.format(args.epochs, '(convergence threshold {:.8f})'.format(convergence_threshold) if convergence_threshold is not None else '(fixed)'))
 
     print('\n# Hyper-parameter configurations [{} active configs]:\n'.format(len(parameters)))
     print(parameters)
@@ -185,9 +192,15 @@ def main():
             else:
                 model_log[model_code] = [index]
 
+            # Log the number of parameters, process a sample batch first to make sure the model is initialized
+            # (does not happen when using custom tf.keras.Model classes)
+            model.process(np.random.uniform(size=(1, 128, 128, 4)).astype(np.float32))
+            parameters.loc[index, 'params'] = model.count_parameters()
+
             # Run training
             if not args.dry:
-                out_dir = train_nip_model(model, args.camera, args.epochs, validation_loss_threshold=1e-4, patch_size=args.patch_size, resume=args.resume, data=data, out_directory_root=args.out_dir)
+                out_dir = train_nip_model(model, args.camera, args.epochs, validation_loss_threshold=convergence_threshold, 
+                    patch_size=args.patch_size, resume=args.resume, data=data, out_directory_root=args.out_dir)
 
                 # Fill results
                 if args.fill is not None:
