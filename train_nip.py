@@ -173,7 +173,7 @@ def main():
                                     getattr(pipelines, x), pipelines.NIPModel)]
                 raise ValueError('Invalid NIP model ({})! Available NIPs: ({})'.format(pipe, supported_nips))
 
-            model = getattr(pipelines, pipe)(loss_metric='L2', **params)
+            model = getattr(pipelines, pipe)(**params)
 
             if isinstance(model, pipelines.ClassicISP):
                 with open('config/cameras.json') as f:
