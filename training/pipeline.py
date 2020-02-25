@@ -12,7 +12,7 @@ from helpers import metrics
 
 
 # Set progress bar width
-TQDM_WIDTH = 140
+TQDM_WIDTH = 160
 
 # Disable unimportant logging and import TF
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -252,8 +252,20 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
                     if vloss_change < validation_loss_threshold:
                         print('Early stopping - the model converged, validation loss change {}'.format(vloss_change))
                         break
+                else:
+                    vloss_change = np.nan
 
-            pbar.set_postfix(loss=np.mean(losses_buf), psnr=model.performance['psnr']['validation'][-1], dmse=np.log10(model.performance['dmse']['validation'][-1]))
+            progress_dict = {
+                'loss': np.mean(losses_buf), 
+                'psnr': model.performance['psnr']['validation'][-1], 
+                'ssim': model.performance['ssim']['validation'][-1], 
+                'dmse': np.log10(model.performance['dmse']['validation'][-1]),
+            }
+
+            if not np.isnan(vloss_change):
+                progress_dict['dloss'] = vloss_change
+
+            pbar.set_postfix(**progress_dict)
             pbar.update(1)
 
     training_summary['Epoch'] = epoch
