@@ -150,7 +150,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
 
     if os.path.exists(out_directory) and not resume:
         print('WARNING directory {} exists, skipping...'.format(out_directory))
-        return
+        return out_directory
 
     # Limit the number of checkpoints to 5
     # model.saver.saver_def.max_to_keep = 5
@@ -212,7 +212,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
         for epoch in range(start_epoch, n_epochs):
 
             for batch_id in range(n_batches):
-                batch_x, batch_y = data.next_training_batch(batch_id, batch_size, patch_size, discard_flat=False)
+                batch_x, batch_y = data.next_training_batch(batch_id, batch_size, patch_size, discard_flat=True)
                 loss = model.training_step(batch_x, batch_y, learning_rate)
                 loss_local.append(loss)
 
