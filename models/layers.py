@@ -219,7 +219,7 @@ class DemosaicingLayer(tf.keras.layers.Layer):
             self._layers.append(tf.keras.layers.Conv2D(n_filters, kernel, 1, 'same', activation=activation))
 
         # Final 1x1 conv to project all features to the RGB color space
-        self._layers.append(tf.keras.layers.Conv2D(3, 1, 1, 'same'))
+        self._layers.append(tf.keras.layers.Conv2D(3, 1, 1, 'same', activation=tf.keras.activations.tanh))
         
     def call(self, inputs):
         if self._bilinear is None:
