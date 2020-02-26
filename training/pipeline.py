@@ -50,6 +50,8 @@ def validate(model, data, out_directory, savefig=False, epoch=0, show_ref=False,
             loss = metrics.mse(255 * reference, 255 * developed)
         elif loss_metric == 'L1':
             loss = metrics.mae(255 * reference, 255 * developed)
+        elif loss_metric == 'SSIM':
+            loss = 255 * (1 - metrics.ssim(reference, developed))
         else:
             raise ValueError('Unsupported loss ({})!'.format(loss_metric))
 
@@ -241,6 +243,8 @@ def train_nip_model(model, camera_name, n_epochs=10000, validation_loss_threshol
                 training_summary['Epoch'] = epoch
                 visualize_progress(model.class_name, model.performance, patch_size, camera_name, out_directory, False, sampling_rate)
                 save_progress(model, training_summary, out_directory)
+
+                # Save model only if it improves upon a previous one                
                 model.save_model(out_directory, epoch)
 
                 # Check for convergence
