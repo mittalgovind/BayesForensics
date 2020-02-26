@@ -202,17 +202,17 @@ def main():
                 out_dir = train_nip_model(model, args.camera, args.epochs, validation_loss_threshold=convergence_threshold, 
                     patch_size=args.patch_size, resume=args.resume, data=data, out_directory_root=args.out_dir)
 
-                # Fill results
-                if args.fill is not None:
-                    results_json = os.path.join(out_dir, 'progress.json')
+            # Fill results
+            if args.fill is not None:
+                results_json = os.path.join(out_dir, 'progress.json')
 
-                    if os.path.isfile(results_json):
+                if os.path.isfile(results_json):
 
-                        with open(results_json) as f:
-                            results = json.load(f)
+                    with open(results_json) as f:
+                        results = json.load(f)
 
-                        for key in ['ssim', 'psnr', 'loss']:
-                            parameters.loc[index, key] = results['performance'][key]['validation'][-1]
+                    for key in ['ssim', 'psnr', 'loss']:
+                        parameters.loc[index, key] = results['performance'][key]['validation'][-1]
 
     if args.fill is not None:
 
