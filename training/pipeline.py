@@ -22,7 +22,7 @@ def validate(model, data, out_directory, savefig=False, epoch=0, show_ref=False,
     
     ssims, psnrs, losss = [], [], []
 
-    if loss_metric not in ['L2', 'L1']:
+    if loss_metric not in ['L2', 'L1', 'SSIM', 'MS-SSIM']:
         raise ValueError('Unsupported loss ({})!'.format(loss_metric))
 
     if savefig:

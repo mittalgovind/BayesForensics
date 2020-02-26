@@ -77,13 +77,12 @@ class DCN(TFModel):
                     
         # Optimization
         self.optimizer = tf.keras.optimizers.Adam()
-        self.reset_performance_stats()
 
     def construct_model(self, params):
         raise NotImplementedError('Not implemented!')
 
     def reset_performance_stats(self):
-        self._reset_performance(['loss', 'entropy', 'ssim', 'psnr'])
+        self.performance = self._reset_performance(['loss', 'entropy', 'ssim', 'psnr'])
 
     # def get_tf_histogram(self, batch_x, is_training=None):
     #     with self.graph.as_default():

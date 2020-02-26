@@ -106,12 +106,13 @@ def save_progress(dcn, data, training, out_dir):
     output_stats = {
         'training_spec': training,
         'data': data.summary(),
-        'dcn': {
-            'model': type(dcn).__name__,
+        'codec': {
+            'model': dcn.class_name,
+            'init': repr(dcn),
             'args': dcn.get_hyperparameters(),
-            'codebook': dcn.get_codebook().tolist()
+            'codebook': dcn.get_codebook().tolist(),
+            'performance': dcn.performance,
         },
-        'performance': dcn.performance,
     }
 
     with open(filename, 'w') as f:
