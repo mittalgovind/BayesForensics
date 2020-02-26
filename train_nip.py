@@ -102,7 +102,7 @@ def main():
         sys.exit(2)
 
     if args.epochs < 0:
-        convergence_threshold = 1e-4
+        convergence_threshold = 1e-6
         args.epochs = abs(args.epochs)
     else:
         convergence_threshold = None
