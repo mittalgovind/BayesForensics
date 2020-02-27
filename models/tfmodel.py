@@ -9,28 +9,33 @@ from collections import OrderedDict
 
 def restore(dir_name, module, key=None, patch_size=None, restore_perf=False, fetch_stats=False):
     """
-    Utility function to restore a DCN model from a training directory. By default,
-    a standalone instance is created. Can also be used for chaining when sess,
-    graph, x, nip_input are provided.
+    Utility function to restore pre-trained models from a training directory. 
 
-    :param dir_name: directory with a trained model (with progress.json)
+    :param dir_name: directory with a trained model (*.json + checkpoint data)
+    :param module: Python module where classes should be looked up
+    :param key: JSON key which describes which model to look up in the training log
     :param patch_size: input patch size (scalar)
+    :param restore_perf: also loads training/validation metrics
     :param fetch_stats: return a tuple (model, training_stats)
-    :param sess: existing TF session of None
-    :param graph: existing TF graph or None
-    :param x: input to the model
-    :param nip_input: input to the NIP model (useful for chaining)
     """
     training_log_path = None
-
-    # if dir_name in dcn_presets:
-    #     dir_name = dcn_presets[dir_name]
 
     if dir_name is None:
         raise ValueError('dcn directory cannot be None')
 
     if not os.path.exists(dir_name):
-        raise ValueError('Directory {} does not exist!'.format(dir_name))
+        # If not explicit directory, check for presets
+        print('config/presets/{}.json'.format(module.__name__.split('.')[-1]))
+        if os.path.isfile('config/presets/{}.json'.format(module.__name__.split('.')[-1])):
+            with open('config/presets/{}.json'.format(module.__name__.split('.')[-1])) as f:
+                presets = json.load(f)
+            if dir_name in presets:
+                print('Found {} in presets: {}'.format(dir_name, presets[dir_name]))
+                dir_name = presets[dir_name]
+            else:
+                raise ValueError('Directory {} does not exist & key not found in presets (config/presets/*)!'.format(dir_name))
+        else:
+            raise ValueError('Directory {} does not exist (presets not available)!'.format(dir_name))
 
     for filename in Path(dir_name).glob('**/*.json'):
         training_log_path = str(filename)
@@ -62,9 +67,9 @@ def restore(dir_name, module, key=None, patch_size=None, restore_perf=False, fet
     if fetch_stats:
         stats = {}
         for k, v in model.performance.items():
-            if 'validation' in v and len(v['validation'] > 0):
+            if 'validation' in v and len(v['validation']) > 0:
                 stats[k] = np.round(v['validation'][-1], 3)
-            elif 'training' in v and len(v['training'] > 0):
+            elif 'training' in v and len(v['training']) > 0:
                 stats[k] = np.round(v['training'][-1], 3)
 
         return model, stats
