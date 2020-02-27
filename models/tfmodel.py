@@ -1,7 +1,75 @@
 import os
 import tensorflow as tf
 import numpy as np
+import json
+
+from pathlib import Path
 from collections import OrderedDict
+
+
+def restore(dir_name, module, key=None, patch_size=None, restore_perf=False, fetch_stats=False):
+    """
+    Utility function to restore a DCN model from a training directory. By default,
+    a standalone instance is created. Can also be used for chaining when sess,
+    graph, x, nip_input are provided.
+
+    :param dir_name: directory with a trained model (with progress.json)
+    :param patch_size: input patch size (scalar)
+    :param fetch_stats: return a tuple (model, training_stats)
+    :param sess: existing TF session of None
+    :param graph: existing TF graph or None
+    :param x: input to the model
+    :param nip_input: input to the NIP model (useful for chaining)
+    """
+    training_log_path = None
+
+    # if dir_name in dcn_presets:
+    #     dir_name = dcn_presets[dir_name]
+
+    if dir_name is None:
+        raise ValueError('dcn directory cannot be None')
+
+    if not os.path.exists(dir_name):
+        raise ValueError('Directory {} does not exist!'.format(dir_name))
+
+    for filename in Path(dir_name).glob('**/*.json'):
+        training_log_path = str(filename)
+
+    if training_log_path is None:
+        raise FileNotFoundError('Could not find a training log (JSON file) in {}'.format(dir_name))
+
+    with open(training_log_path) as f:
+        training_log = json.load(f)
+    
+    if key is not None:
+        training_log = training_log[key]
+
+    parameters = training_log['args']
+    parameters['patch_size'] = patch_size
+
+    # TODO JSON Does not allow to store tuples, so they are stored as string
+    for key, value in parameters.items():
+        if isinstance(value, str) and value[0] == '(' and value[-1] == ')':
+            parameters[key] = eval(value)
+
+    model = getattr(module, training_log['model'])(**parameters)
+    model.load_model(dir_name)
+    print('Restoring model: {} <- {}'.format(model.model_code, training_log_path))
+
+    if restore_perf:
+        model.performance = training_log['performance']
+
+    if fetch_stats:
+        stats = {}
+        for k, v in model.performance.items():
+            if 'validation' in v and len(v['validation'] > 0):
+                stats[k] = np.round(v['validation'][-1], 3)
+            elif 'training' in v and len(v['training'] > 0):
+                stats[k] = np.round(v['training'][-1], 3)
+
+        return model, stats
+    else:
+        return model
 
 
 class TFModel(object):
