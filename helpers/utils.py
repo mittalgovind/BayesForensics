@@ -105,6 +105,41 @@ def stack_bayer(image_rgb, cfa_pattern):
     return np.dstack([r, g1, g2, b])
 
 
+def simulate_bayer(image_rgb, cfa_pattern):
+    """
+    Simulate a Bayer image from full RGB image.
+    :param image_rgb: 3-D numpy array (h, w, 3:rgb) or 4-D image batch
+    :param cfa_pattern: 'GBRG', 'RGGB' or 'BGGR'
+    """
+    image_bayer = np.zeros_like(image_rgb)
+
+    if image_rgb.ndim == 3:
+        if cfa_pattern.upper() == 'GBRG':
+            image_bayer[1::2, 0::2, 0] = image_rgb[1::2, 0::2, 0]
+            image_bayer[0::2, 0::2, 1] = image_rgb[0::2, 0::2, 1]
+            image_bayer[1::2, 1::2, 1] = image_rgb[1::2, 1::2, 1]
+            image_bayer[0::2, 1::2, 2] = image_rgb[0::2, 1::2, 2]
+            
+        elif cfa_pattern.upper() == 'RGGB':
+            image_bayer[0::2, 0::2, 0] = image_rgb[0::2, 0::2, 0]
+            image_bayer[0::2, 1::2, 1] = image_rgb[0::2, 1::2, 1]
+            image_bayer[1::2, 0::2, 1] = image_rgb[1::2, 0::2, 1]
+            image_bayer[1::2, 1::2, 2] = image_rgb[1::2, 1::2, 2]
+            
+        elif cfa_pattern.upper() == 'BGGR':
+            image_bayer[1::2, 1::2, 0] = image_rgb[1::2, 1::2, 0]
+            image_bayer[0::2, 1::2, 1] = image_rgb[0::2, 1::2, 1]
+            image_bayer[1::2, 0::2, 1] = image_rgb[1::2, 0::2, 1]
+            image_bayer[0::2, 0::2, 1] = image_rgb[0::2, 0::2, 1]
+    elif image_rgb.ndim == 4:
+        for n in range(len(image_rgb)):
+            image_bayer[n] = simulate_bayer(image_rgb[n], cfa_pattern)
+    else:
+        raise ValueError('Unsupported array shape!')
+    
+    return image_bayer
+
+
 def merge_bayer(bayer_stack, cfa_pattern):
     """
     Merge a RGGB Bayer stack into a RGB image.

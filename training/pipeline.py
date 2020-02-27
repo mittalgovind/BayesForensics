@@ -80,44 +80,11 @@ def validate(model, data, out_directory, savefig=False, epoch=0, show_ref=False,
 
 
 # Show the training progress
-def visualize_progress(arch, performance, patch_size, camera_name, out_directory, plot=False, sampling_rate=100):
-    from helpers import utils
-
-    v_range = np.arange(0, sampling_rate*len(performance['ssim']['validation']), sampling_rate)
-
-    plt.figure(figsize=(16, 6))
-    plt.subplot(2,2,1)
-    plt.semilogy(performance['loss']['training'], alpha=0.15)
-    plt.plot(utils.ma_conv(performance['loss']['training'], np.maximum(10, len(performance['loss']['training']) // 25)))
-    plt.plot(v_range, np.array(performance['loss']['validation']), '.-', alpha=0.5)
-    plt.ylabel('Loss')
-    plt.legend(['loss (batch)', 'mov. avg loss (batch)', 'loss (valid.)'])
-
-    if len(performance['loss']['validation']) > 10:
-        n_tail = 5
-        current = np.mean(performance['loss']['validation'][-n_tail:-1])
-        previous = np.mean(performance['loss']['validation'][-(n_tail + 1):-2])
-        vloss_change = abs((current - previous) / previous)
-        plt.title('Validation loss change: {:.6f}'.format(vloss_change))
-    
-    plt.subplot(2,2,2)
-    plt.plot(v_range, performance['ssim']['validation'], '.-', alpha=0.5)
-    plt.ylabel('SSIM')
-    
-    plt.subplot(2,2,3)    
-    plt.plot(v_range, np.array(performance['psnr']['validation']), '.-', alpha=0.5)
-    plt.ylabel('PSNR')
-    
-    plt.subplot(2,2,4)
-    plt.semilogy(v_range, np.array(performance['dmse']['validation']), '.-', alpha=0.5)
-    plt.ylabel('$\Delta$ MSE from last')
-    
-    plt.suptitle('{} for {} ({}px): PSNR={:.1f}, SSIM={:.2f}'.format(arch, camera_name, patch_size, performance['psnr']['validation'][-1], performance['ssim']['validation'][-1]))
-    if plot:
-        plt.show()
-    else:
-        plt.savefig(os.path.join(out_directory, 'progress.png'), bbox_inches='tight', dpi=150)
-        plt.close()
+def show_progress(isp, out_directory):
+    from helpers import plotting
+    fig = plotting.perf(isp.performance, ['training', 'validation'], figwidth=5)    
+    fig.suptitle(isp.model_code)
+    fig.savefig(os.path.join(out_directory, 'progress.png'), bbox_inches='tight', dpi=150)
 
 
 def save_progress(model, training_summary, out_directory):
@@ -153,10 +120,6 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
     if os.path.exists(out_directory) and not resume:
         print('WARNING directory {} exists, skipping...'.format(out_directory))
         return out_directory
-
-    # Limit the number of checkpoints to 5
-    # model.saver.saver_def.max_to_keep = 5
-    # model.saver._max_to_keep = 5
     
     n_batches = data.count_training // batch_size
     n_tail = 5
@@ -249,8 +212,8 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
                 model.performance['dmse']['validation'].append(np.mean(dmses))
 
                 # Generate progress summary
-                training_summary['Epoch'] = epoch
-                visualize_progress(model.class_name, model.performance, patch_size, camera_name, out_directory, False, sampling_rate)
+                training_summary['Epoch'] = epoch                
+                show_progress(model, out_directory)
                 save_progress(model, training_summary, out_directory)
                 
                 if not save_best or (len(model.performance['loss']['validation']) > 5 and model.performance['loss']['validation'][-1] <= min(model.performance['loss']['validation'])):
@@ -289,9 +252,9 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
             pbar.update(1)
 
     training_summary['Epoch'] = epoch
-    visualize_progress(model.class_name, model.performance, patch_size, camera_name, out_directory, False, sampling_rate)
+    show_progress(model.class_name, model.performance, patch_size, camera_name, out_directory, False, sampling_rate)
+    save_progress(model, training_summary, out_directory)
     if not save_best or (model.performance['loss']['validation'][-1] <= min(model.performance['loss']['validation'])):
-        save_progress(model, training_summary, out_directory)
         model.save_model(out_directory, epoch)
 
     return out_directory

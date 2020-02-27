@@ -1,7 +1,80 @@
 import os
 import tensorflow as tf
 import numpy as np
+import json
+
+from pathlib import Path
 from collections import OrderedDict
+
+
+def restore(dir_name, module, key=None, patch_size=None, restore_perf=False, fetch_stats=False):
+    """
+    Utility function to restore pre-trained models from a training directory. 
+
+    :param dir_name: directory with a trained model (*.json + checkpoint data)
+    :param module: Python module where classes should be looked up
+    :param key: JSON key which describes which model to look up in the training log
+    :param patch_size: input patch size (scalar)
+    :param restore_perf: also loads training/validation metrics
+    :param fetch_stats: return a tuple (model, training_stats)
+    """
+    training_log_path = None
+
+    if dir_name is None:
+        raise ValueError('dcn directory cannot be None')
+
+    if not os.path.exists(dir_name):
+        # If not explicit directory, check for presets
+        print('config/presets/{}.json'.format(module.__name__.split('.')[-1]))
+        if os.path.isfile('config/presets/{}.json'.format(module.__name__.split('.')[-1])):
+            with open('config/presets/{}.json'.format(module.__name__.split('.')[-1])) as f:
+                presets = json.load(f)
+            if dir_name in presets:
+                print('Found {} in presets: {}'.format(dir_name, presets[dir_name]))
+                dir_name = presets[dir_name]
+            else:
+                raise ValueError('Directory {} does not exist & key not found in presets (config/presets/*)!'.format(dir_name))
+        else:
+            raise ValueError('Directory {} does not exist (presets not available)!'.format(dir_name))
+
+    for filename in Path(dir_name).glob('**/*.json'):
+        training_log_path = str(filename)
+
+    if training_log_path is None:
+        raise FileNotFoundError('Could not find a training log (JSON file) in {}'.format(dir_name))
+
+    with open(training_log_path) as f:
+        training_log = json.load(f)
+    
+    if key is not None:
+        training_log = training_log[key]
+
+    parameters = training_log['args']
+    parameters['patch_size'] = patch_size
+
+    # TODO JSON Does not allow to store tuples, so they are stored as string
+    for key, value in parameters.items():
+        if isinstance(value, str) and value[0] == '(' and value[-1] == ')':
+            parameters[key] = eval(value)
+
+    model = getattr(module, training_log['model'])(**parameters)
+    model.load_model(dir_name)
+    print('Restoring model: {} <- {}'.format(model.model_code, training_log_path))
+
+    if restore_perf:
+        model.performance = training_log['performance']
+
+    if fetch_stats:
+        stats = {}
+        for k, v in model.performance.items():
+            if 'validation' in v and len(v['validation']) > 0:
+                stats[k] = np.round(v['validation'][-1], 3)
+            elif 'training' in v and len(v['training']) > 0:
+                stats[k] = np.round(v['training'][-1], 3)
+
+        return model, stats
+    else:
+        return model
 
 
 class TFModel(object):

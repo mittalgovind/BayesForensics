@@ -14,16 +14,6 @@ from models import compression
 from helpers import utils
 
 
-dcn_presets = {
-    '16c': './data/models/dcn/baselines/16c',
-    '32c': './data/models/dcn/baselines/32c',
-    '64c': './data/models/dcn/baselines/64c',
-    'lq': './data/models/dcn/baselines/16c',
-    'mq': './data/models/dcn/baselines/32c',
-    'hq': './data/models/dcn/baselines/64c',
-}
-
-
 class L3ICError(Exception):
     pass
 
@@ -286,54 +276,7 @@ def global_compress(dcn, batch_x):
 
 def restore_model(dir_name, patch_size=None, fetch_stats=False):
     """
-    Utility function to restore a DCN model from a training directory. By default,
-    a standalone instance is created. Can also be used for chaining when sess,
-    graph, x, nip_input are provided.
-
-    :param dir_name: directory with a trained model (with progress.json)
-    :param patch_size: input patch size (scalar)
-    :param fetch_stats: return a tuple (model, training_stats)
-    :param sess: existing TF session of None
-    :param graph: existing TF graph or None
-    :param x: input to the model
-    :param nip_input: input to the NIP model (useful for chaining)
+    Utility function to simplify restoration of DCN models. Essentially a wrapper over `tfmodel.restore`.
     """
-    training_progress_path = None
-
-    if dir_name in dcn_presets:
-        dir_name = dcn_presets[dir_name]
-
-    if dir_name is None:
-        raise ValueError('dcn directory cannot be None')
-
-    if not os.path.exists(dir_name):
-        raise ValueError('Directory {} does not exist!'.format(dir_name))
-
-    for filename in Path(dir_name).glob('**/progress.json'):
-        training_progress_path = str(filename)
-
-    if training_progress_path is None:
-        raise FileNotFoundError('Could not find a DCN model snapshot (json+checkpoint) in {}'.format(dir_name))
-
-    with open(training_progress_path) as f:
-        training_progress = json.load(f)
-
-    parameters = training_progress['dcn']['args']
-    parameters['patch_size'] = patch_size
-
-    model = getattr(compression, training_progress['dcn']['model'])(**parameters)
-    model.load_model(dir_name)
-    print('Loaded model: {}'.format(model.model_code))
-
-    if fetch_stats:
-
-        # TODO Entropy is fetched from training measurements instead of validation (didn't get recorded)
-        stats = {
-            'loss': np.round(training_progress['performance']['loss']['validation'][-1], 3),
-            'entropy': np.round(training_progress['performance']['entropy']['training'][-1], 3),
-            'ssim': np.round(training_progress['performance']['ssim']['validation'][-1], 3)
-        }
-
-        return model, stats
-    else:
-        return model
+    from models import tfmodel
+    return tfmodel.restore(dir_name, compression, key='codec', patch_size=patch_size, fetch_stats=fetch_stats)
