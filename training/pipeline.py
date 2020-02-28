@@ -5,7 +5,8 @@ import json
 from collections import deque, OrderedDict
 
 import numpy as np
-import matplotlib.pylab as plt
+# import matplotlib.pylab as plt
+from matplotlib.figure import Figure
 from tqdm import tqdm
 from helpers import metrics
 
@@ -28,7 +29,7 @@ def validate(model, data, out_directory, savefig=False, epoch=0, show_ref=False,
     if savefig:
         images_x = np.minimum(data.count_validation, 10 if not show_ref else 5)
         images_y = np.ceil(data.count_validation / images_x)
-        plt.figure(figsize=(20, 20 / images_x * images_y * (1 if not show_ref else 0.5)))
+        fig = Figure(figsize=(20, 20 / images_x * images_y * (1 if not show_ref else 0.5)))
         
     developed_out = np.zeros_like(data['validation']['y'], dtype=np.float32)
 
@@ -60,21 +61,21 @@ def validate(model, data, out_directory, savefig=False, epoch=0, show_ref=False,
         losss.append(loss)
 
         if savefig:
-            plt.subplot(images_y, images_x, b+1)
+            ax = fig.add_subplot(images_y, images_x, b+1)
             if show_ref:
-                plt.imshow(np.concatenate((reference, developed), axis=1))
+                ax.imshow(np.concatenate((reference, developed), axis=1))
             else:
-                plt.imshow(developed)
-            plt.xticks([])
-            plt.yticks([])
+                ax.imshow(developed)
+            ax.set_xticks([])
+            ax.set_yticks([])
             label_index = int(b // (data.count_validation / len(data.files['validation'])))
-            plt.title('{} : {:.1f} dB / {:.2f}'.format(data.files['validation'][label_index], psnr, ssim), fontsize=6)
+            ax.set_title('{} : {:.1f} dB / {:.2f}'.format(data.files['validation'][label_index], psnr, ssim), fontsize=6)
 
     if savefig:
         if not os.path.exists(out_directory):
             os.makedirs(out_directory)
-        plt.savefig(os.path.join(out_directory, 'validation_{:05d}.jpg'.format(epoch)), bbox_inches='tight', dpi=150)
-        plt.close()
+        fig.savefig(os.path.join(out_directory, 'validation_{:05d}.jpg'.format(epoch)), bbox_inches='tight', dpi=150)
+        del fig
     
     return ssims, psnrs, losss, developed_out
 
@@ -85,6 +86,7 @@ def show_progress(isp, out_directory):
     fig = plotting.perf(isp.performance, ['training', 'validation'], figwidth=5)    
     fig.suptitle(isp.model_code)
     fig.savefig(os.path.join(out_directory, 'progress.png'), bbox_inches='tight', dpi=150)
+    del fig
 
 
 def save_progress(model, training_summary, out_directory):
