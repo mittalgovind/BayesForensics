@@ -83,6 +83,7 @@ def stack_bayer(image_rgb, cfa_pattern):
     :param image_rgb: 3-D numpy array (h, w, 3:rgb)
     :param cfa_pattern: 'GBRG', 'RGGB' or 'BGGR'
     """
+    cfa_pattern = cfa_pattern.upper()
 
     if cfa_pattern.upper() == 'GBRG':
         r = image_rgb[1::2, 0::2, 0]
@@ -112,6 +113,7 @@ def simulate_bayer(image_rgb, cfa_pattern):
     :param cfa_pattern: 'GBRG', 'RGGB' or 'BGGR'
     """
     image_bayer = np.zeros_like(image_rgb)
+    cfa_pattern = cfa_pattern.upper()
 
     if image_rgb.ndim == 3:
         if cfa_pattern.upper() == 'GBRG':
@@ -152,6 +154,8 @@ def merge_bayer(bayer_stack, cfa_pattern):
             raise ValueError('4-D arrays are not supported!')
         
         bayer_stack = bayer_stack[0, :, :, :]
+
+    cfa_pattern = cfa_pattern.upper()
     
     assert bayer_stack.ndim == 3
     
@@ -187,6 +191,8 @@ def upsampling_kernel(cfa_pattern='gbrg'):
     (Ideally, this should match the CFA pattern of the camera).
     :param cfa_pattern: CFA pattern, e.g., 'GBRG'
     """
+
+    cfa_pattern = cfa_pattern.upper()
 
     if cfa_pattern.upper() == 'GBRG':
         #                R  G  B  R  G  B  R  G  B  R  G  B
