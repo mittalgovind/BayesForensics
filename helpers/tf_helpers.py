@@ -43,15 +43,15 @@ def manipulation_resample(x, factor=0.5, method='bilinear'):
 def manipulation_awgn(x, strength=0.025):
     with tf.name_scope('awgn'):
         im_awgn = x + strength * tf.random.normal(tf.shape(x))
-        im_awgn = soft_quantization(255.0 * im_awgn)
-        return tf.clip_by_value(im_awgn / 255.0, 0, 1)
+        im_awgn = soft_quantization(im_awgn)
+        return tf.clip_by_value(im_awgn, 0, 1)
 
 
 def manipulation_gamma(x, strength=2.0):
     with tf.name_scope('gamma_filter'):
         im_gamma = tf.pow(x, strength, name='squared')
-        im_gamma = soft_quantization(255.0 * im_gamma)
-        return tf.pow(tf.clip_by_value(im_gamma, 1, 255) / 255.0, 1/strength, name='sqrt')
+        im_gamma = soft_quantization(im_gamma)
+        return tf.pow(tf.clip_by_value(im_gamma, 1.0/255, 1), 1/strength, name='sqrt')
 
 
 def manipulation_median(x, kernel=3):    
@@ -206,9 +206,10 @@ def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungrou
     display(HTML(iframe))
 
 
-def soft_quantization(x):
+def soft_quantization(x, alpha=255):
+    x = alpha * x
     x_ = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
-    return tf.add(tf.stop_gradient(tf.round(x) - x_), x_)
+    return tf.add(tf.stop_gradient(tf.round(x) - x_), x_) / alpha
 
 
 def entropy(values, codebook, v=50, gamma=25):

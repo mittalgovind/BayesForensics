@@ -424,7 +424,7 @@ def dct_mask(size=128, band=0.1, sigma=1):
     m = m / m.sum()
     return m
 
-def binary_hist_accuracy(matching, missing, cc=None, return_index=False):
+def binary_hist_accuracy(matching, missing, cc=50, return_index=False):
     """ Estimate binary detection accuracy from response distributions for matching and missing samples. """
     if isinstance(cc, int):
         cc_range = np.ceil(np.max(np.abs(matching)) * 50) / 50
@@ -439,3 +439,10 @@ def binary_hist_accuracy(matching, missing, cc=None, return_index=False):
     else:
         return max(accuracies), cc[np.argmax(accuracies)]
 
+def true_detection_rate(matching, missing, fpr=0.01):    
+    """ Estimate true positive rate at a fixed false positive rate threshold. """
+    thresh = np.percentile(missing, 100 * (1 - fpr))
+    return np.mean(matching >= thresh)
+
+def cati(*args):
+    return np.concatenate(args, axis=0)

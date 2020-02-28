@@ -22,7 +22,7 @@ def differentiable_jpeg(x, quality):
     global _common_codec
     if _common_codec is None:
         _common_codec = JPEG(None, 'soft')
-    return _common_codec.process(x, quality)[0]
+    return _common_codec.process(x, quality)
 
 
 class DifferentiableJPEG(tf.keras.Model):
