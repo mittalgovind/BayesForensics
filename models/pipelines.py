@@ -37,7 +37,7 @@ class NIPModel(TFModel):
         # Configure loss and model optimization
         self.loss_metric = loss_metric
         self.construct_loss(loss_metric)
-        self.optimizer = tf.keras.optimizers.Adam() # tf.keras.optimizers.SGD(momentum=0.5) #
+        self.optimizer = tf.keras.optimizers.Adam()
 
     def construct_loss(self, loss_metric):
         if loss_metric == 'L2':

@@ -228,7 +228,7 @@ class DemosaicingLayer(tf.keras.layers.Layer):
             f = inputs
             for l in self._layers:
                 f = l(f)
-            return f
+            y = f
         
         # Learn a residual wrt a bilinear filter
         else:
@@ -240,4 +240,7 @@ class DemosaicingLayer(tf.keras.layers.Layer):
                     f = l(f)
             else:
                 f = 0
-            return x - self._alpha * f
+            y = x - self._alpha * f
+            
+        y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
+        return y
