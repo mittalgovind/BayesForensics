@@ -5,7 +5,8 @@ import json
 from collections import deque, OrderedDict
 
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pylab as plt
+from matplotlib.figure import Figure
 from tqdm import tqdm
 from helpers import metrics
 
@@ -28,7 +29,7 @@ def validate(model, data, out_directory, savefig=False, epoch=0, show_ref=False,
     if savefig:
         images_x = np.minimum(data.count_validation, 10 if not show_ref else 5)
         images_y = np.ceil(data.count_validation / images_x)
-        fig = plt.figure(figsize=(20, 20 / images_x * images_y * (1 if not show_ref else 0.5)))
+        fig = Figure(figsize=(20, 20 / images_x * images_y * (1 if not show_ref else 0.5)))
         
     developed_out = np.zeros_like(data['validation']['y'], dtype=np.float32)
 
@@ -74,7 +75,6 @@ def validate(model, data, out_directory, savefig=False, epoch=0, show_ref=False,
         if not os.path.exists(out_directory):
             os.makedirs(out_directory)
         fig.savefig(os.path.join(out_directory, 'validation_{:05d}.jpg'.format(epoch)), bbox_inches='tight', dpi=150)
-        plt.close(fig)
         del fig
     
     return ssims, psnrs, losss, developed_out
@@ -86,7 +86,6 @@ def show_progress(isp, out_directory):
     fig = plotting.perf(isp.performance, ['training', 'validation'], figwidth=5)    
     fig.suptitle(isp.model_code)
     fig.savefig(os.path.join(out_directory, 'progress.png'), bbox_inches='tight', dpi=150)
-    plt.close(fig)
     del fig
 
 

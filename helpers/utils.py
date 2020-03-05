@@ -83,6 +83,7 @@ def stack_bayer(image_rgb, cfa_pattern):
     :param image_rgb: 3-D numpy array (h, w, 3:rgb)
     :param cfa_pattern: 'GBRG', 'RGGB' or 'BGGR'
     """
+    cfa_pattern = cfa_pattern.upper()
 
     if cfa_pattern.upper() == 'GBRG':
         r = image_rgb[1::2, 0::2, 0]
@@ -112,6 +113,7 @@ def simulate_bayer(image_rgb, cfa_pattern):
     :param cfa_pattern: 'GBRG', 'RGGB' or 'BGGR'
     """
     image_bayer = np.zeros_like(image_rgb)
+    cfa_pattern = cfa_pattern.upper()
 
     if image_rgb.ndim == 3:
         if cfa_pattern.upper() == 'GBRG':
@@ -152,6 +154,8 @@ def merge_bayer(bayer_stack, cfa_pattern):
             raise ValueError('4-D arrays are not supported!')
         
         bayer_stack = bayer_stack[0, :, :, :]
+
+    cfa_pattern = cfa_pattern.upper()
     
     assert bayer_stack.ndim == 3
     
@@ -187,6 +191,8 @@ def upsampling_kernel(cfa_pattern='gbrg'):
     (Ideally, this should match the CFA pattern of the camera).
     :param cfa_pattern: CFA pattern, e.g., 'GBRG'
     """
+
+    cfa_pattern = cfa_pattern.upper()
 
     if cfa_pattern.upper() == 'GBRG':
         #                R  G  B  R  G  B  R  G  B  R  G  B
@@ -424,7 +430,7 @@ def dct_mask(size=128, band=0.1, sigma=1):
     m = m / m.sum()
     return m
 
-def binary_hist_accuracy(matching, missing, cc=None, return_index=False):
+def binary_hist_accuracy(matching, missing, cc=50, return_index=False):
     """ Estimate binary detection accuracy from response distributions for matching and missing samples. """
     if isinstance(cc, int):
         cc_range = np.ceil(np.max(np.abs(matching)) * 50) / 50
@@ -439,3 +445,10 @@ def binary_hist_accuracy(matching, missing, cc=None, return_index=False):
     else:
         return max(accuracies), cc[np.argmax(accuracies)]
 
+def true_detection_rate(matching, missing, fpr=0.01):    
+    """ Estimate true positive rate at a fixed false positive rate threshold. """
+    thresh = np.percentile(missing, 100 * (1 - fpr))
+    return np.mean(matching >= thresh)
+
+def cati(*args):
+    return np.concatenate(args, axis=0)

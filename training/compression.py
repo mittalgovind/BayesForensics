@@ -7,9 +7,8 @@ import tensorflow as tf
 
 from collections import deque
 from skimage.transform import resize, rescale
-# from skimage.measure import compare_ssim as ssim
 
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 # Own libraries and modules
 from helpers import plotting, summaries, utils, metrics
@@ -63,7 +62,7 @@ def visualize_distribution(dcn, data, ax=None, title=None):
     ticks = np.unique(np.round(np.percentile(batch_z, [1, 5, 25, 50, 75, 95, 99])))
 
     if ax is None:
-        fig = plt.figure(figsize=(10, 2))
+        fig = Figure(figsize=(10, 2))
         ax = fig.gca()
 
     ax.set_xlim([qmin - 1, qmax + 1])
@@ -84,7 +83,7 @@ def visualize_codebook(dcn):
     uniform_cbook = np.arange(qmin, qmax + 1)
     codebook = dcn.get_codebook().tolist()
 
-    fig = plt.figure(figsize=(10, 1))
+    fig = Figure(figsize=(10, 1))
 
     for x1, x2 in zip(codebook, uniform_cbook):
         fig.gca().plot([x1, x2], [0, 1], 'k:')
