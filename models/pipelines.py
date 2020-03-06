@@ -401,7 +401,7 @@ class _ClassicISP(tf.keras.Model):
             srgb_mat = np.eye(3, dtype=np.float32)
 
         self._srgb_mat = tf.convert_to_tensor(srgb_mat.T.reshape((1, 1, 3, 3)))
-        self._demosaicing = layers.DemosaicingLayer(c_filters, kernel, 'relu', residual)
+        self._demosaicing = layers.DemosaicingLayer(c_filters, kernel, 'leaky_relu', residual)
         self._brightness = brightness
 
     def call(self, inputs):

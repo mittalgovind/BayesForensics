@@ -75,23 +75,25 @@ def load_images(files, data_directory, extension='png', load='xy'):
         return data
 
     
-def load_patches(files, data_directory, patch_size=128, n_patches=100, discard_flat=False, extension='png', load='xy'):
+def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='flat-aggressive', extension='png', load='xy'):
     """
     Sample (raw, rgb) pairs or random patches from given images.
     :param files: list of available images
     :param data_directory: directory path
     :param patch_size: patch size (in the raw image - rgb patches will be twice as big)
     :param n_patches: number of patches per image
-    :param discard_flat: remove flat patches
+    :param discard: strategy for discarding nonsuitable patches
     :param extension: file extension of rgb images
     :param load: what data to load - string: 'xy' (load both raw and rgb), 'x' (load only raw) or 'y' (load only rgb)
     """
     v_images = len(files)
+    panic_total = 100
+    discard_label = '(random)' if discard is None else '({})'.format(discard)
     data = {}
     if 'x' in load: data['x'] = np.zeros((v_images * n_patches, patch_size, patch_size, 4), dtype=np.uint16)
     if 'y' in load: data['y'] = np.zeros((v_images * n_patches, 2 * patch_size, 2 * patch_size, 3), dtype=np.uint8)
 
-    with tqdm.tqdm(total=v_images * n_patches, ncols=100, desc='Loading patches') as pbar:
+    with tqdm.tqdm(total=v_images * n_patches, ncols=100, desc='Loading patches {}'.format(discard_label)) as pbar:
 
         vpatch_id = 0
 
@@ -106,10 +108,10 @@ def load_patches(files, data_directory, patch_size=128, n_patches=100, discard_f
                 H, W = (x // 2 for x in image_y.shape[0:2])
 
             # Sample random patches
-            panic_counter = 100 * n_patches
-
             for b in range(n_patches):
+
                 found = False
+                panic_counter = panic_total
 
                 while not found: 
                     xx = np.random.randint(0, W - patch_size) if W - patch_size > 0 else 0
@@ -117,20 +119,49 @@ def load_patches(files, data_directory, patch_size=128, n_patches=100, discard_f
                     
                     if 'x' in data: data['x'][vpatch_id] = image_x[yy:yy + patch_size, xx:xx + patch_size, :]
                     if 'y' in data: data['y'][vpatch_id] = image_y[(2*yy):2*(yy + patch_size), (2*xx):2*(xx + patch_size), :]
+                    patch_variance = np.var(data['y'][vpatch_id])
+                    patch_intensity = np.mean(data['y'][vpatch_id])
 
-                    # Check if the found patch is acceptable:
-                    # - eliminate empty patches
-                    if discard_flat and 'y' in data:
-                        patch_variance = np.var(data['y'][vpatch_id])
-                        if patch_variance < 1e-2:
+                    # Check if the found patch is acceptable
+                    if discard == 'flat':
+
+                        if patch_variance < 0.01:
                             panic_counter -= 1
                             found = False if panic_counter > 0 else True
                         elif patch_variance < 0.02:
                             found = np.random.uniform() > 0.5
                         else:
                             found = True
-                    else:
+                    
+                    elif discard == 'flat-aggressive':
+
+                        if patch_variance < 0.01:
+                            if panic_counter == panic_total or patch_variance > best_patch[-1]:
+                                best_patch = (xx, yy, patch_variance)
+                            panic_counter -= 1
+                            found = False if panic_counter > 0 else True
+                            if found:
+                                xx, yy, patch_variance = best_patch
+                        else:
+                            found = True
+                    
+                    elif discard == 'dark-n-textured':
+
+                        if patch_variance > 0 and patch_variance < 0.005 and patch_intensity > 0.35 and patch_intensity < 0.99:
+                            found = True
+                        else:
+                            if panic_counter == panic_total or (patch_variance < best_patch[-1] and patch_intensity > 0.2):
+                                best_patch = (xx, yy, patch_intensity, patch_variance)
+                            panic_counter -= 1
+                            found = False if panic_counter > 0 else True
+                            if found and patch_intensity > best_patch[-2]:
+                                xx, yy, patch_intensity, patch_variance = best_patch
+
+                    elif discard is None:
                         found = True
+
+                    else:
+                        raise ValueError('Unrecognized discard mode: {}'.format(discard))
                         
                 vpatch_id += 1    
                 pbar.update(1)

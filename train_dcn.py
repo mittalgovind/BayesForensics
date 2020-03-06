@@ -24,27 +24,27 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 def main():
 
     parser = argparse.ArgumentParser(description='Train a neural imaging pipeline')
-    
+
     # Parameters related to the training data
-    parser.add_argument('--data', dest='data', action='store', default='./data/rgb/32k',
+    parser.add_argument('--data', dest='data', action='store', default='./data/rgb/mni32k',
                        help='directory with training & validation images (png)')
     parser.add_argument('--split', dest='split', action='store', default='16000:800:2',
                        help='data split with #training:#validation:#validation_patches - e.g., 16000:800:2')
     parser.add_argument('--patch', dest='patch_size', action='store', default=128, type=int,
                         help='training patch size')
-    
+
     # Parameters of the DCN
     parser.add_argument('--dcn', dest='dcn', action='store', default='TwitterDCN', help='specific DCN class name')
     parser.add_argument('--params', dest='dcn_params', action='append', help='Extra parameters for DCN constructor (JSON string)')
     parser.add_argument('--param_list', dest='dcn_param_list', default=None, help='CSV file with DCN configurations')
-    
+
     # General
     parser.add_argument('--out', dest='out_dir', action='store', default='./data/models/dcn/playground',
                         help='output directory for storing trained models')
     parser.add_argument('--epochs', dest='epochs', action='store', default=1500, type=int,
                         help='maximum number of training epochs')
     parser.add_argument('--v_schedule', dest='validation_schedule', action='store', default=100, type=int,
-                        help='Validation schedule - evaluate the model every v_schedule epochs')    
+                        help='Validation schedule - evaluate the model every v_schedule epochs')
     parser.add_argument('--lr', dest='learning_rate', action='store', default=1e-4, type=float,
                         help='learning rate')
     parser.add_argument('--v_train', dest='validation_is_training', action='store_true', default=False,

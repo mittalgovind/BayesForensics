@@ -34,7 +34,7 @@ def develop_image(pipeline, camera=None, batch=None, image=None, patch_size=0, p
     # Lazy imports to minimize delay for invalid command line parameters
     import numpy as np
     import imageio as io
-    import matplotlib.pylab as plt
+    import matplotlib.pyplot as plt
     import tensorflow as tf
     from models import pipelines
 
@@ -97,10 +97,12 @@ def develop_image(pipeline, camera=None, batch=None, image=None, patch_size=0, p
 
     print('thumbnails: {}'.format(sample_y.shape))
 
-    fig, axes = plotting.sub(2, ncols=1 if sample_y.shape[1] > sample_y.shape[0] else 2)
+    ncols = 1 if sample_y.shape[1] > sample_y.shape[0] else 2
+    nrows = 2 if ncols == 1 else 1
+    fig, axes = plt.subplots(nrows, ncols)
 
-    plotting.quickshow(sample_Y, '{}, PSNR={:.1f} dB, SSIM={:.2f}'.format(model.class_name, float(psnrs.mean()), float(ssims.mean())), axes=axes[0])
-    plotting.quickshow(sample_y, 'Target RGB images', axes=axes[1])
+    plotting.quickshow(sample_Y, '{}, PSNR={:.1f} dB, SSIM={:.2f} : {{}}'.format(model.class_name, float(psnrs.mean()), float(ssims.mean())), axes=axes[0])
+    plotting.quickshow(sample_y, 'Target RGB images () : {}', axes=axes[1])
 
     plt.show()
     plt.close()

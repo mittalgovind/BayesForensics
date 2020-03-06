@@ -13,7 +13,7 @@ from helpers import metrics
 
 
 # Set progress bar width
-TQDM_WIDTH = 160
+TQDM_WIDTH = 200
 
 # Disable unimportant logging and import TF
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -27,9 +27,9 @@ def validate(model, data, out_directory, savefig=False, epoch=0, show_ref=False,
         raise ValueError('Unsupported loss ({})!'.format(loss_metric))
 
     if savefig:
-        images_x = np.minimum(data.count_validation, 10 if not show_ref else 5)
+        images_x = np.minimum(data.count_validation, 20 if not show_ref else 10)
         images_y = np.ceil(data.count_validation / images_x)
-        fig = Figure(figsize=(20, 20 / images_x * images_y * (1 if not show_ref else 0.5)))
+        fig = Figure(figsize=(40, 1.1 * 40 / images_x * images_y * (1 if not show_ref else 0.5)))
         
     developed_out = np.zeros_like(data['validation']['y'], dtype=np.float32)
 
@@ -103,7 +103,7 @@ def save_progress(model, training_summary, out_directory):
         json.dump(output_stats, f, indent=4)
 
 
-def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, validation_loss_threshold=1e-3, sampling_rate=100, resume=False, patch_size=64, batch_size=20, data=None, out_directory_root='./data/models/nip', save_best=False):
+def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, validation_loss_threshold=1e-3, sampling_rate=100, resume=False, patch_size=64, batch_size=20, data=None, out_directory_root='./data/models/nip', save_best=False, discard='flat'):
     
     if data is None:
         raise ValueError('Training data seems not to be loaded!')
@@ -153,7 +153,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
         losses_buf.extend(model.performance['loss']['validation'][-10:])
 
     if lr_schedule is None:
-        lr_schedule = {0: 1e-3, 1000: 1e-4, 2500: 1e-5}
+        lr_schedule = {0: 1e-3, 1000: 1e-4, 2000: 1e-5}
     elif isinstance(lr_schedule, float):
         lr_schedule = {0: lr_schedule}
                 
@@ -170,6 +170,8 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
     training_summary['Batch size'] = batch_size
     training_summary['Sampling rate'] = sampling_rate
     training_summary['Start epoch'] = start_epoch
+    training_summary['Saved checkpoint'] = None
+    training_summary['Discarding policy'] = discard
     training_summary['Output directory'] = out_directory
 
     print('\n## Training summary')
@@ -188,7 +190,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
                 learning_rate = min([learning_rate, lr_schedule[epoch]])
 
             for batch_id in range(n_batches):
-                batch_x, batch_y = data.next_training_batch(batch_id, batch_size, patch_size, discard_flat=True)
+                batch_x, batch_y = data.next_training_batch(batch_id, batch_size, patch_size, discard=discard)
                 loss = model.training_step(batch_x, batch_y, learning_rate)
                 loss_local.append(loss)
 
@@ -218,13 +220,14 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
                 #show_progress(model, out_directory)
                 save_progress(model, training_summary, out_directory)
                 
-                if not save_best or (len(model.performance['loss']['validation']) > 5 and model.performance['loss']['validation'][-1] <= min(model.performance['loss']['validation'])):
+                if not save_best or (len(model.performance['loss']['validation']) > 2 and model.performance['loss']['validation'][-1] <= min(model.performance['loss']['validation'])):
+                    training_summary['Saved checkpoint'] = epoch
                     model.save_model(out_directory, epoch)                    
                 
                 # If model deteriorated by more than 20%, drop the learning rate
                 if len(model.performance['loss']['validation']) > 5:
                     if model.performance['loss']['validation'][-1] > 1.2 * min(model.performance['loss']['validation']):
-                        learning_rate = learning_rate / 2
+                        learning_rate = learning_rate * 0.95
                         learning_rate = max((learning_rate, 1e-7))
                     
                 # Check for convergence
@@ -254,9 +257,10 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
             pbar.update(1)
 
     training_summary['Epoch'] = epoch
+    if not save_best or (model.performance['loss']['validation'][-1] <= min(model.performance['loss']['validation'])):
+        training_summary['Saved checkpoint'] = epoch
+        model.save_model(out_directory, epoch)
     show_progress(model, out_directory)
     save_progress(model, training_summary, out_directory)
-    if not save_best or (model.performance['loss']['validation'][-1] <= min(model.performance['loss']['validation'])):
-        model.save_model(out_directory, epoch)
 
     return out_directory

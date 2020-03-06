@@ -4,7 +4,7 @@ from helpers import loading
 
 class IPDataset(object):
 
-    def __init__(self, data_directory, *, randomize=2468, load='xy', n_images=120, v_images=30, val_rgb_patch_size=128, val_n_patches=1):
+    def __init__(self, data_directory, *, randomize=2468, load='xy', n_images=120, v_images=30, val_rgb_patch_size=128, val_n_patches=1, val_discard='flat-aggressive'):
 
         if not any(load == allowed for allowed in ['xy', 'x', 'y']):
             raise ValueError('Invalid X/Y data requested!')
@@ -12,11 +12,12 @@ class IPDataset(object):
         self.files = {}
         self._loaded_data = load
         self._data_directory = data_directory
+        self._val_discard = 'flat-aggressive'
         self.files['training'], self.files['validation'] = loading.discover_files(data_directory, randomize=randomize, n_images=n_images, v_images=v_images)
 
         self.data = {
             'training': loading.load_images(self.files['training'], data_directory=data_directory, load=load),
-            'validation': loading.load_patches(self.files['validation'], data_directory=data_directory, patch_size=val_rgb_patch_size // 2, n_patches=val_n_patches, load=load, discard_flat=True)
+            'validation': loading.load_patches(self.files['validation'], data_directory=data_directory, patch_size=val_rgb_patch_size // 2, n_patches=val_n_patches, load=load, discard=val_discard)
         }
 
         if 'y' in self.data['training']:
@@ -30,10 +31,10 @@ class IPDataset(object):
         else:
             raise KeyError('Key: {} not found!'.format(key))
 
-    def next_training_batch(self, batch_id, batch_size, rgb_patch_size, discard_flat=False):
+    def next_training_batch(self, batch_id, batch_size, rgb_patch_size, discard='flat', panic_total=25):
 
-        if discard_flat and 'y' not in self.data['training']:
-            raise ValueError('Cannot discard flat patches if RGB data is not loaded.')
+        if discard is not None and 'y' not in self.data['training']:
+            raise ValueError('Cannot discard patches if RGB data is not loaded.')
 
         if (batch_id + 1) * batch_size > len(self.files['training']):
             raise ValueError('Not enough images for the requested batch_id & batch_size')
@@ -55,27 +56,64 @@ class IPDataset(object):
 
             if max_x > 0 or max_y > 0:
                 found = False
-                panic_counter = 5
+                panic_counter = panic_total
 
                 while not found:
                     # Sample a random patch - the number needs to be even to ensure proper Bayer alignment
                     xx = 2 * np.random.randint(0, max_x) if max_x > 0 else 0
                     yy = 2 * np.random.randint(0, max_y) if max_y > 0 else 0
-
-                    # Check if the found patch is acceptable: eliminate empty patches
-                    if discard_flat:
+                    
+                    if discard is not None:
                         patch = self.data['training']['y'][batch_id * batch_size + b, yy:yy + rgb_patch_size, xx:xx + rgb_patch_size, :].astype(np.float) / (2 ** 8 - 1)
-
                         patch_variance = np.var(patch)
-                        if patch_variance < 1e-2:
+                        patch_intensity = np.mean(patch)
+                    else:
+                        patch = None
+
+                    # Check if the found patch is acceptable
+                    if discard == 'flat':
+
+                        if patch_variance < 0.01:
                             panic_counter -= 1
                             found = False if panic_counter > 0 else True
                         elif patch_variance < 0.02:
                             found = np.random.uniform() > 0.5
                         else:
                             found = True
-                    else:
+                    
+                    elif discard == 'flat-aggressive':
+
+                        if patch_variance < 0.01:
+                            if panic_counter == panic_total or patch_variance > best_patch[-1]:
+                                best_patch = (xx, yy, patch_variance)
+                            panic_counter -= 1
+                            found = False if panic_counter > 0 else True
+                            if found:
+                                xx, yy, patch_variance = best_patch
+                        else:
+                            found = True
+                    
+                    elif discard == 'dark-n-textured':
+
+                        if patch_variance > 0 and patch_variance < 0.005 and patch_intensity > 0.35 and patch_intensity < 0.99:
+                            found = True
+                            # print('+', b, patch_variance, patch_intensity)
+                        else:
+                            # print('-', b, patch_variance, patch_intensity)
+                            if panic_counter == panic_total or (patch_variance < best_patch[-1] and patch_intensity > 0.2):
+                                best_patch = (xx, yy, patch_intensity, patch_variance)
+                            panic_counter -= 1
+                            found = False if panic_counter > 0 else True
+                            if found and patch_intensity > best_patch[-2]:
+                                xx, yy, patch_intensity, patch_variance = best_patch
+                            # if found:
+                            #     print('~', b, patch_variance, patch_intensity)
+
+                    elif discard is None:
                         found = True
+                    
+                    else:
+                        raise ValueError('Unrecognized discard mode: {}'.format(discard))
 
             if 'x' in self._loaded_data:
                 batch['x'][b, :, :, :] = self.data['training']['x'][batch_id * batch_size + b, yy // 2:yy // 2 + raw_patch_size, xx // 2:xx // 2 + raw_patch_size, :].astype(np.float) / (2 ** 16 - 1)
@@ -126,9 +164,8 @@ class IPDataset(object):
         return self.data['validation'][key].shape[0]
 
     def __repr__(self):
-        return 'IPDataset[load={}] with {} training and {} validation images'.format(self._loaded_data,
-                                                                                     self.count_training,
-                                                                                     self.count_validation)
+        return 'IPDataset[load={}] : {} training images + {} validation patches{}'.format(self._loaded_data,
+            self.count_training, self.count_validation, '' if self._val_discard is None else ' ({})'.format(self._val_discard))
 
     def shapes(self):
         stats = {
@@ -149,10 +186,26 @@ class IPDataset(object):
         elif self._loaded_data == 'x':
             db_type = 'raw'
 
-        label = ['{} dataset from {} w. {:,d} tr + {:,d} val images'.format(db_type, self._data_directory, self.count_training, self.count_validation)]
+        label = ['{} dataset from {} w. {:,d} tr + {:,d} val images{}'.format(db_type, self._data_directory, self.count_training, self.count_validation, '' if self._val_discard is None else ' ({})'.format(self._val_discard))]
 
         for k in 'xy':
             if k in self._loaded_data:
                 label.append('| {} -> t:{} + v:{}'.format(k, self.data['training'][k].shape, self.data['validation'][k].shape))
 
         return ' '.join(label)
+
+    def get_generator(self, batch_size, rgb_patch_size, discard='flat'):
+
+        for batch_id in range(self.count_training // batch_size):
+            yield self.next_training_batch(batch_id, batch_size, rgb_patch_size, discard)
+
+        raise StopIteration()
+
+    def get_datapipeline(self, batch_size, rgb_patch_size, discard='flat', prefetch=100):
+        import tensorflow as tf
+        dataset = tf.data.Dataset.from_generator(lambda: self.get_generator(batch_size, rgb_patch_size, discard),
+            output_types=(tf.float32, tf.float32) if len(self._loaded_data) == 2 else (tf.float32)) 
+
+        dataset = dataset.prefetch(prefetch)
+
+        return dataset
