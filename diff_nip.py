@@ -38,7 +38,7 @@ def nm(x, perc=0):
     return ((x - mn) / (mx - mn)).clip(0, 1)
 
 
-def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patch_size=128, root_dirname='./data', output_dir=None, model_a_args=None, model_b_args=None):
+def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patch_size=128, root_dirname='./data', output_dir=None, model_a_args=None, model_b_args=None, extras=False):
     """
     Display a comparison of two variants of a neural imaging pipeline.
     :param camera: camera name (e.g., 'Nikon D90')
@@ -147,7 +147,7 @@ def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patc
         sample_yb = sample_yb[:, 2*yy:2*(yy+patch_size), 2*xx:2*(xx+patch_size), :]
 
     # Plot images
-    fig = compare_images_ab_ref(sample_y, sample_ya, sample_yb, fig=plt.figure())
+    fig = compare_images_ab_ref(sample_y, sample_ya, sample_yb, fig=plt.figure(), extras=extras)
 
     if output_dir is not None:
         from tikzplotlib import save as tikz_save
@@ -162,7 +162,7 @@ def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patc
     plt.close(fig)
 
 
-def compare_images_ab_ref(img_ref, img_a, img_b, labels=None, fig=None):
+def compare_images_ab_ref(img_ref, img_a, img_b, labels=None, extras=False, fig=None):
     from helpers import plotting, metrics
 
     labels = labels or ['target', '', '']
@@ -171,7 +171,9 @@ def compare_images_ab_ref(img_ref, img_a, img_b, labels=None, fig=None):
     img_b = img_b.squeeze()
     img_ref = img_ref.squeeze()
 
-    fig, axes = plotting.sub(9, fig=fig)
+    fig, axes = plotting.sub(9 if extras else 3, ncols=3, fig=fig)
+    # Index of the last axes 
+    j = 3 if extras else 2
 
     plotting.quickshow(img_ref, '(T) {}'.format(labels[0]), axes=axes[0])
 
@@ -179,13 +181,16 @@ def compare_images_ab_ref(img_ref, img_a, img_b, labels=None, fig=None):
     plotting.quickshow(img_a, label_a, axes=axes[1])
 
     label_b = '(B) {}: {:.1f} dB / {:.3f}'.format(labels[2], metrics.psnr(img_ref, img_b), metrics.ssim(img_ref, img_b))
-    plotting.quickshow(img_b, label_b, axes=axes[3])
+    plotting.quickshow(img_b, label_b, axes=axes[j])
 
     # A hack to allow image axes to zoom together
     axes[1].get_shared_x_axes().join(axes[0], axes[1])
-    axes[3].get_shared_x_axes().join(axes[0], axes[3])
+    axes[j].get_shared_x_axes().join(axes[0], axes[j])
     axes[1].get_shared_y_axes().join(axes[0], axes[1])
-    axes[3].get_shared_y_axes().join(axes[0], axes[3])
+    axes[j].get_shared_y_axes().join(axes[0], axes[j])
+
+    if not extras:
+        return fig
 
     # Compute and plot difference images
     diff_a = np.abs(img_a - img_ref)
@@ -230,13 +235,29 @@ def main():
                         help='path to second model (TF checkpoint dir)')
     parser.add_argument('--dir', dest='dir', action='store', default='./data/',
                         help='root directory with images and training data')
+    parser.add_argument('-e', '--extra', dest='extras', action='store_true', default=False,
+                        help='show additional plots (FFTs and diffs)')
     parser.add_argument('--out', dest='out', action='store', default=None,
                         help='output directory for TikZ output (if set, the figure is not displayed)')
+    parser.add_argument('--ha', dest='ha', default=None, help='Set hyper-parameters / override CSV settings for model A (JSON string)')
+    parser.add_argument('--hb', dest='hb', default=None, help='Set hyper-parameters / override CSV settings for model A (JSON string)')
 
     args = parser.parse_args()
 
+    try:
+        if args.ha is not None: args.ha = json.loads(args.ha.replace('\'', '"'))
+    except json.decoder.JSONDecodeError:
+        print('WARNING', 'JSON parsing error for: ', args.ha.replace('\'', '"'))
+        sys.exit(2)
+
+    try:
+        if args.hb is not None: args.hb = json.loads(args.hb.replace('\'', '"'))
+    except json.decoder.JSONDecodeError:
+        print('WARNING', 'JSON parsing error for: ', args.hb.replace('\'', '"'))
+        sys.exit(2)        
+
     compare_nips(args.model_a_dir, args.model_b_dir, args.camera, args.image,
-                 args.patch, args.dir, args.out)
+                 args.patch, args.dir, args.out, args.ha, args.hb, extras=args.extras)
 
 
 if __name__ == "__main__":

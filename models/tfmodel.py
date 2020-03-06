@@ -161,10 +161,17 @@ class TFModel(object):
             dirname = os.path.join(dirname, self.scoped_name)
 
         if verbose:
-            print('# All variables found in the checkpoint')
+            print('# Variables found in the checkpoint: {}'.format(dirname))
             for i, (var_name, _) in enumerate(tf.train.list_variables(dirname)):
                 var = tf.train.load_variable(dirname, var_name)
-                print('{0:3d}.  {1:30s} -> {2.shape}'.format(i, var_name, var))
+                if hasattr(var, 'shape'):
+                    print('{0:3d}.  {1:70s} -> tensor {2.shape}'.format(i, var_name, var))
+                else:
+                    print('{0:3d}.  {1:70s} -> {2}'.format(i, var_name, type(var)))
+            print('\n# Model variables: {}'.format(self.class_name))
+            for i, var in enumerate(self._model.trainable_variables):
+                print('{0:3d}.  {1.name:70s} -> tensor {1.shape}'.format(i, var))
+
 
         if mapping is not None:
             for var in self._model.trainable_variables:
