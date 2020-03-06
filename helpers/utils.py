@@ -132,7 +132,7 @@ def simulate_bayer(image_rgb, cfa_pattern):
             image_bayer[1::2, 1::2, 0] = image_rgb[1::2, 1::2, 0]
             image_bayer[0::2, 1::2, 1] = image_rgb[0::2, 1::2, 1]
             image_bayer[1::2, 0::2, 1] = image_rgb[1::2, 0::2, 1]
-            image_bayer[0::2, 0::2, 1] = image_rgb[0::2, 0::2, 1]
+            image_bayer[0::2, 0::2, 2] = image_rgb[0::2, 0::2, 2]
     elif image_rgb.ndim == 4:
         for n in range(len(image_rgb)):
             image_bayer[n] = simulate_bayer(image_rgb[n], cfa_pattern)
