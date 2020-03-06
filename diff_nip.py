@@ -62,13 +62,17 @@ def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patc
     supported_cameras = coreutils.listdir(os.path.join(root_dirname, 'models', 'nip'), '.*')
     supported_pipelines = pipelines.supported_models
 
-    if patch_size < 4 or patch_size > 2048:
+    if patch_size > 0 and (patch_size < 8 or patch_size > 2048):
         raise ValueError('Patch size seems to be invalid!')
 
     if camera is not None and camera not in supported_cameras:
         raise ValueError('Camera data not found ({})! Available cameras: {}'.format(camera, ', '.join(supported_cameras)))
 
-    # Find available Bayer stacks for the camera
+    # Check if the image is an integer
+    try:
+        image = int(image)
+    except:
+        pass
 
     # Construct the NIP models
     if os.path.isdir(model_a_dirname):
@@ -101,19 +105,23 @@ def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patc
     if isinstance(image, int) and camera is not None:
 
         data_dirname = os.path.join(root_dirname, 'raw', 'training_data', camera)
-        files = coreutils.listdir(data_dirname, '.*\.npy')
+        files = coreutils.listdir(data_dirname, '.*\.png')
         files = files[image:image+1]
+        print('Loading image {} from the training set: {}'.format(image, files))
         data = loading.load_images(files, data_dirname)
-        sample_x, sample_y = data['x'], data['y']
+        sample_x, sample_y = data['x'].astype(np.float32) / (2**16 - 1), data['y'].astype(np.float32) / (2**8 - 1)
 
         with open('config/cameras.json') as f:
             cameras = json.load(f)
             cfa, srgb = cameras[camera]['cfa'], np.array(cameras[camera]['srgb'])
 
+        image = files[0]
+
     elif image is not None:
         print('Loading a RAW image {}'.format(image))
         sample_x, cfa, srgb, _ = raw_api.unpack(image, expand=True)
         sample_y = raw_api.process(image, brightness=None, expand=True)
+        image = os.path.split(image)[-1]
 
     if isinstance(model_a, pipelines.ClassicISP):
         print('Configuring ISP-A to CFA: {} & sRGB {}'.format(cfa, srgb.round(2).tolist()))
@@ -139,12 +147,12 @@ def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patc
         sample_yb = sample_yb[:, 2*yy:2*(yy+patch_size), 2*xx:2*(xx+patch_size), :]
 
     # Plot images
-    fig = compare_images_ab_ref(sample_y, sample_ya, sample_yb)
+    fig = compare_images_ab_ref(sample_y, sample_ya, sample_yb, fig=plt.figure())
 
     if output_dir is not None:
         from tikzplotlib import save as tikz_save
         dcomp = [x for x in coreutils.splitall(model_b_dirname) if re.match('(ln-.*|[0-9]{3})', x)]
-        tikz_save('{}/examples-{}-{}-{}-{}-{}.tex'.format(output_dir, camera, pipeline, image_id, dcomp[0], dcomp[1]), figureheight='8cm', figurewidth='8cm', strict=False)
+        tikz_save('{}/examples_{}_{}_{}_{}.tex'.format(output_dir, camera, image, model_a_dirname, model_b_dirname), figureheight='8cm', figurewidth='8cm', strict=False)
     else:
         fig.tight_layout()
         fig.show(fig)
@@ -154,10 +162,8 @@ def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patc
     plt.close(fig)
 
 
-def compare_images_ab_ref(img_ref, img_a, img_b, labels=None):
+def compare_images_ab_ref(img_ref, img_a, img_b, labels=None, fig=None):
     from helpers import plotting, metrics
-
-    import matplotlib.pyplot as plt
 
     labels = labels or ['target', '', '']
 
@@ -165,8 +171,7 @@ def compare_images_ab_ref(img_ref, img_a, img_b, labels=None):
     img_b = img_b.squeeze()
     img_ref = img_ref.squeeze()
 
-    fig, axes = plotting.sub(9, fig=plt.figure())
-    fig.tight_layout()
+    fig, axes = plotting.sub(9, fig=fig)
 
     plotting.quickshow(img_ref, '(T) {}'.format(labels[0]), axes=axes[0])
 
