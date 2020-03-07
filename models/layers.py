@@ -210,7 +210,7 @@ class DemosaicingLayer(tf.keras.layers.Layer):
             self._bilinear_kernel = utils.bilin_kernel(kernel)
             self._pad = (kernel - 1) // 2
             self._bilinear = tf.keras.layers.Conv2D(3, kernel, kernel_initializer=tf.constant_initializer(self._bilinear_kernel), use_bias=False, activation=None, padding='VALID', trainable=False)
-            self._alpha = self.add_weight("alpha", initializer=tf.constant_initializer(1))
+            self._alpha = self.add_weight("alpha", initializer=tf.constant_initializer(0.1))
         else:
             self._bilinear = None        
         self._layers = []
@@ -220,7 +220,8 @@ class DemosaicingLayer(tf.keras.layers.Layer):
             self._layers.append(tf.keras.layers.Conv2D(n_filters, kernel, 1, 'same', activation=activation))
 
         # Final 1x1 conv to project all features to the RGB color space
-        self._layers.append(tf.keras.layers.Conv2D(3, 1, 1, 'same', activation=tf.keras.activations.tanh))
+        self._layers.append(tf.keras.layers.Conv2D(3, 1, 1, 'same', 
+            activation=tf.keras.activations.tanh if residual else tf.keras.activations.sigmoid))
         
     def call(self, inputs):
         # Learn the RGB output directly
@@ -228,7 +229,7 @@ class DemosaicingLayer(tf.keras.layers.Layer):
             f = inputs
             for l in self._layers:
                 f = l(f)
-            return f
+            y = f
         
         # Learn a residual wrt a bilinear filter
         else:
@@ -240,4 +241,7 @@ class DemosaicingLayer(tf.keras.layers.Layer):
                     f = l(f)
             else:
                 f = 0
-            return x - self._alpha * f
+            y = x - self._alpha * f
+            
+        y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
+        return y
