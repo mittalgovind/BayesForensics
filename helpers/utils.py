@@ -452,3 +452,20 @@ def true_detection_rate(matching, missing, fpr=0.01):
 
 def cati(*args):
     return np.concatenate(args, axis=0)
+
+def print_dict(d, indent=2, level=1):
+    # print((indent*(level-1))*' ', end='')
+    print('{')
+    for k, v in d.items():
+        print((indent*level)*' ', end='')
+        print('{}: '.format(k), end='')
+        if isinstance(v, dict):
+            print_dict(v, indent=indent, level=level+1)
+        elif hasattr(v, 'shape'):
+            print('array', v.shape)
+        elif isinstance(v, str):
+            print('"{}"'.format(v))
+        else:
+            print(v)
+    print((indent*(level-1))*' ', end='')
+    print('}')
