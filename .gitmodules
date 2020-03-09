@@ -1,3 +1,7 @@
 [submodule "pyfse"]
 	path = pyfse
 	url = https://github.com/pkorus/pyfse
+
+[submodule "prnulib"]
+	path = prnulib
+	url = https://github.com/pkorus/prnulib
