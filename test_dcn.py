@@ -127,7 +127,7 @@ def show_example(model, batch_x):
     # Thumbnails
     indices = np.argsort(np.var(batch_x, axis=(1, 2, 3)))[::-1]
     thumbs_pairs_few = np.concatenate((batch_x[indices], batch_y[indices]), axis=0)
-    thumbs_few = (255 * plotting.thumbnails(thumbs_pairs_few, n_cols=len(batch_x))).astype(np.uint8)
+    thumbs_few = (255 * plotting.thumbnails(thumbs_pairs_few, ncols=len(batch_x))).astype(np.uint8)
 
     ssim_values = [metrics.ssim(batch_x[i], batch_y[i]).mean() for i in range(len(batch_x))]
 

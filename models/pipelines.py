@@ -476,3 +476,4 @@ class ClassicISP(NIPModel):
     @property
     def model_code(self):
         return 'ClassicISP_{cfa}_{k}x{k}_{fs}-{of}{r}'.format(fs='-'.join(['{:d}'.format(x) for x in self._h.c_filters]), of=3, k=self._h.kernel, cfa=self._h.cfa_pattern, r='R' if self._h.residual else '')
+

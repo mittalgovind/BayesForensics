@@ -238,14 +238,14 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
                 # Save current snapshot
                 indices = np.argsort(np.var(batch_x, axis=(1, 2, 3)))[::-1]
                 thumbs_pairs_all = np.concatenate((batch_x[indices[::2]], batch_y[indices[::2]]), axis=0)
-                thumbs = (255 * plotting.thumbnails(thumbs_pairs_all, n_cols=training['batch_size'] // 2)).astype(np.uint8)                
+                thumbs = (255 * plotting.thumbnails(thumbs_pairs_all, ncols=training['batch_size'] // 2)).astype(np.uint8)                
                 imageio.imsave(os.path.join(model_output_dirname, 'thumbnails-{:05d}.png'.format(epoch)), thumbs)
 
                 # Save summaries to TB
                 if tensorboard:
 
                     thumbs_pairs_few = np.concatenate((batch_x[indices[:5]], batch_y[indices[:5]]), axis=0)
-                    thumbs_few = (255 * plotting.thumbnails(thumbs_pairs_few, n_cols=5)).astype(np.uint8)
+                    thumbs_few = (255 * plotting.thumbnails(thumbs_pairs_few, ncols=5)).astype(np.uint8)
 
                     # Sample latent space
                     batch_z = dcn.compress(batch_x)

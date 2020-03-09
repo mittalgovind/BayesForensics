@@ -212,7 +212,8 @@ class DemosaicingLayer(tf.keras.layers.Layer):
             self._bilinear = tf.keras.layers.Conv2D(3, kernel, kernel_initializer=tf.constant_initializer(self._bilinear_kernel), use_bias=False, activation=None, padding='VALID', trainable=False)
             self._alpha = self.add_weight("alpha", initializer=tf.constant_initializer(0.1))
         else:
-            self._bilinear = None        
+            self._bilinear = None
+        
         self._layers = []
 
         # Setup conv layers
@@ -223,7 +224,7 @@ class DemosaicingLayer(tf.keras.layers.Layer):
         self._layers.append(tf.keras.layers.Conv2D(3, 1, 1, 'same', 
             activation=tf.keras.activations.tanh if residual else tf.keras.activations.sigmoid))
         
-    def call(self, inputs):
+    def call(self, inputs, clip=True):
         # Learn the RGB output directly
         if self._bilinear is None:
             f = inputs
@@ -242,6 +243,8 @@ class DemosaicingLayer(tf.keras.layers.Layer):
             else:
                 f = 0
             y = x - self._alpha * f
-            
-        y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
+
+        if clip:
+            y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
+        
         return y

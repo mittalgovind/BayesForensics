@@ -29,10 +29,22 @@ def msssim_loss(a, b):
     return tf.reduce_mean(255 * (1 - tf.image.ssim_multiscale(a, b, 1.0)))
 
 def corr(a, b):
-    a = (a - tf.reduce_mean(a, axis=[1, 2, 3], keepdims=True)) / (tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True))
-    b = (b - tf.reduce_mean(b, axis=[1, 2, 3], keepdims=True)) / (tf.math.reduce_std(b, axis=[1, 2, 3], keepdims=True))
+    a = (a - tf.reduce_mean(a, axis=[1, 2, 3], keepdims=True)) / (1e-9 + tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True))
+    b = (b - tf.reduce_mean(b, axis=[1, 2, 3], keepdims=True)) / (1e-9 + tf.math.reduce_std(b, axis=[1, 2, 3], keepdims=True))
     c = tf.reduce_mean(a * b, axis=[1, 2, 3])
     return c
+
+def corrcoeff(a, b):
+    a = (a - tf.reduce_mean(a)) / (1e-9 + tf.math.reduce_std(a))
+    b = (b - tf.reduce_mean(b)) / (1e-9 + tf.math.reduce_std(b))
+    c = tf.reduce_mean(a * b)
+    return c.numpy()
+
+def rsquared(a, b):
+    from sklearn.metrics import r2_score 
+    a = (a - tf.reduce_mean(a)) / (1e-9 + tf.math.reduce_std(a))
+    b = (b - tf.reduce_mean(b)) / (1e-9 + tf.math.reduce_std(b))
+    return r2_score(a, b)
 
 def manipulation_resample(x, factor=0.5, method='bilinear'):
     with tf.name_scope('resampling_filter'):
