@@ -469,3 +469,14 @@ def print_dict(d, indent=2, level=1):
             print(v)
     print((indent*(level-1))*' ', end='')
     print('}')
+
+def corrcoeff(a, b):
+    a = (a - np.mean(a)) / (1e-9 + np.std(a))
+    b = (b - np.mean(b)) / (1e-9 + np.std(b))
+    return np.mean(a * b)
+
+def rsquared(a, b):
+    from sklearn.metrics import r2_score 
+    a = (a - np.mean(a)) / (1e-9 + np.std(a))
+    b = (b - np.mean(b)) / (1e-9 + np.std(b))
+    return r2_score(a, b)
