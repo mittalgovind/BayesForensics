@@ -450,6 +450,19 @@ def true_detection_rate(matching, missing, fpr=0.01):
     thresh = np.percentile(missing, 100 * (1 - fpr))
     return np.mean(matching >= thresh)
 
+def auc(matching, non_matching, bins=100):
+    cc = np.linspace(0, 1, bins)
+    tpr = [np.mean(np.abs(matching) >= t) for t in cc][::-1]
+    fpr = [np.mean(np.abs(non_matching) >= t) for t in cc][::-1]
+    
+    if tpr[0] != 0 or fpr[0] != 0:
+        raise ValueError('The ROC should start at (0, 0) - double check the detection threshold sweep')
+        
+    if tpr[-1] != 1 or fpr[-1] != 1:
+        raise ValueError('The ROC should end at (1, 1) - double check the detection threshold sweep')
+        
+    return np.trapz(tpr, fpr)
+
 def cati(*args):
     return np.concatenate(args, axis=0)
 
