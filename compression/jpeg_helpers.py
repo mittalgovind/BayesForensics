@@ -150,6 +150,7 @@ class JPEGMarkerStats:
         else:
             raise ValueError('Image not supported! Supported: str, bytes')
 
+        self._quantization_tables = {}
         self._process(image)
         self.shape = imageio.imread(image).shape
 
@@ -160,6 +161,7 @@ class JPEGMarkerStats:
             marker, = unpack("B", data[0:1])
             # get the complete table of 64 elements in one go
             self.blocks['DQT:{}'.format(marker & 0xf)] = self.l_decode
+            self._quantization_tables[marker & 0xf] = np.frombuffer(data[1:65], np.uint8)[zigzag(8).ravel()].reshape((8, 8))
             # remove the quantization table chunk
             data = data[65:]
 
@@ -244,3 +246,14 @@ class JPEGMarkerStats:
 
     def get_bpp(self):
         return 8 * self.blocks['EOI'] / self.shape[0] / self.shape[1]
+
+
+def zigzag(n):
+    def compare(xy):
+        x, y = xy
+        return (x + y, -y if (x + y) % 2 else y)
+    xs = range(n)
+    zz = np.zeros((n, n), dtype=np.uint16)
+    for n, (x, y) in enumerate(sorted(((x, y) for x in xs for y in xs), key=compare)):
+        zz[x, y] = n
+    return zz

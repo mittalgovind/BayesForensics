@@ -211,7 +211,10 @@ class JPEG(TFModel):
         if self._model is None:
             if not isinstance(batch_x, np.ndarray):
                 batch_x = batch_x.numpy()
-            return jpeg_helpers.compress_batch(batch_x, quality)[0]
+            if return_entropy:
+                return jpeg_helpers.compress_batch(batch_x, quality)[0], np.nan
+            else:
+                return jpeg_helpers.compress_batch(batch_x, quality)[0]
         else:
             if quality != self.quality:
                 old_q_luma, old_q_chroma = self._model._q_mtx_luma, self._model._q_mtx_chroma
@@ -224,13 +227,18 @@ class JPEG(TFModel):
                 self._model._q_mtx_luma, self._model._q_mtx_chroma = old_q_luma, old_q_chroma
 
             if return_entropy:
-                entropy = tf_helpers.entropy(X, self._model.quantization.codebook)[0]
+                # TODO This currently takes too much memory
+                # entropy = tf_helpers.entropy(X, self._model.quantization.codebook)[0]
+                entropy = np.nan
                 return y, entropy
 
             return y
 
     def __repr__(self):
-        return 'JPEG(quality={},codec="{}",trainable={})'.format(self.quality, self.codec, self._model.trainable)
+        if self._model is not None:
+            return 'JPEG(quality={},codec="{}",trainable={})'.format(self.quality, self.codec, self._model.trainable)
+        else:
+            return 'JPEG(quality={},codec="{}")'.format(self.quality, self.codec)
 
     def summary(self, quality=None):
         return 'JPEG codec ({}) w. {}'.format(
@@ -239,7 +247,7 @@ class JPEG(TFModel):
             )
 
     def summary_compact(self, quality=None):
-        return 'JPEG {}'.format(self._quality_mode(quality))
+        return 'JPEG ({}) {}'.format(self.codec, self._quality_mode(quality))
 
     def estimate_qf(self, channel=0):
         """ Estimate current JPEG quality factor (smallest difference wrt IJG tables) using luma (channel=0) or chroma (1) tables. """
@@ -248,7 +256,7 @@ class JPEG(TFModel):
     def _quality_mode(self, quality=None):
         """ Human-readable assessment of the current JPEG quality settings. """
         quality = quality or self.quality
-        if self._model.trainable:
+        if self._model is not None and self._model.trainable:
             return 'trainable QF~{}/{}'.format(
                 jpeg_qf_estimation(self._model._q_mtx_luma, 0),
                 jpeg_qf_estimation(self._model._q_mtx_chroma, 1)
