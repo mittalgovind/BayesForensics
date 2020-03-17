@@ -1,5 +1,6 @@
 import json
 import os
+import imageio
 from collections import OrderedDict
 from pathlib import Path
 
@@ -266,3 +267,156 @@ def nip_stats(dirname, n=1):
             }, ignore_index=True, sort=False)
 
     return df
+
+
+def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0, color1='cyan', color0='white'):
+    if not isinstance(conf, np.ndarray):
+        conf = np.array(conf)
+
+    if conf.ndim != 2:
+        raise ValueError('2D array expected!')
+
+    if '\\' not in dim_labels:
+        raise ValueError('Invalid label for array dimensions - need: a \\ b')
+
+    n, m = conf.shape
+    l = max([len(x)+2+dec for x in labels + [dim_labels]])
+
+    # Append the pre-amble
+    out = []
+
+    if fmt == 'tex':
+        out.append('\\documentclass[preview]{standalone}\n')
+        out.append('\\usepackage{booktabs}\n')
+        out.append('\\usepackage{diagbox}\n')
+        out.append('\\usepackage{graphicx}\n')
+        out.append('\\usepackage{xcolor,colortbl}\n')
+        out.append('\\begin{document}\n')
+        out.append('\\begin{preview}\n')
+        out.append('\\begin{{tabular}}{{l{0}}}\n'.format(m * 'r'))
+        if title is not None: 
+            out.append('\\multicolumn{{{0}}}{{c}}{{{1}}} '.format(m + 1, title))
+            out.append('\\tabularnewline\n')
+            out.append('\\toprule\n')
+            # out.append('\\midrule\n')/
+        else:
+            out.append('\\toprule\n')
+        out.append('\\diagbox{{\\textbf{{{0}}}}}{{\\textbf{{{1}}}}}'.format(*dim_labels.split('\\')))
+
+        # Fill the header with class names
+        for i in range(m):
+            out.append('& \\rotatebox{{90}}{{\\textbf{{{0}}}}}'.format(labels[i]))
+        out.append(' \\tabularnewline\n')
+        out.append('\\toprule\n')
+
+        for i in range(n):
+            out.append('\\textbf{{{0}}}'.format(labels[i]))
+            for j in range(m):
+                if conf[i][j] == 0:
+                    out.append(' & ')
+                elif conf[i][j] < 3:
+                    out.append(' & *')
+                else:
+                    if color1 is not None and color0 is not None:
+                        out.append(' & \\cellcolor{{{0}!{1:.0f}!{2}}} {1:.{dec}f}'.format(color1, conf[i][j], color0, dec=dec))
+                    else:
+                        out.append(' & {0:.{dec}f}'.format(conf[i][j], dec=dec))
+            out.append(' \\tabularnewline\n')
+
+        out.append('\\bottomrule\n')
+        out.append('\\end{tabular}\n')
+        out.append('\\end{preview}\n')
+        out.append('\\end{document}\n')
+
+    elif fmt == 'txt':
+        out.append('\n')
+        if title is not None: 
+            out.append('#{}\n'.format(title))
+        out.append('{:>{width}}'.format(dim_labels, width=l))
+        for i in range(m):
+            out.append('{:>{width}}'.format(labels[i], width=l))
+        out.append('\n')
+        for i in range(n):
+            out.append('{:>{width}}'.format(labels[i], width=l))
+            for j in range(m):
+                out.append('{:{width}.{dec}f}'.format(conf[i][j], width=l, dec=dec))
+            out.append('\n')
+
+    elif fmt == 'csv':
+        l = 0
+        out.append('\n')
+        out.append('{:>{width}}'.format(dim_labels, width=l))
+        for i in range(m):
+            out.append(',{:>{width}}'.format(labels[i], width=l))
+        out.append('\n')
+        for i in range(n):
+            out.append('{:>{width}}'.format(labels[i], width=l))
+            for j in range(m):
+                out.append(',{:{width}.{dec}f}'.format(conf[i][j], width=l, dec=dec))
+            out.append('\n')
+
+    elif fmt == 'df':
+        import pandas as pd
+        df = pd.DataFrame(data=conf.round(dec), columns=labels, index=labels[0:n])
+        return df
+
+    else:
+        raise ValueError('Unknown format: {}'.format(fmt))
+
+    return ''.join(out)
+
+def render_tex(latex, format='fig', filename=None):
+    from latex import build_pdf
+
+    if 'documentclass' not in latex:
+        latex = r"""
+        \documentclass[preview]{standalone}
+        \usepackage{booktabs}
+        \usepackage{diagbox}
+        \usepackage{graphicx}
+        \usepackage{xcolor,colortbl}
+        \begin{document}
+        \begin{preview}
+        []
+        \end{preview}
+        \end{document}
+        """.replace('[]', latex)
+
+    pdf = build_pdf(latex)
+    
+    if format == 'file':
+        filename = filename or '/tmp/{}.pdf'.format(''.join(np.random.choice(list('abcdef'), 10, replace=True)))
+        
+        if filename.endswith('.pdf'):
+            with open(filename, 'wb') as f:
+                f.write(pdf.data)
+            
+        elif filename.endswith('.png'):
+            from pdf2image import convert_from_bytes
+            image = convert_from_bytes(pdf.data)
+            imageio.imwrite(filename, image)
+        
+        return filename
+    
+    elif format == 'bytes':
+        return pdf
+    
+    elif format == 'array':
+        from pdf2image import convert_from_bytes
+        return np.array(convert_from_bytes(pdf.data)[0])
+    
+    elif format == 'fig':
+        from pdf2image import convert_from_bytes
+        from helpers import plotting
+        from matplotlib.figure import Figure
+        dpi, scale = 300, 0.75
+        image = np.array(convert_from_bytes(pdf.data, dpi=dpi)[0])
+        fig = Figure(figsize=(scale * image.shape[1] / dpi, scale * image.shape[0] / dpi), dpi=dpi)
+        fig.gca().imshow(image)
+        fig.gca().set_xticks([])
+        fig.gca().set_yticks([])
+        fig.gca().axis('off')
+        return fig
+
+    else:
+        raise ValueError('Unsupported format: {}'.format(format))
