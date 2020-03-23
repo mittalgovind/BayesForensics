@@ -13,3 +13,5 @@ tikzplotlib
 sewar
 dahuffman
 python-Levenshtein
+latex
+pdf2image

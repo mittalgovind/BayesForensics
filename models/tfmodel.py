@@ -190,7 +190,7 @@ class TFModel(object):
         return type(self).__name__
 
     def summary(self):
-        return '{} model [{:,} parameters]'.format(self.class_name, self.count_parameters())
+        return '{} model [{:,.0f} parameters]'.format(self.class_name, self.count_parameters())
 
     @property
     def model_code(self):
@@ -204,7 +204,10 @@ class TFModel(object):
         raise NotImplementedError()
 
     def __repr__(self):
-        extra_params = ','.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in self._h.changed_params().items())
+        try:
+            extra_params = ','.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in self._h.changed_params().items())
+        except:
+            extra_params = ''
         return '{}({})'.format(self.class_name, extra_params)
 
     def _has_attributes(self, attrs, message='Expected attributes not found: {}'):

@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import inspect
 import numpy as np
 import tensorflow as tf
@@ -476,4 +477,48 @@ class ClassicISP(NIPModel):
     @property
     def model_code(self):
         return 'ClassicISP_{cfa}_{k}x{k}_{fs}-{of}{r}'.format(fs='-'.join(['{:d}'.format(x) for x in self._h.c_filters]), of=3, k=self._h.kernel, cfa=self._h.cfa_pattern, r='R' if self._h.residual else '')
+
+    def set_camera(self, camera):
+        """ Sets both CFA and sRGB based on camera presets from 'config/cameras.json' """
+        with open('config/cameras.json') as f:
+            cameras = json.load(f)
+        self.set_cfa_pattern(cameras[camera]['cfa'])
+        self.set_srgb_conversion(np.array(cameras[camera]['srgb']))
+
+    @classmethod
+    def restore(cls, camera=None, dir_name='data/models/isp/ClassicISP_auto_3x3_32-32-32-32-3R/', cfa=None, srgb=None, patch_size=128):
+        import os, json
+        from pathlib import Path
+
+        for filename in Path(dir_name).glob('**/*.json'):
+            training_log_path = str(filename)
+
+        if not os.path.isfile(training_log_path):
+            raise FileNotFoundError('Could not find a training log (JSON file) in {}'.format(dir_name))
+
+        with open(training_log_path) as f:
+            training_log = json.load(f)
+
+        parameters = training_log['args']
+        parameters['patch_size'] = patch_size
+
+        # TODO JSON Does not allow to store tuples, so they are stored as string
+        for key, value in parameters.items():
+            if isinstance(value, str) and value[0] == '(' and value[-1] == ')':
+                parameters[key] = eval(value)
+
+        isp = cls(**parameters)
+        isp.load_model(dir_name)
+
+        if camera is not None:
+            isp.set_camera(camera)
+
+        if cfa is not None:
+            isp.set_cfa_pattern(cfa)
+
+        if srgb is not None:
+            isp.set_srgb_conversion(cfa)
+        
+        return isp
+
 
