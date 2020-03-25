@@ -9,7 +9,7 @@ from collections import OrderedDict
 
 from models.tfmodel import TFModel
 from models import layers
-from helpers import tf_helpers, paramspec
+from helpers import tf_helpers, paramspec, utils
 from helpers.utils import upsampling_kernel, bilin_kernel, gamma_kernels
 
 
@@ -520,5 +520,26 @@ class ClassicISP(NIPModel):
             isp.set_srgb_conversion(cfa)
         
         return isp
+
+    def summary(self):
+        nf = len(self._h.c_filters)
+        fs = self._h.c_filters[0] if len(set(self._h.c_filters)) == 1 else '*'        
+        k=self._h.kernel
+        return f'{self.class_name}[{self._h.cfa_pattern}] + CNN demosaicing [{nf}+1 layers : {k}x{k}x{fs} -> 1x1x3]'
+
+    def summary_compact(self):
+        nf = len(self._h.c_filters)
+        fs = self._h.c_filters[0] if len(set(self._h.c_filters)) == 1 else '*'        
+        k=self._h.kernel
+        return f'{self.class_name}[{self._h.cfa_pattern}, {nf}+1 conv2D {k}x{k}x{fs} > 1x1x3]'
+
+    def process_fingerprint(self, k0, bilinear=False):
+        """ Processes a signal-level  """
+        k0m = utils.merge_bayer(k0, self._h.cfa_pattern)
+        if bilinear:
+            k_isp = self._model._demosaicing._bilinear(np.expand_dims(k0m, axis=0)).numpy()
+        else:
+            k_isp = self._model._demosaicing(np.expand_dims(k0m, axis=0), clip=False).numpy()
+        return k_isp
 
 

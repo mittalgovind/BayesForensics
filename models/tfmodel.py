@@ -192,6 +192,9 @@ class TFModel(object):
     def summary(self):
         return '{} model [{:,.0f} parameters]'.format(self.class_name, self.count_parameters())
 
+    def summary_compact(self):
+        return '{}'.format(self.class_name)
+
     @property
     def model_code(self):
         raise NotImplementedError()
