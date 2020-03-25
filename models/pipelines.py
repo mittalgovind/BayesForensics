@@ -533,13 +533,17 @@ class ClassicISP(NIPModel):
         k=self._h.kernel
         return f'{self.class_name}[{self._h.cfa_pattern}, {nf}+1 conv2D {k}x{k}x{fs} > 1x1x3]'
 
-    def process_fingerprint(self, k0, bilinear=False):
-        """ Processes a signal-level  """
+    def process_fingerprint(self, k0, demosaicing=True):
+        """ 
+        Map a RAW-level camera fingerprint to RGB space either via (1) CFA-informed pixel mapping or (2) demosaicing.
+        
+        (2) will be more suitable for standard PRNU detection, while (1) may be more applicable for further processing,
+        e.g., in CNN-based models. 
+        """
         k0m = utils.merge_bayer(k0, self._h.cfa_pattern)
-        if bilinear:
-            k_isp = self._model._demosaicing._bilinear(np.expand_dims(k0m, axis=0)).numpy()
+        if demosaicing:
+            return self._model._demosaicing(np.expand_dims(k0m, axis=0), clip=False).numpy()
         else:
-            k_isp = self._model._demosaicing(np.expand_dims(k0m, axis=0), clip=False).numpy()
-        return k_isp
+            return k0m.sum(-1)
 
 
