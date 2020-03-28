@@ -24,7 +24,7 @@ class FAN(TFModel):
     6. Output layer with K classes
     """
 
-    def __init__(self, n_classes, patch_size=None, label=None, n_filters=32, n_fscale=2, n_convolutions=4, kernel=5, dropout=0.0, use_gap=True, activation='leaky_relu'):
+    def __init__(self, n_classes, patch_size=None, label=None, n_filters=32, n_fscale=2, n_convolutions=4, kernel=5, dropout=0.0, use_gap=True, n_dense=0, activation='leaky_relu'):
         """
         Creates a forensic analysis network (see class docstring for details).
 
@@ -50,6 +50,7 @@ class FAN(TFModel):
             'kernel': (5, int, (3, 11)),
             'dropout': (0, float, (0, 1)),
             'use_gap': (False, bool, None),
+            'n_dense': (2, int, (0, 3)),
             'activation': ('leaky_relu', str, set(tf_helpers.activation_mapping.keys()))
         })
         params = locals()
@@ -68,8 +69,10 @@ class FAN(TFModel):
             net = tf.keras.layers.MaxPool2D([2, 2])(net)
             n_filters = int(n_filters * self._h.n_fscale)
 
+        n_filters = n_filters // n_fscale
+
         # Final 1 x 1 convolution
-        net = tf.keras.layers.Conv2D(n_filters // n_fscale, [1, 1], activation=activation)(net)
+        net = tf.keras.layers.Conv2D(n_filters, [1, 1], activation=activation)(net)
 
         # GAP / Feature formation
         if use_gap:
@@ -78,11 +81,10 @@ class FAN(TFModel):
             net = tf.keras.layers.Flatten()(net)
 
         # Fully-connected classifier
-        net = tf.keras.layers.Dense(512, activation=activation)(net)
-        if dropout > 0: net = tf.keras.layers.Dropout(dropout)(net)
-        
-        net = tf.keras.layers.Dense(128, activation=activation)(net)        
-        if dropout > 0: net = tf.keras.layers.Dropout(dropout)(net)
+        for _ in range(self._h.n_dense):
+            n_filters = n_filters // n_fscale
+            net = tf.keras.layers.Dense(n_filters, activation=activation)(net)
+            if dropout > 0: net = tf.keras.layers.Dropout(dropout)(net)
         
         self.y = tf.keras.layers.Dense(n_classes, activation=tf.keras.activations.softmax)(net)
 
@@ -128,8 +130,9 @@ class FAN(TFModel):
         return '{}(n_classes={}{})'.format(self.class_name, self.n_classes, extra_params)
 
     def summary(self):
-        return '{kernel}x{kernel} CNN: 1+{conv}+1 conv layers {gap}+ 2 fc layers [{params:,} parameters]'.format(
+        return '{kernel}x{kernel} CNN: 1+{conv}+1 conv layers {gap}+ {fc} fc layers [{params:,} parameters]'.format(
             kernel=self._h.kernel, 
             conv=self._h.n_convolutions, 
+            fc=self._h.n_dense,
             gap='+ (GAP) ' if self._h.use_gap else '',
             params=self.count_parameters())
