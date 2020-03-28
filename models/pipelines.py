@@ -405,7 +405,7 @@ class _ClassicISP(tf.keras.Model):
         self._demosaicing = layers.DemosaicingLayer(c_filters, kernel, 'leaky_relu', residual)
         self._brightness = brightness
 
-    def call(self, inputs):
+    def call(self, inputs, training=False):
         h12 = tf.nn.conv2d(inputs, self._upsampling_kernel, [1, 1, 1, 1], 'SAME')
         bayer = tf.nn.depth_to_space(h12, 2)
 
