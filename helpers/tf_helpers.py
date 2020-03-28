@@ -68,7 +68,10 @@ def manipulation_gamma(x, strength=2.0):
 
 def manipulation_median(x, kernel=3):    
     kernel = int(kernel)
-    assert kernel % 2 == 1, 'Median filter size needs to be odd!'
+    if kernel % 2 == 0:
+        kernel += 1
+    kernel = max(kernel, 1)
+    # assert kernel % 2 == 1, 'Median filter size needs to be odd!'
     with tf.name_scope('median_filter'):
         xp = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
         patches = tf.image.extract_patches(xp, [1, kernel, kernel, 1], [1, 1, 1, 1], 4*[1], 'VALID')
@@ -119,8 +122,9 @@ def manipulation_sharpen(x, strength=1, hsv=True):
             gfilter[2, 2, 1:2, 1:2] = 1
 
         gkk = tf.constant(gfilter, tf.float32)
+        pad = kernel // 2
 
-        y = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
+        y = tf.pad(x, [[0, 0], [pad, pad], [pad, pad], [0, 0]], 'SYMMETRIC')
 
         if hsv:
             y = tf.image.rgb_to_hsv(y)
