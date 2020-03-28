@@ -82,14 +82,14 @@ class NIPModel(TFModel):
         self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
         return loss.numpy()
         
-    def process(self, batch_x, is_training=False):
+    def process(self, batch_x, training=False):
         """
         Develop RAW input and return RGB image.
         """
         if batch_x.ndim == 3:
             batch_x = np.expand_dims(batch_x, 0)
         
-        return self._model(batch_x)
+        return self._model(batch_x, training)
     
     def reset_performance_stats(self):
         self.performance = {
@@ -466,13 +466,13 @@ class ClassicISP(NIPModel):
             srgb = srgb_mat.T.reshape((1, 1, 3, 3)).astype(np.float32)
             self._model._srgb_mat = tf.convert_to_tensor(srgb)
 
-    def process(self, batch_x, cfa_pattern=None, srgb_mat=None):
+    def process(self, batch_x, training=False, cfa_pattern=None, srgb_mat=None):
         if batch_x.ndim == 3:
             batch_x = np.expand_dims(batch_x, 0)
 
         self.set_cfa_pattern(cfa_pattern)
         self.set_srgb_conversion(srgb_mat)
-        return self._model(batch_x)
+        return self._model(batch_x, training)
 
     @property
     def model_code(self):

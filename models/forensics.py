@@ -99,9 +99,9 @@ class FAN(TFModel):
             'confusion': [],
         }
 
-    def process(self, batch_x, direct=True):
+    def process(self, batch_x, training=False):
         """ Returns class probabilities for an image batch (NHWC:rgb). """
-        return self._model(batch_x)
+        return self._model(batch_x, training)
 
     def process_and_decide(self, batch_x, with_confidence=False):
         """ Returns the predicted class (and optionally its confidence) for an image batch (NHWC:rgb).  """
