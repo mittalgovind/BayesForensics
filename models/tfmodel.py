@@ -125,7 +125,10 @@ class TFModel(object):
         return np.sum([np.prod(tv.shape.as_list()) for tv in self.parameters])
     
     def count_parameters_breakdown(self):
-        return OrderedDict([(tv.name, np.prod(tv.shape.as_list())) for tv in self.parameters])
+        import pandas as pd
+        total = self.count_parameters()
+        data = [(tv.name, tv.shape, np.prod(tv.shape.as_list()), round(100 * np.prod(tv.shape.as_list()) / total, 1)) for tv in self.parameters]
+        return pd.DataFrame(data, columns=['name', 'shape', 'parameters', 'total'])        
 
     def save_model(self, dirname, epoch=0):
         if not dirname.endswith(self.scoped_name):
