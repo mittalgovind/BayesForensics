@@ -17,7 +17,7 @@ def is_valid_quality(quality):
     return False
 
 
-@tf.function
+# @tf.function
 def differentiable_jpeg(x, quality):
     global _common_codec
     if _common_codec is None:

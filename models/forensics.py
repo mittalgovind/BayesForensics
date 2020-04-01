@@ -65,7 +65,7 @@ class FAN(TFModel):
 
         # Standard convolutional layers
         for _ in range(self._h.n_convolutions):
-            net = tf.keras.layers.Conv2D(n_filters, [self._h.kernel, self._h.kernel], activation=activation)(net)
+            net = tf.keras.layers.Conv2D(n_filters, [self._h.kernel, self._h.kernel], padding='same', activation=activation)(net)
             net = tf.keras.layers.MaxPool2D([2, 2])(net)
             n_filters = int(n_filters * self._h.n_fscale)
 
