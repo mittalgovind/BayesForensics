@@ -466,23 +466,6 @@ def auc(matching, non_matching, bins=100):
 def cati(*args):
     return np.concatenate(args, axis=0)
 
-def print_dict(d, indent=2, level=1):
-    # print((indent*(level-1))*' ', end='')
-    print('{')
-    for k, v in d.items():
-        print((indent*level)*' ', end='')
-        print('{}: '.format(k), end='')
-        if isinstance(v, dict):
-            print_dict(v, indent=indent, level=level+1)
-        elif hasattr(v, 'shape'):
-            print('array', v.shape)
-        elif isinstance(v, str):
-            print('"{}"'.format(v))
-        else:
-            print(v)
-    print((indent*(level-1))*' ', end='')
-    print('}')
-
 def corrcoeff(a, b):
     a = (a - np.mean(a)) / (1e-9 + np.std(a))
     b = (b - np.mean(b)) / (1e-9 + np.std(b))

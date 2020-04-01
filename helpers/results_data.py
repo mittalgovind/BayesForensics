@@ -1,8 +1,25 @@
+# -*- coding: utf-8 -*-
+""" 
+Helper functions & classes to work with results.
+
+# Useful functions to display data:
+- confusion_to_text - renders a confusion matrix (+labels) as txt or tex
+- convert_table     - renders a 2d array as txt, tex, csv or pd.dataframe
+- render_tex        - renders a LaTeX snipped as file / bytes / bitmap / matplotlib figure
+- print_dict        - prints a dict-like object with omitted tensor values (only shapes are shown) 
+
+# Working with results
+- load              - load results from JSON / NPZ
+- save              - save dict-like results in JSON / NPZ
+- ResultCache       - helper class to store and access saved results (uses a filename formatting convention)
+"""
+
 import json
 import os
 import imageio
 from collections import OrderedDict
 from pathlib import Path
+from string import Formatter
 
 import numpy as np
 import pandas as pd
@@ -12,7 +29,25 @@ from helpers import coreutils
 ROOT_DIRNAME = './data/m/5-raw/cvpr2019'
 
 
+class DefaultFormatter(Formatter):
+
+    def __init__(self, default=None):
+        self.default = default
+
+    def get_value(self, key, args, kwds):
+
+        if isinstance(key, str):
+            try:
+                return kwds[key]
+            except KeyError:
+                return f'{{{key}}}' if self.default is None else self.default
+        else:
+            return Formatter.get_value(key, args, kwds)
+
+
 def autodetect_cameras(dirname):
+    """ Returns a list of known cameras (based on available NIP). """
+    
     counter = 5
     while counter > 0 and not os.path.exists(os.path.join(dirname, 'models', 'nip')):
         dirname = os.path.split(dirname)[0]
@@ -24,13 +59,43 @@ def autodetect_cameras(dirname):
     return coreutils.listdir(os.path.join(dirname, 'models', 'nip'), '.*', dirs_only=True)
 
 
+def nip_stats(dirname, avg_last_n_runs=1):
+    """
+    Returns a dataframe with NIP training summary.
+    """
+
+    cameras = sorted(os.listdir(dirname))
+    df = pd.DataFrame(columns=['pipeline', 'camera', 'psnr', 'ssim'])
+
+    for camera in cameras:
+        pipelines = sorted(os.listdir(os.path.join(dirname, camera)))
+
+        for pipe in pipelines:
+            with open(os.path.join(dirname, camera, pipe, 'progress.json')) as f:
+                ts = json.load(f)
+
+            data = ts if 'psnr' in ts else ts['Performance']
+
+            df = df.append({
+                'pipeline': pipe,
+                'camera': camera,
+                'psnr': np.mean(np.mean(data['psnr'][-avg_last_n_runs:])),
+                'ssim': np.mean(np.mean(data['ssim'][-avg_last_n_runs:]))
+            }, ignore_index=True, sort=False)
+
+    return df
+
+
 def manipulation_metrics(nip_models, cameras, root_dir=ROOT_DIRNAME):
+    """ 
+    Returns a dataframe with aggregated metrics from manipulation classification (NIP-specific). 
+    """
 
     nip_models = [nip_models] if type(nip_models) is str else nip_models
     cameras = cameras or coreutils.listdir(root_dir, '.', dirs_only=True)
 
     if any(cam not in autodetect_cameras(root_dir) for cam in cameras):
-        raise ValueError('The auto-detected camera list does not seem to make sense: {}'.format(cameras))
+        raise ValueError('The list of cameras does not match the auto-detected list of available models: {}'.format(cameras))
 
     df = pd.DataFrame(columns=['camera', 'nip', 'ln', 'source', 'psnr', 'ssim', 'accuracy'])
 
@@ -65,6 +130,9 @@ def manipulation_metrics(nip_models, cameras, root_dir=ROOT_DIRNAME):
 
 
 def manipulation_progress(cases, root_dir=ROOT_DIRNAME):
+    """
+    Returns a dataframe with summarized classification training progress.
+    """
 
     cases = cases or [('Nikon D90', 'INet', 'lr-0.0000', 0)]
 
@@ -125,6 +193,9 @@ def manipulation_progress(cases, root_dir=ROOT_DIRNAME):
 
 
 def manipulation_summary(dirname):
+    """
+    Returns a dataframe with aggregated metrics from manipulation classification (generic). 
+    """
     df = pd.DataFrame(columns=['scenario', 'run', 'accuracy', 'nip_ssim', 'nip_psnr', 'dcn_ssim', 'dcn_entropy'])
     for filename in Path(dirname).glob('**/training.json'):
         with open(str(filename)) as f:
@@ -148,11 +219,22 @@ def manipulation_summary(dirname):
             'dcn_ssim': dcn_ssim[-1],
             'dcn_entropy': dcn_entr[-1]
         }, ignore_index=True, sort=False)
+    
     return df
 
 
 coreutils.logCall
 def confusion_data(run=None, root_dir=ROOT_DIRNAME):
+    """
+    Returns a dictionary of all confusion matrices found under a given directory (recursive):
+    
+    '{normalized-directory-path}' : {
+        'data': N x N confusion matrix,
+        'labels': names of the classes,
+    }
+
+    Note: assumes the directory structure has a 3-digit run number, e.g, /000/ in the path: 
+    """
 
     confusion = OrderedDict()
 
@@ -179,6 +261,9 @@ def confusion_data(run=None, root_dir=ROOT_DIRNAME):
 
 
 def confusion_to_text(conf, labels, title='', fmt='txt'):
+    """
+    Converts a confusion matrix and class labels into a human-readable format (txt or tex).
+    """
     if not isinstance(conf, np.ndarray):
         conf = np.array(conf)
 
@@ -245,31 +330,10 @@ def confusion_to_text(conf, labels, title='', fmt='txt'):
     return ''.join(out)
 
 
-def nip_stats(dirname, n=1):
-
-    cameras = sorted(os.listdir(dirname))
-    df = pd.DataFrame(columns=['pipeline', 'camera', 'psnr', 'ssim'])
-
-    for camera in cameras:
-        pipelines = sorted(os.listdir(os.path.join(dirname, camera)))
-
-        for pipe in pipelines:
-            with open(os.path.join(dirname, camera, pipe, 'progress.json')) as f:
-                ts = json.load(f)
-
-            data = ts if 'psnr' in ts else ts['Performance']
-
-            df = df.append({
-                'pipeline': pipe,
-                'camera': camera,
-                'psnr': np.mean(np.mean(data['psnr'][-n:])),
-                'ssim': np.mean(np.mean(data['ssim'][-n:]))
-            }, ignore_index=True, sort=False)
-
-    return df
-
-
 def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0, color1='cyan', color0='white'):
+    """
+    Converts a 2D array into a human-readable format (txt, tex, csv or dataframe [df]).
+    """
     if not isinstance(conf, np.ndarray):
         conf = np.array(conf)
 
@@ -366,6 +430,16 @@ def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0,
     return ''.join(out)
 
 def render_tex(latex, format='fig', filename=None):
+    """
+    Renders a LaTeX snippet for display in a Jupyter notebook. 
+
+    Output format:
+    - file  - saves the rendered document as PDF / PNG (depending on the extension);
+              if filename not provided, a random one will be generated.
+    - bytes - returns bytes of the rendered PDF
+    - array - returns a bitmap of a rendered PDF as numpy array
+    - fig   - returns a matplotlib figure with displayed bitmap
+    """
     from latex import build_pdf
 
     if 'documentclass' not in latex:
@@ -420,3 +494,195 @@ def render_tex(latex, format='fig', filename=None):
 
     else:
         raise ValueError('Unsupported format: {}'.format(format))
+
+
+def print_dict(d, indent=2, level=1):
+    """ Prints a concise summary of a dict-like object (arrays/tensors are not displayed - only their shape) """
+    print('{')
+    for k, v in d.items():
+        print((indent*level)*' ', end='')
+        print('{}: '.format(k), end='')
+        if isinstance(v, dict):
+            print_dict(v, indent=indent, level=level+1)
+        elif hasattr(v, 'shape'):
+            print('array', v.shape)
+        elif isinstance(v, str):
+            print('"{}"'.format(v))
+        else:
+            print(v)
+    print((indent*(level-1))*' ', end='')
+    print('}')
+
+
+def save(results, *, filename=None, prefix=None):
+    """ Helper function to save dict-like results in either JSON or NPZ (zipped numpy objects) """
+
+    if filename is None:
+        filename = results['filename']
+
+    if prefix is not None:
+        filename = os.path.join(prefix, filename)
+
+    os.makedirs(os.path.split(filename)[0], exist_ok=True)
+    extension = os.path.splitext(filename)[-1].lower()
+
+    if extension == '.npz':
+        np.savez(filename, **results)
+    
+    elif extension == '.json':
+        with open(filename, 'w') as f:
+            json.dump(results, f, indent=2)
+    
+    else:
+        raise ValueError(f'Unsupported format: {extension}')
+
+def load(filename, prefix=None):
+    """ Helper function to load results from JSON or NPZ (zipped numpy objects) """
+
+    if prefix is not None:
+        filename = os.path.join(prefix, filename)
+
+    extension = os.path.splitext(filename)[-1].lower()
+
+    if extension == '.npz':
+        data = np.load(filename, allow_pickle=True)
+        return {k: data[k] if data[k].ndim > 0 else data[k].item() for k in data.keys()}
+    elif extension == '.json':
+        with open(filename) as f:
+            return json.load(f)
+    else:
+        raise ValueError(f'Unsupported format: {extension}')
+
+
+class ResultCache(object):
+    """
+    Helper class to facilitate saving/loading/finding results. Uses filename patterns. Supports '*' wildcards.
+
+    Uses filename generation patterns (config/result_patterns.json):
+        ['dirname with {arg_1}', 'dirname with {arg_i}', ..., 'filename with {arg_n-1} and {arg_n}']
+    e.g.:
+        ["baseline_{engine}", "{isp_summary}", "{patch_size}px", "qf_{jpeg_qf}", "{lab_samples}", "results.npz"]
+
+    TLDR usage:
+
+    # Init (from pre-defined filename patterns)
+    cache = ResultCache('prnu_sim-detection', 'data/f', patch_size=64, engine='mle')
+
+    # Init (ad hoc)
+    cache = ResultCache(["baseline_{engine}", "{patch_size}px", "qf_{jpeg_qf}", "results.npz"], 'data/f', patch_size=64, engine='mle')
+
+    # List all files that match:
+    cache.find()
+
+    # Saving results
+    cache.save(results, jpeg_qf=90)
+
+    # Loading results
+    cache.load(jpeg_qf=90)
+    """
+    
+    def __init__(self, pattern, prefix, **kwargs):
+        """
+        :param pattern: a string (key to dict in config/result_patterns.json) or iterable (with filename pattern definition)
+        :param prefix: file path prefix (e.g., root directory where results are stored)
+        :param kwargs: keyword args to narrow down search results (more keywords can be supplied in query functions)
+
+        """
+        from collections import Iterable
+        self.prefix = prefix
+        self._pattern = pattern
+        if isinstance(pattern, str):
+            self.pattern = result_patterns[pattern]
+        elif isinstance(pattern, Iterable):
+            self.pattern = tuple(pattern)
+        self.kwargs = kwargs
+        
+    def set(self, **kwargs):
+        self.kwargs.update(kwargs)
+
+    def unset(self, fields):
+        if isinstance(fields, str):
+            del self.kwargs[fields]
+        else:
+            for f in fields:
+                del self.kwargs[f]
+
+    def filename(self, **kwargs):
+        """ Generate a unique filename for the current context. Raises exception if not unique. Add keyword args to narrow down. """ 
+        args = {**self.kwargs}
+        args.update(kwargs)
+        try:
+            filename = os.path.join(self.prefix, *[x.format(**args) for x in self.pattern])
+            if '*' in filename:
+                raise ValueError('Wildcards found - not a valid filename!')
+        except:
+            pattern = self._get_wildcard_pattern(args)
+            candidates = list(str(x) for x in Path('.').glob(pattern))
+            if len(candidates) == 1:
+                return candidates[0]
+            else:
+                raise ValueError(f'Current search pattern [{pattern}] must match 1 file but matches {len(candidates)}')
+
+    def load_all(self, **kwargs):
+        """ Load all results matching the current search pattern and return a dict indexed by representative filename sections """
+        results = OrderedDict()
+        filenames = self.find(**kwargs)
+        labels = coreutils.remove_commons(filenames)
+        for l, f in zip(labels, filenames):
+            results[l] = load(f)
+        return results
+
+    def load(self, **kwargs):
+        """ Load results for a given context (use extra keyword args to narrow down) """ 
+        filename = self.filename(**kwargs)
+        return load(filename)
+    
+    def save(self, results, overwrite=False, **kwargs):
+        """ Save results for a given context (use extra keyword args to narrow down) """ 
+        filename = self.filename(**kwargs)
+        if not overwrite and os.path.isfile(filename):
+            raise FileExistsError(f'File {filename} exists! Use overwrite=True if needed.')
+        save(results, filename=filename)
+
+    @staticmethod
+    def format(pattern, prefix=None, **kwargs):
+        if isinstance(pattern, str):
+            pattern = result_patterns[pattern]
+        if prefix is not None:
+            return os.path.join(prefix, *[x.format(**kwargs) for x in pattern])
+        else:
+            return os.path.join(*[x.format(**kwargs) for x in pattern])
+
+    def _get_wildcard_pattern(self, args=None):
+        """ Generate a wildcard pattern for the given context """
+        fmt = DefaultFormatter('*')
+        return os.path.join(self.prefix, *[fmt.format(x, **args) for x in self.pattern])
+
+    def find(self, **kwargs):
+        """ Find all files matching the current context """
+        args = {**self.kwargs}
+        args.update(kwargs)
+        fmt = DefaultFormatter('*')
+        pattern = os.path.join(self.prefix, *[fmt.format(x, **args) for x in self.pattern])
+        print('*>', pattern)
+        return list(str(x) for x in Path('.').glob(pattern))
+
+    def __str__(self):
+        fmt = DefaultFormatter()
+        return '{} <- {}'.format(
+            self.__class__.__name__,
+            os.path.join(self.prefix, *[fmt.format(x, **self.kwargs) for x in self.pattern])
+            )
+        
+    def __repr__(self):
+        return '{}("{}","{}"{})'.format(
+            self.__class__.__name__,
+            self._pattern,
+            self.prefix,
+            coreutils.join_args(self.kwargs, prefix=True)
+        )
+
+
+with open('config/result_patterns.json') as f:
+    result_patterns = json.load(f)
+

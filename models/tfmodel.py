@@ -211,7 +211,7 @@ class TFModel(object):
 
     def __repr__(self):
         try:
-            extra_params = ','.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in self._h.changed_params().items())
+            extra_params = coreutils.join_args(self._h.changed_params())
         except:
             extra_params = ''
         return '{}({})'.format(self.class_name, extra_params)
