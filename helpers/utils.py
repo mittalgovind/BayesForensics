@@ -432,6 +432,7 @@ def dct_mask(size=128, band=0.1, sigma=1):
 
 def binary_hist_accuracy(matching, missing, cc=50, return_index=False):
     """ Estimate binary detection accuracy from response distributions for matching and missing samples. """
+    
     if isinstance(cc, int):
         cc_range = np.ceil(np.max(np.abs(matching)) * 50) / 50
         cc = np.linspace(-cc_range, cc_range, cc)
@@ -450,15 +451,24 @@ def true_detection_rate(matching, missing, fpr=0.01):
     thresh = np.percentile(missing, 100 * (1 - fpr))
     return np.mean(matching >= thresh)
 
+def roc(matching, non_matching, bins=100):
+    cc = np.linspace(np.min([matching.min(), non_matching.min()]) - 1e-6, 
+                     np.max([matching.max(), non_matching.max()]) + 1e-6, bins)
+    tpr = [np.mean(matching >= t) for t in cc][::-1]
+    fpr = [np.mean(non_matching >= t) for t in cc][::-1]
+    return tpr, fpr
+
 def auc(matching, non_matching, bins=100):
-    cc = np.linspace(0, 1, bins)
-    tpr = [np.mean(np.abs(matching) >= t) for t in cc][::-1]
-    fpr = [np.mean(np.abs(non_matching) >= t) for t in cc][::-1]
+    tpr, fpr = roc(matching, non_matching, bins)
     
     if tpr[0] != 0 or fpr[0] != 0:
+        print(tpr)
+        print(fpr)
         raise ValueError('The ROC should start at (0, 0) - double check the detection threshold sweep')
         
     if tpr[-1] != 1 or fpr[-1] != 1:
+        print(tpr)
+        print(fpr)
         raise ValueError('The ROC should end at (1, 1) - double check the detection threshold sweep')
         
     return np.trapz(tpr, fpr)
