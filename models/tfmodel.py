@@ -240,7 +240,7 @@ class TFModel(object):
         for filename in Path(dir_name).glob('**/*.json'):
             training_log_path = str(filename)
 
-        if not os.path.isfile(training_log_path):
+        if training_log_path is None or not os.path.isfile(training_log_path):
             raise FileNotFoundError('Could not find a training log (JSON file) in {}'.format(dir_name))
 
         with open(training_log_path) as f:
