@@ -330,7 +330,7 @@ def confusion_to_text(conf, labels, title='', fmt='txt'):
     return ''.join(out)
 
 
-def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0, color1='cyan', color0='white'):
+def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0, color1='cyan', color0='white', labels_rows=None):
     """
     Converts a 2D array into a human-readable format (txt, tex, csv or dataframe [df]).
     """
@@ -345,6 +345,9 @@ def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0,
 
     n, m = conf.shape
     l = max([len(x)+2+dec for x in labels + [dim_labels]])
+
+    # If not provided, use the same labels for rows as for columns
+    labels_rows = labels_rows or labels
 
     # Append the pre-amble
     out = []
@@ -374,7 +377,7 @@ def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0,
         out.append('\\toprule\n')
 
         for i in range(n):
-            out.append('\\textbf{{{0}}}'.format(labels[i]))
+            out.append('\\textbf{{{0}}}'.format(labels_rows[i]))
             for j in range(m):
                 if conf[i][j] == 0:
                     out.append(' & ')
@@ -401,7 +404,7 @@ def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0,
             out.append('{:>{width}}'.format(labels[i], width=l))
         out.append('\n')
         for i in range(n):
-            out.append('{:>{width}}'.format(labels[i], width=l))
+            out.append('{:>{width}}'.format(labels_rows[i], width=l))
             for j in range(m):
                 out.append('{:{width}.{dec}f}'.format(conf[i][j], width=l, dec=dec))
             out.append('\n')
@@ -414,14 +417,14 @@ def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0,
             out.append(',{:>{width}}'.format(labels[i], width=l))
         out.append('\n')
         for i in range(n):
-            out.append('{:>{width}}'.format(labels[i], width=l))
+            out.append('{:>{width}}'.format(labels_rows[i], width=l))
             for j in range(m):
                 out.append(',{:{width}.{dec}f}'.format(conf[i][j], width=l, dec=dec))
             out.append('\n')
 
     elif fmt == 'df':
         import pandas as pd
-        df = pd.DataFrame(data=conf.round(dec), columns=labels, index=labels[0:n])
+        df = pd.DataFrame(data=conf.round(dec), columns=labels, index=labels_rows[0:n])
         return df
 
     else:
@@ -496,20 +499,62 @@ def render_tex(latex, format='fig', filename=None):
         raise ValueError('Unsupported format: {}'.format(format))
 
 
+def format_number(x, digits=3):
+    if isinstance(x, float):
+        w = max(0, int(np.floor(np.log10(x)))) + (digits - 1)
+        p = max(0, - np.int(np.floor(np.log10(x)))) + (digits - 1)
+        return f'{x:{w}.{p}f}'
+    else:
+        return f'{x}'
+
+
 def print_dict(d, indent=2, level=1):
     """ Prints a concise summary of a dict-like object (arrays/tensors are not displayed - only their shape) """
     print('{')
+
+    width = max([len(f'{k}') for k in d.keys()])
+    has_dicts = any([isinstance(d[k], dict) for k in d.keys()])
+
     for k, v in d.items():
+
+        # Print the key (align to the left if there are nested dicts, otherwise to the right)
         print((indent*level)*' ', end='')
-        print('{}: '.format(k), end='')
+        if has_dicts:
+            print(f'{k:<{width}}: ', end='')
+        else:
+            print(f'{k:>{width}}: ', end='')
+        
+        # Print the values, depending on their type
         if isinstance(v, dict):
             print_dict(v, indent=indent, level=level+1)
+        
         elif hasattr(v, 'shape'):
-            print('array', v.shape)
+            if v.ndim == 0:
+                print(f'{v:.3f} (0-d array)')
+            else:
+                print(f'array {v.shape} ∈ [{v.min():.3f}, {v.max():.3f}]')
+        
         elif isinstance(v, str):
             print('"{}"'.format(v))
+        
+        elif isinstance(v, list):
+            if len(v) < 5:
+                print(v)
+            else:
+                print(f'list of {len(v)} items: [{format_number(v[0])}, ..., {format_number(v[-1])}]')
+        
+        elif isinstance(v, tuple):
+            if len(v) < 5:
+                print(v)
+            else:
+                print(f'tuple of {len(v)} items: ({format_number(v[0])}, ..., {format_number(v[-1])})')
+        
         else:
-            print(v)
+            if isinstance(v, float) or isinstance(v, int):
+                print(format_number(v))
+            else:
+                print(v)
+    
     print((indent*(level-1))*' ', end='')
     print('}')
 

@@ -101,7 +101,7 @@ class TFModel(object):
                                 used as a directory name for storing models
     """
 
-    def __init__(self, label, **kwargs):  
+    def __init__(self, label=None, **kwargs):  
         self._label = '_'+label if label is not None else ''
         self._model = None
         self.reset_performance_stats()        
@@ -130,14 +130,22 @@ class TFModel(object):
         data = [(tv.name, tv.shape, np.prod(tv.shape.as_list()), round(100 * np.prod(tv.shape.as_list()) / total, 1)) for tv in self.parameters]
         return pd.DataFrame(data, columns=['name', 'shape', 'parameters', 'total'])        
 
-    def save_model(self, dirname, epoch=0):
+    def save_model(self, dirname, epoch=0, save_args=False):
         if not dirname.endswith(self.scoped_name):
             dirname = os.path.join(dirname, self.scoped_name)
 
         if not os.path.exists(dirname):
             os.makedirs(dirname)
         
+        print('>', self.class_name, '-->', os.path.join(dirname, self.class_name.lower()), ' + JSON' if save_args else '')
         self._model.save_weights(os.path.join(dirname, self.class_name.lower()))
+
+        if save_args:
+            with open(os.path.join(dirname, f'{self.class_name.lower()}.json'), 'w') as f:
+                json.dump({
+                    'model': self.class_name,
+                    'args': self.get_hyperparameters()
+                }, f, indent=4)
 
     def load_model(self, dirname):
         if not dirname.endswith(self.scoped_name):
@@ -207,7 +215,10 @@ class TFModel(object):
         return '{}{}'.format(type(self).__name__.lower(), self._label)
 
     def get_hyperparameters(self):
-        raise NotImplementedError()
+        if hasattr(self, '_h'):
+            return self._h.to_json()
+        else:
+            return None
 
     def __repr__(self):
         try:
@@ -220,3 +231,37 @@ class TFModel(object):
         setup_status = {key: hasattr(self, key) for key in attrs}
         if not all(setup_status.values()):
             raise NotImplementedError(message.format([key for key, value in setup_status.items() if not value]))
+
+    @classmethod
+    def restore(cls, dir_name, *, patch_size=None):
+        import os, json
+        from pathlib import Path
+
+        for filename in Path(dir_name).glob('**/*.json'):
+            training_log_path = str(filename)
+
+        if not os.path.isfile(training_log_path):
+            raise FileNotFoundError('Could not find a training log (JSON file) in {}'.format(dir_name))
+
+        with open(training_log_path) as f:
+            training_log = json.load(f)
+
+        parameters = training_log['args']
+        if patch_size is not None: parameters['patch_size'] = patch_size
+
+        # TODO JSON Does not allow to store tuples, so they are stored as string
+        for key, value in parameters.items():
+            if isinstance(value, str) and value[0] == '(' and value[-1] == ')':
+                parameters[key] = eval(value)
+
+        instance = cls(**parameters)
+        instance.load_model(dir_name)
+        
+        return instance
+
+    def process(self, x, training=False):
+        return self._model(x, training)
+
+    def deploy_model(self, dirname):
+        self._model.save(dirname)
+  

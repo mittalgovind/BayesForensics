@@ -140,6 +140,32 @@ class NIPModel(TFModel):
             dirname = os.path.join('data/models/nip', dirname)
         super().save_model(dirname, epoch=epoch)
 
+    def process_fingerprint(self, k0, demosaicing=True, cfa_pattern=None):
+        """ 
+        Map a RAW-level camera fingerprint to RGB space either via (1) CFA-informed pixel mapping or (2) demosaicing.
+        
+        (2) will be more suitable for standard PRNU detection, while (1) may be more applicable for further processing,
+        e.g., in CNN-based models. 
+        """
+        
+        try:
+            default_cfa = self._h.cfa_pattern
+        except:
+            default_cfa = None
+
+        cfa_pattern = cfa_pattern or default_cfa
+
+        if cfa_pattern is None:
+            raise ValueError('This ISP is not aware of the CFA! Set the CFA explicitly or make sure "._h.cfa_pattern" is accessible!')
+
+        k0m = utils.merge_bayer(k0, cfa_pattern)
+        
+        if demosaicing:
+            return self._model._demosaicing(np.expand_dims(k0m, axis=0), clip=False).numpy()
+        else:
+            return k0m.sum(-1)
+
+
 class UNet(NIPModel):
     """
     The UNet model, rewritten from scratch for TF 2.x
@@ -337,7 +363,7 @@ class ONet(NIPModel):
         self._model = tf.keras.Model(inputs=self.x, outputs=self.y)
 
 
-class TensorISP():
+class __TensorISP():
     """ 
     Toy ISP implemented in Tensorflow. This class is intended for debugging and testing - for
     use in most situations, please use a more flexible 'ClassicISP' which integrates with 
@@ -486,29 +512,8 @@ class ClassicISP(NIPModel):
         self.set_srgb_conversion(np.array(cameras[camera]['srgb']))
 
     @classmethod
-    def restore(cls, camera=None, dir_name='data/models/isp/ClassicISP_auto_3x3_32-32-32-32-3R/', cfa=None, srgb=None, patch_size=128):
-        import os, json
-        from pathlib import Path
-
-        for filename in Path(dir_name).glob('**/*.json'):
-            training_log_path = str(filename)
-
-        if not os.path.isfile(training_log_path):
-            raise FileNotFoundError('Could not find a training log (JSON file) in {}'.format(dir_name))
-
-        with open(training_log_path) as f:
-            training_log = json.load(f)
-
-        parameters = training_log['args']
-        parameters['patch_size'] = patch_size
-
-        # TODO JSON Does not allow to store tuples, so they are stored as string
-        for key, value in parameters.items():
-            if isinstance(value, str) and value[0] == '(' and value[-1] == ')':
-                parameters[key] = eval(value)
-
-        isp = cls(**parameters)
-        isp.load_model(dir_name)
+    def restore(cls, dir_name='data/models/isp/ClassicISP_auto_3x3_32-32-32-32-3R/', *, camera=None, cfa=None, srgb=None, patch_size=128):
+        isp = super().restore(dir_name)
 
         if camera is not None:
             isp.set_camera(camera)
@@ -532,18 +537,3 @@ class ClassicISP(NIPModel):
         fs = self._h.c_filters[0] if len(set(self._h.c_filters)) == 1 else '*'        
         k=self._h.kernel
         return f'{self.class_name}[{self._h.cfa_pattern}, {nf}+1 conv2D {k}x{k}x{fs} > 1x1x3]'
-
-    def process_fingerprint(self, k0, demosaicing=True):
-        """ 
-        Map a RAW-level camera fingerprint to RGB space either via (1) CFA-informed pixel mapping or (2) demosaicing.
-        
-        (2) will be more suitable for standard PRNU detection, while (1) may be more applicable for further processing,
-        e.g., in CNN-based models. 
-        """
-        k0m = utils.merge_bayer(k0, self._h.cfa_pattern)
-        if demosaicing:
-            return self._model._demosaicing(np.expand_dims(k0m, axis=0), clip=False).numpy()
-        else:
-            return k0m.sum(-1)
-
-
