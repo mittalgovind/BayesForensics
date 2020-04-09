@@ -379,7 +379,7 @@ def is_nan(value):
 
 
 def qhist(values, code_book, density=False):
-    code_book_edges = bin_egdes(code_book)
+    code_book_edges = bin_edges(code_book)
     return np.histogram(values.reshape((-1, )), bins=code_book_edges, density=density)[0]
 
 
@@ -392,7 +392,7 @@ def entropy(batch_z, code_book=None):
     return - np.sum(probs * np.log2(probs))
 
 
-def bin_egdes(code_book):
+def bin_edges(code_book):
     max_float = np.abs(code_book).max() * 2
     code_book_edges = np.convolve(code_book, [0.5, 0.5], mode='valid')
     code_book_edges = np.concatenate((-np.array([max_float]), code_book_edges, np.array([max_float])), axis=0)
@@ -434,8 +434,8 @@ def binary_hist_accuracy(matching, missing, cc=50, return_index=False):
     """ Estimate binary detection accuracy from response distributions for matching and missing samples. """
     
     if isinstance(cc, int):
-        cc_range = np.ceil(np.max(np.abs(matching)) * 50) / 50
-        cc = np.linspace(-cc_range, cc_range, cc)
+        cc = np.linspace(np.min([matching.min(), missing.min()]) - 1e-6, 
+                         np.max([matching.max(), missing.max()]) + 1e-6, cc)
 
     accuracies = []
     for thresh in cc:

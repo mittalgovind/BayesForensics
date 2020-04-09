@@ -169,9 +169,6 @@ class DCN(TFModel):
         
         return '{}-{}C'.format(type(self).__name__, self._h.n_features)        
 
-    def get_hyperparameters(self):
-        return self._h.to_json()
-
     def get_codebook(self):
         return self.discrete_latent.quantization.codebook.numpy().reshape((-1,))
 

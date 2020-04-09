@@ -637,6 +637,8 @@ class ResultCache(object):
         self.prefix = prefix
         self._pattern = pattern
         if isinstance(pattern, str):
+            with open('config/result_patterns.json') as f:
+                result_patterns = json.load(f)
             self.pattern = result_patterns[pattern]
         elif isinstance(pattern, Iterable):
             self.pattern = tuple(pattern)
@@ -660,6 +662,7 @@ class ResultCache(object):
             filename = os.path.join(self.prefix, *[x.format(**args) for x in self.pattern])
             if '*' in filename:
                 raise ValueError('Wildcards found - not a valid filename!')
+            return filename
         except:
             pattern = self._get_wildcard_pattern(args)
             candidates = list(str(x) for x in Path('.').glob(pattern))
@@ -727,7 +730,6 @@ class ResultCache(object):
             coreutils.join_args(self.kwargs, prefix=True)
         )
 
-
-with open('config/result_patterns.json') as f:
-    result_patterns = json.load(f)
+# with open('config/result_patterns.json') as f:
+#     result_patterns = json.load(f)
 
