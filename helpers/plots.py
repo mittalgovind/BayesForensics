@@ -312,7 +312,6 @@ def progress(k, v, results=('training', 'validation'), log='auto', axes=None, st
     active = False
     markers = '.os^'[:len(results)]
     for ri, r in enumerate(results):
-        print(r, markers[ri])
         if r not in v or len(v[r]) == 0:
             continue
         n_hist = len(v[r]) // 2
