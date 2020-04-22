@@ -31,6 +31,7 @@ from skimage.transform import resize
 
 from helpers import stats
 
+from loguru import logger
 
 def configure(profile=None):
 
@@ -253,18 +254,36 @@ def image(x, label=None, *, axes=None, cmap='gray'):
         return fig
 
 
-def sub(n_plots, figwidth=6, figheight=None, ncols=-1, fig=None):
+def sub(n_plots, figwidth=6, figheight=None, ncols=-1, fig=None, transpose=False):
+    """
+    Create a figure and split it into subplots. Provides more consistent behavior than matplotlib. Key features:
+    - the returned axes are always a list
+    - automatically choose number of rows/columns based on the total number of plots
+    - the extra subplots will be turned off
+    - axes traversal order can be changed (column/row-wise)
+
+    :param n_plots:
+    :param figwidth:
+    :param figheight:
+    :param ncols:
+    :param fig:
+    :param transpose:
+    :return:
+    """
 
     if ncols == 0:
         ncols = int(np.ceil(np.sqrt(n_plots)))
     elif ncols < 0:
-        ncols = int(np.ceil(n_plots / abs(ncols)))
+        ncols = n_plots // abs(ncols)
 
     figheight = figheight or figwidth
 
     subplot_x = ncols or int(np.ceil(np.sqrt(n_plots)))
     subplot_y = int(np.ceil(n_plots / subplot_x))
-    
+
+    if transpose:
+        subplot_x, subplot_y = subplot_y, subplot_x
+
     fig = fig or Figure(tight_layout=True, figsize=(figwidth * subplot_x, subplot_y * (figheight or figwidth * (subplot_y / subplot_x))))
     axes = fig.subplots(nrows=subplot_y, ncols=subplot_x)
     axes_flat = []
@@ -289,33 +308,64 @@ def sub(n_plots, figwidth=6, figheight=None, ncols=-1, fig=None):
     return fig, axes_flat
 
 
-def progress(k, v, results=('training', 'validation'), log='auto', axes=None, start=0):
+def progress(k, v, results=('training', 'validation'), log='auto', axes=None, start=0, alpha=0.8):
     active = False
-    for r in results:
+    markers = '.os^'[:len(results)]
+    colors = 'rgb'
+    for ri, r in enumerate(results):
+        print(r, markers[ri])
         if r not in v or len(v[r]) == 0:
             continue
         n_hist = len(v[r]) // 2
         active = True
         xr = start + np.linspace(0, 100, len(v[r]))
         axes.set_title(k)
-        axes.plot(xr, v[r], '.' if r == 'training' else 'o', alpha=0.25)
-        axes.plot(xr, stats.ma_conv(v[r], max(50, len(v[r]) // 50)), label='{} ({:.3f})'.format(r, v[r][-1]))
+        axes.plot(xr, v[r], f'C{ri}{markers[ri]}', alpha=0.5)
+        axes.plot(xr, stats.ma_exp(v[r], alpha), f'C{ri}-', label='{} ({:.3f})'.format(r, v[r][-1]))
         if (log == 'auto' and np.std(v[r][-n_hist:])/(max(v[r]) - min(v[r])) < 0.02) or (isinstance(log, bool) and log):
             axes.set_yscale('log')
         axes.set_xlabel('Training progress [%]')
     if active: axes.legend()
 
 
-def perf(training_progress, results=('training', 'validation'), figwidth=5, log='auto', fig=None):
+def perf(training_progress, results=None, figwidth=5, log='auto', fig=None, alpha=0.9):
     """
-    Plots training performance stats organized into a dictionary with: {metric}/{training,validation}
+    Plots training performance stats organized into a dictionary with the following structure:
+     - {metric}/{training,validation} -> [values]
+     - {metric} -> [values]
+
+    :param training_progress: dictionary with training progress
+    :param results: tuple or string, specifies which results to show, e.g., ('training', 'validation') or 'training'
+    :param figwidth: width of a single subplot
+    :param log: whether to use log scale
+    :param fig: handle to matplotlib figure
+    :param alpha: parameter for the exponential moving average
+    :return: figure handle
     """
+
+    if isinstance(results, str):
+        results = (results, )
+
+    # If the data is not formatted as {metric: {training: [values], validation: [values]}} but rather {metric: [values]}
+    # convert to the expected structure
+    if any(not isinstance(v, dict) for v in training_progress.values()):
+        training_progress = {k: {'auto': v} for k, v in training_progress.items()}
+        results = ('auto',)
+
+    # Auto-detect results to show
+    if results is None:
+        results = set()
+        for v in training_progress.values():
+            results.update(list(v.keys()))
+
     # Find the number of metrics with available data
     n_plots = 0
 
     for i, (k, v) in enumerate(training_progress.items()):
+
         for r in results:
             if r not in v or len(v[r]) == 0:
+                logger.debug(f'lenv={len(v[r])}')
                 active = False
             else:
                 active = True
@@ -330,7 +380,7 @@ def perf(training_progress, results=('training', 'validation'), figwidth=5, log=
     fig.set_size_inches((n_plots * figwidth, figwidth * 0.75))
     
     for i, (k, v) in enumerate(training_progress.items()):
-        progress(k, v, results, log, axes[i])
+        progress(k, v, results, log, axes[i], alpha=alpha)
     
     return fig
 
