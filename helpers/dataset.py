@@ -204,8 +204,8 @@ class Dataset(object):
         return db_type
 
     def summary(self):
-        valid_label = '' if self._val_discard is None else self._val_discard
-        return f'Dataset[{os.path.split(self._data_directory)[-1]},{self.loaded_data}] : {self.count_training} train. images + {self.count_validation} valid. patches ({self.rgb_patch_size} px, {valid_label})'
+        valid_label = '' if self._val_discard is None else f', {self._val_discard}'
+        return f'Dataset[{os.path.split(self._data_directory)[-1]},{self.loaded_data}] : {self.count_training} train. images + {self.count_validation} valid. patches ({self.rgb_patch_size} px{valid_label})'
 
     def details(self):
         label = [self.summary()]
