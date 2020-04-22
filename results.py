@@ -6,7 +6,9 @@ import argparse
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from helpers import coreutils, results_data
+
+import helpers.utils
+from helpers import fsutil, results_data
 
 supported_plots = ['accuracy', 'scatter-psnr', 'scatter-ssim', 'progress', 'conf', 'conf-tex', 'ssim', 'psnr', 'df', 'auto']
 
@@ -22,7 +24,7 @@ def save_df(df, dirname, df_filename):
 def display_results(args):
 
     sns.set('paper', font_scale=1, style="ticks")
-    plot = coreutils.match_option(args.plot, supported_plots)
+    plot = helpers.utils.match_option(args.plot, supported_plots)
 
     if not os.path.isdir(args.dir):
         raise FileNotFoundError('Directory {} not found!'.format(args.dir))
@@ -31,7 +33,7 @@ def display_results(args):
     print('Matched plotting command: {}'.format(plot))
 
     postfix = [
-        coreutils.splitall(args.dir)[-1],
+        fsutil.split(args.dir)[-1],
         ','.join(args.nips) if args.nips is not None else None,
         ','.join(args.cameras) if args.cameras is not None else None,
     ]
@@ -65,11 +67,11 @@ def display_results(args):
         cases = []
 
         if args.cameras is None:
-            args.cameras = coreutils.listdir(args.dir, '.', dirs_only=True)
+            args.cameras = fsutil.listdir(args.dir, '.', dirs_only=True)
         
         for cam in args.cameras:
 
-            nip_models = args.nips or coreutils.listdir(os.path.join(args.dir, cam), '.', dirs_only=True)
+            nip_models = args.nips or fsutil.listdir(os.path.join(args.dir, cam), '.', dirs_only=True)
 
             for nip in nip_models:
 
@@ -80,7 +82,7 @@ def display_results(args):
                     reg_list = args.regularization
                 else:
                     # Otherwise, auto-detect available scenarios
-                    reg_list = coreutils.listdir(reg_path, '.*', dirs_only=True)
+                    reg_list = fsutil.listdir(reg_path, '.*', dirs_only=True)
 
                     if len(reg_list) > 4:
                         indices = np.linspace(0, len(reg_list)-1, 4).astype(np.int32)
@@ -88,7 +90,7 @@ def display_results(args):
                         print('! warning - too many experiments to show - sampling: {}'.format(reg_list))
 
                 for reg in reg_list:
-                    for r in coreutils.listdir(os.path.join(reg_path, reg), '[0-9]+', dirs_only=True):
+                    for r in fsutil.listdir(os.path.join(reg_path, reg), '[0-9]+', dirs_only=True):
                         print('* found scenario {}'.format((cam, nip, reg, int(r))))
                         cases.append((cam, nip, reg, int(r)))
             
@@ -188,7 +190,7 @@ def display_results(args):
 
             df[guessed_names[template]] = components[i]
 
-        df['scenario'] = coreutils.remove_commons(df['scenario'])
+        df['scenario'] = fsutil.strip_prefix(df['scenario'])
 
         mapping = {}
         mapping_targets = ['col', 'col', 'hue', 'style', 'size']

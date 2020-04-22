@@ -12,7 +12,8 @@ import seaborn as sns
 from collections import OrderedDict
 
 # Toolbox imports
-from helpers import coreutils
+import helpers.utils
+from helpers import fsutil
 from compression.ratedistortion import plot_bulk
 
 # %% Setup plots
@@ -83,7 +84,7 @@ def main():
         plt.close()
 
     
-if not coreutils.is_interactive():
+if not helpers.utils.is_interactive():
     main()
 
 else:

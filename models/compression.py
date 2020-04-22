@@ -1,3 +1,22 @@
+# -*- coding: utf-8 -*-
+"""
+Models for learned image compression.
+
+This module implements the machine learning models (useful for building other models/workflows). For use as an actual
+codec (with full encoding to/from bitstreams) see the 'compression.codec' module. The 'codec' module also simplifies
+restoring some of the provided baseline models, e.g.:
+
+    from compression import codec
+    codec.restore('16c')
+
+Instead of the standard:
+
+    a) tfmodel.restore('data/models/dcn/baselines/16c/', compression, key='codec')
+    b) compression.TwitterDCN.restore('data/models/dcn/baselines/16c/', key='codec')
+
+The provided abstract class (DCN) can be used for deriving new models. The default learned codec available with the
+toolbox is TwitterDCN.
+"""
 import numpy as np
 import tensorflow as tf
 
@@ -27,7 +46,8 @@ class DCN(TFModel):
     For setting up quantization, use the provided DiscreteLatent layer (self.discrete_latent).
     """
 
-    def __init__(self, label=None, patch_size=128, latent_bpf=5, rounding='soft-codebook', train_codebook=False, entropy_weight=250, scale_latent=True, use_batchnorm=False, loss_metric='L2', **kwargs):
+    def __init__(self, patch_size=128, latent_bpf=5, rounding='soft-codebook', train_codebook=False,
+                 entropy_weight=250, scale_latent=True, use_batchnorm=False, loss_metric='L2', **kwargs):
         """
         :param label: A suffix to the scoped name (used when saving the model)
         :param patch_size: patch size, specify the number to access model statistics (can be set to None)
@@ -40,7 +60,7 @@ class DCN(TFModel):
         :param loss_metric: currently not used, only L2 (with entropy regularization) is implemented 
         :param **kwargs: additional arguments for child classes
         """
-        super().__init__(label)
+        super().__init__()
 
         # Parameter sanitization
         self._h = paramspec.ParamSpec({
@@ -83,17 +103,6 @@ class DCN(TFModel):
 
     def reset_performance_stats(self):
         self.performance = self._reset_performance(['loss', 'entropy', 'ssim', 'psnr'])
-
-    # def get_tf_histogram(self, batch_x, is_training=None):
-    #     with self.graph.as_default():
-    #         feed_dict = {
-    #             self.x if not self.use_nip_input else self.nip_input: batch_x,
-    #         }
-
-    #         if hasattr(self, 'is_training'):
-    #             feed_dict[self.is_training] = is_training if is_training is not None else self.default_val_is_train
-
-    #         return self.sess.run(self.histogram, feed_dict=feed_dict)
 
     def compress(self, batch_x):
         """ Compress an input batch (NHW3:rgb) to a quantized latent representation. """
@@ -156,12 +165,14 @@ class DCN(TFModel):
         }
     
     def summary(self):
-        return 'DCN with a {}-dim {}-bpf latent representation [{:,} params]'.format(
-            'x'.join(str(x) for x in self.latent_shape), 
-            self._h.latent_bpf,
-            self.count_parameters()
-        )
-    
+        l_shape = 'x'.join(str(x) for x in self.latent_shape if x is not None)
+        bpf = self._h.latent_bpf
+        params = self.count_parameters()
+        return f'{self.class_name} : {l_shape}-D latent space @ {bpf}-bpf [{params:,.0f} params]'
+
+    def summary_compact(self):
+        return f'{self.class_name} {self.latent_shape[-1]}-D'
+
     @property
     def model_code(self):
         if not hasattr(self, 'n_latent'):
@@ -270,12 +281,11 @@ class TwitterDCN(DCN):
     @property
     def model_code(self):
         parameter_summary = []
-
         parameter_summary.append(self._h.rounding)
         parameter_summary.append(
-            'Q+{}bpf'.format(self._h.latent_bpf) if self._h.train_codebook else 'Q-{}bpf'.format(self._h.latent_bpf))
+            f'Q+{self._h.latent_bpf}bpf' if self._h.train_codebook else f'Q-{self._h.latent_bpf}bpf')
         parameter_summary.append('S+' if self._h.scale_latent else 'S-')
         if self._h.entropy_weight is not None:
-            parameter_summary.append('H+{:.2f}'.format(self._h.entropy_weight))
+            parameter_summary.append(f'H+{self._h.entropy_weight:.2f}')
 
-        return '{}/{}'.format(super().model_code, '_'.join(parameter_summary))
+        return f'{super().model_code}/{"_".join(parameter_summary)}'

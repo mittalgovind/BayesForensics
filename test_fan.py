@@ -9,7 +9,8 @@ import argparse
 import numpy as np
 from pathlib import Path
 
-from helpers import coreutils, dataset, results_data
+import helpers.utils
+from helpers import fsutil, dataset, results_data
 from training.validation import validate_fan
 from compression import codec
 
@@ -29,18 +30,18 @@ def restore_flow(filename, isp, manipulations, jpeg_qf, jpeg_codec, dcn_model, p
 
     # Setup manipulations
     if manipulations is None:
-        manipulations = coreutils.getkey(training_log, 'manipulations')
+        manipulations = helpers.utils.get(training_log, 'manipulations')
         if 'native' in manipulations: manipulations.remove('native')
     else:
         print('info: overriding manipulation list with {}'.format(manipulations))
         manipulations = manipulations
 
     try:
-        accuracy = coreutils.getkey(training_log, 'forensics/performance/accuracy/validation')[-1]
+        accuracy = helpers.utils.get(training_log, 'forensics.performance.accuracy.validation')[-1]
     except:
         accuracy = np.nan
 
-    distribution = coreutils.getkey(training_log, 'distribution') 
+    distribution = helpers.utils.get(training_log, 'distribution')
 
     if jpeg_qf is not None:
         print('info: overriding JPEG quality with {}'.format(jpeg_qf))
@@ -101,9 +102,9 @@ def main():
 
     # Load training / validation data
     if args.isp == 'ONet':
-        data = dataset.IPDataset(args.data, n_images=0, v_images=args.images, load='y', val_rgb_patch_size=2 * args.patch, val_n_patches=args.patches)
+        data = dataset.Dataset(args.data, n_images=0, v_images=args.images, load='y', val_rgb_patch_size=2 * args.patch, val_n_patches=args.patches)
     else:
-        data = dataset.IPDataset(args.data, n_images=0, v_images=args.images, load='xy', val_rgb_patch_size=2 * args.patch, val_n_patches=args.patches)
+        data = dataset.Dataset(args.data, n_images=0, v_images=args.images, load='xy', val_rgb_patch_size=2 * args.patch, val_n_patches=args.patches)
 
     print('Data: {}'.format(data.summary()))
     print('Found {} candidate training sessions ({})'.format(len(json_files), args.dir))

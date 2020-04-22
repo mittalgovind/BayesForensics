@@ -1,6 +1,13 @@
+# -*- coding: utf-8 -*-
+"""
+Custom TF layers for reuse in other models.
+"""
 import numpy as np
 import tensorflow as tf
-from helpers import utils, tf_helpers
+
+import helpers.kernels
+from helpers import tf_helpers
+
 
 class ConstrainedConv2D(tf.keras.layers.Layer):
     """
@@ -31,13 +38,13 @@ class ConstrainedConv2D(tf.keras.layers.Layer):
         self.filter_strength = filter_strength
 
         f = np.array([[0, 0, 0, 0, 0], [0, -1, -2, -1, 0], [0, -2, 12, -2, 0], [0, -1, -2, -1, 0], [0, 0, 0, 0, 0]])
-        self.kernel = self.add_weight("kernel", shape=(5, 5, 3, 3), 
-            initializer=tf.constant_initializer(utils.repeat_2dfilter(f, 3)), 
-            trainable=trainable)
+        self.kernel = self.add_weight("kernel", shape=(5, 5, 3, 3),
+                                      initializer=tf.constant_initializer(helpers.kernels.repeat_2dfilter(f, 3)),
+                                      trainable=trainable)
 
     def call(self, input):
         # Mask for normalizing the residual filter
-        tf_ind = tf.constant(utils.center_mask_2dfilter(5, 3), dtype=tf.float32)
+        tf_ind = tf.constant(helpers.kernels.center_mask_2dfilter(5, 3), dtype=tf.float32)
 
         # Normalize the residual filter
         nf = self.kernel * (1 - tf_ind)
@@ -98,7 +105,8 @@ class Quantization(tf.keras.layers.Layer):
         self.trainable = trainable
 
         # Setup codebook
-        # TODO Even if the codebook is not used for quantization, it may be used for entropy estimation somewhere else (should this be fixed?)
+        # Even if the codebook is not used for quantization, it may be used for entropy estimation somewhere else
+        # TODO Seemingly unnecessary codebook init (should this be moved/fixed?)
         qmin = -2 ** (self.latent_bpf - 1) + 1
         qmax = 2 ** (self.latent_bpf - 1)
                             
@@ -207,7 +215,7 @@ class DemosaicingLayer(tf.keras.layers.Layer):
         super().__init__(**kwargs)
         activation = tf_helpers.activation_mapping[activation]
         if residual:
-            self._bilinear_kernel = utils.bilin_kernel(kernel)
+            self._bilinear_kernel = helpers.kernels.bilin_kernel(kernel)
             self._pad = (kernel - 1) // 2
             self._bilinear = tf.keras.layers.Conv2D(3, kernel, kernel_initializer=tf.constant_initializer(self._bilinear_kernel), use_bias=False, activation=None, padding='VALID', trainable=False)
             self._alpha = self.add_weight("alpha", initializer=tf.constant_initializer(0.1))

@@ -2,13 +2,14 @@
 """ 
 Helper functions & classes to work with results.
 
-# Useful functions to display data:
+Useful functions to display data:
+--------------------------------
 - confusion_to_text - renders a confusion matrix (+labels) as txt or tex
 - convert_table     - renders a 2d array as txt, tex, csv or pd.dataframe
 - render_tex        - renders a LaTeX snipped as file / bytes / bitmap / matplotlib figure
-- print_dict        - prints a dict-like object with omitted tensor values (only shapes are shown) 
 
-# Working with results
+Working with results:
+---------------------
 - load              - load results from JSON / NPZ
 - save              - save dict-like results in JSON / NPZ
 - ResultCache       - helper class to store and access saved results (uses a filename formatting convention)
@@ -24,7 +25,7 @@ from string import Formatter
 import numpy as np
 import pandas as pd
 
-from helpers import coreutils
+from helpers import fsutil, utils
 
 ROOT_DIRNAME = './data/m/5-raw/cvpr2019'
 
@@ -56,7 +57,7 @@ def autodetect_cameras(dirname):
     if counter == 0:
         raise ValueError('The {} directory does not seem to be a valid results directory'.format(dirname))
 
-    return coreutils.listdir(os.path.join(dirname, 'models', 'nip'), '.*', dirs_only=True)
+    return fsutil.listdir(os.path.join(dirname, 'models', 'nip'), '.*', dirs_only=True)
 
 
 def nip_stats(dirname, avg_last_n_runs=1):
@@ -92,7 +93,7 @@ def manipulation_metrics(nip_models, cameras, root_dir=ROOT_DIRNAME):
     """
 
     nip_models = [nip_models] if type(nip_models) is str else nip_models
-    cameras = cameras or coreutils.listdir(root_dir, '.', dirs_only=True)
+    cameras = cameras or fsutil.listdir(root_dir, '.', dirs_only=True)
 
     if any(cam not in autodetect_cameras(root_dir) for cam in cameras):
         raise ValueError('The list of cameras does not match the auto-detected list of available models: {}'.format(cameras))
@@ -101,12 +102,12 @@ def manipulation_metrics(nip_models, cameras, root_dir=ROOT_DIRNAME):
 
     for camera in cameras:
 
-        nip_models = nip_models or coreutils.listdir(os.path.join(root_dir, camera), '.', dirs_only=True)
+        nip_models = nip_models or fsutil.listdir(os.path.join(root_dir, camera), '.', dirs_only=True)
 
         for nip in nip_models:
 
             find_dir = os.path.join(root_dir, camera, nip)
-            experiment_dirs = coreutils.listdir(os.path.join(find_dir), '.*', dirs_only=True)
+            experiment_dirs = fsutil.listdir(os.path.join(find_dir), '.*', dirs_only=True)
 
             for ed in experiment_dirs:
 
@@ -202,13 +203,13 @@ def manipulation_summary(dirname):
             data = json.load(f)
 
         default = [np.nan]
-        accuracy = coreutils.getkey(data, 'forensics/validation/accuracy') or default
-        nip_ssim = coreutils.getkey(data, 'nip/validation/ssim') or default
-        nip_psnr = coreutils.getkey(data, 'nip/validation/psnr') or default
-        dcn_ssim = coreutils.getkey(data, 'compression/validation/ssim') or default
-        dcn_entr = coreutils.getkey(data, 'compression/validation/entropy') or default
+        accuracy = utils.get(data, 'forensics.validation.accuracy') or default
+        nip_ssim = utils.get(data, 'nip.validation.ssim') or default
+        nip_psnr = utils.get(data, 'nip.validation.psnr') or default
+        dcn_ssim = utils.get(data, 'compression.validation.ssim') or default
+        dcn_entr = utils.get(data, 'compression.validation.entropy') or default
 
-        path_components = coreutils.splitall(os.path.relpath(str(filename), dirname))[:-1]
+        path_components = fsutil.split(os.path.relpath(str(filename), dirname))[:-1]
 
         df = df.append({
             'scenario': os.path.join(*path_components[:-1]),
@@ -223,7 +224,6 @@ def manipulation_summary(dirname):
     return df
 
 
-coreutils.logCall
 def confusion_data(run=None, root_dir=ROOT_DIRNAME):
     """
     Returns a dictionary of all confusion matrices found under a given directory (recursive):
@@ -432,6 +432,7 @@ def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0,
 
     return ''.join(out)
 
+
 def render_tex(latex, format='fig', filename=None):
     """
     Renders a LaTeX snippet for display in a Jupyter notebook. 
@@ -484,7 +485,6 @@ def render_tex(latex, format='fig', filename=None):
     
     elif format == 'fig':
         from pdf2image import convert_from_bytes
-        from helpers import plotting
         from matplotlib.figure import Figure
         dpi, scale = 300, 0.75
         image = np.array(convert_from_bytes(pdf.data, dpi=dpi)[0])
@@ -497,66 +497,6 @@ def render_tex(latex, format='fig', filename=None):
 
     else:
         raise ValueError('Unsupported format: {}'.format(format))
-
-
-def format_number(x, digits=3):
-    if isinstance(x, float):
-        w = max(0, int(np.floor(np.log10(x)))) + (digits - 1)
-        p = max(0, - np.int(np.floor(np.log10(x)))) + (digits - 1)
-        return f'{x:{w}.{p}f}'
-    else:
-        return f'{x}'
-
-
-def print_dict(d, indent=2, level=1):
-    """ Prints a concise summary of a dict-like object (arrays/tensors are not displayed - only their shape) """
-    print('{')
-
-    width = max([len(f'{k}') for k in d.keys()])
-    has_dicts = any([isinstance(d[k], dict) for k in d.keys()])
-
-    for k, v in d.items():
-
-        # Print the key (align to the left if there are nested dicts, otherwise to the right)
-        print((indent*level)*' ', end='')
-        if has_dicts:
-            print(f'{k:<{width}}: ', end='')
-        else:
-            print(f'{k:>{width}}: ', end='')
-        
-        # Print the values, depending on their type
-        if isinstance(v, dict):
-            print_dict(v, indent=indent, level=level+1)
-        
-        elif hasattr(v, 'shape'):
-            if v.ndim == 0:
-                print(f'{v:.3f} (0-d array)')
-            else:
-                print(f'array {v.shape} ∈ [{v.min():.3f}, {v.max():.3f}]')
-        
-        elif isinstance(v, str):
-            print('"{}"'.format(v))
-        
-        elif isinstance(v, list):
-            if len(v) < 5:
-                print(v)
-            else:
-                print(f'list of {len(v)} items: [{format_number(v[0])}, ..., {format_number(v[-1])}]')
-        
-        elif isinstance(v, tuple):
-            if len(v) < 5:
-                print(v)
-            else:
-                print(f'tuple of {len(v)} items: ({format_number(v[0])}, ..., {format_number(v[-1])})')
-        
-        else:
-            if isinstance(v, float) or isinstance(v, int):
-                print(format_number(v))
-            else:
-                print(v)
-    
-    print((indent*(level-1))*' ', end='')
-    print('}')
 
 
 def save(results, *, filename=None, prefix=None):
@@ -580,6 +520,7 @@ def save(results, *, filename=None, prefix=None):
     
     else:
         raise ValueError(f'Unsupported format: {extension}')
+
 
 def load(filename, prefix=None):
     """ Helper function to load results from JSON or NPZ (zipped numpy objects) """
@@ -675,7 +616,7 @@ class ResultCache(object):
         """ Load all results matching the current search pattern and return a dict indexed by representative filename sections """
         results = OrderedDict()
         filenames = self.find(**kwargs)
-        labels = coreutils.remove_commons(filenames)
+        labels = fsutil.strip_prefix(filenames)
         for l, f in zip(labels, filenames):
             results[l] = load(f)
         return results
@@ -695,6 +636,8 @@ class ResultCache(object):
     @staticmethod
     def format(pattern, prefix=None, **kwargs):
         if isinstance(pattern, str):
+            with open('config/result_patterns.json') as f:
+                result_patterns = json.load(f)
             pattern = result_patterns[pattern]
         if prefix is not None:
             return os.path.join(prefix, *[x.format(**kwargs) for x in pattern])
@@ -723,13 +666,10 @@ class ResultCache(object):
             )
         
     def __repr__(self):
-        return '{}("{}","{}"{})'.format(
+        return '{}("{}","{}",{})'.format(
             self.__class__.__name__,
             self._pattern,
             self.prefix,
-            coreutils.join_args(self.kwargs, prefix=True)
+            utils.join_args(self.kwargs)
         )
-
-# with open('config/result_patterns.json') as f:
-#     result_patterns = json.load(f)
 

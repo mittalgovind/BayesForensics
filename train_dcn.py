@@ -8,7 +8,8 @@ import numpy as np
 import tensorflow as tf
 
 # Own libraries and modules
-from helpers import dataset, coreutils, utils
+import helpers.debugging
+from helpers import dataset, fsutil, utils
 from models import compression
 
 from training.compression import train_dcn
@@ -136,13 +137,13 @@ def main():
     if not args.dry:
         print('\n# Dataset:')
         np.random.seed(training_spec['seed'])
-        data = dataset.IPDataset(args.data, n_images=training_spec['n_images'], v_images=training_spec['v_images'], load='y',
-                                 val_rgb_patch_size=training_spec['patch_size'], val_n_patches=training_spec['valid_patches'])
+        data = dataset.Dataset(args.data, n_images=training_spec['n_images'], v_images=training_spec['v_images'], load='y',
+                               val_rgb_patch_size=training_spec['patch_size'], val_n_patches=training_spec['valid_patches'])
 
         for key in ['Training', 'Validation']:
             print('{:>16s} [{:5.1f} GB] : Y -> {} '.format(
                 '{} data'.format(key),
-                coreutils.mem(data[key.lower()]['y']),
+                helpers.debugging.mem(data[key.lower()]['y']),
                 data[key.lower()]['y'].shape
             ), flush=True)
 

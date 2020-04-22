@@ -7,14 +7,16 @@ import re
 import argparse
 
 # Disable unimportant logging and import TF
+import helpers.utils
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # Helper functions
-from helpers import coreutils, dataset
+from helpers import fsutil, dataset
 from compression import codec
 
 
-@coreutils.logCall
+@helpers.utils.logCall
 def batch_training(nip_model, camera_names=None, root_directory=None, loss_metric='L2', trainables=None,
                    jpeg_quality=None, jpeg_mode='soft', manipulations=None, dcn_model=None, downsampling='pool',
                    end_repetition=10, start_repetition=0, n_epochs=1001, patch=128,
@@ -139,7 +141,7 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
             data_directory = data_directory.replace(root_directory, 'data/').replace('//', '/')
 
         # Load the image dataset
-        data = dataset.IPDataset(data_directory, n_images=training['n_images'], v_images=training['v_images'], load=load, val_rgb_patch_size=patch_mul * training['patch_size'], val_n_patches=training['val_n_patches'])
+        data = dataset.Dataset(data_directory, n_images=training['n_images'], v_images=training['v_images'], load=load, val_rgb_patch_size=patch_mul * training['patch_size'], val_n_patches=training['val_n_patches'])
 
         print('\n# Training loop: {} repetitions / {} NIP lambdas {} / {} DCN lambdas {}'.format(end_repetition - start_repetition, len(lambdas_nip), lambdas_nip, len(lambdas_dcn), lambdas_dcn))
         

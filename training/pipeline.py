@@ -82,8 +82,8 @@ def validate(model, data, out_directory, savefig=False, epoch=0, show_ref=False,
 
 # Show the training progress
 def show_progress(isp, out_directory):
-    from helpers import plotting
-    fig = plotting.perf(isp.performance, ['training', 'validation'], figwidth=5)    
+    from helpers import plots
+    fig = plots.perf(isp.performance, ['training', 'validation'], figwidth=5)    
     fig.suptitle(isp.model_code)
     fig.savefig(os.path.join(out_directory, 'progress.png'), bbox_inches='tight', dpi=150)
     del fig

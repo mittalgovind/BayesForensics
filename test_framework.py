@@ -5,7 +5,9 @@ import json
 import shutil
 import argparse
 import subprocess
-from helpers import coreutils
+
+import helpers.utils
+from helpers import fsutil
 
 OK_STR = '\033[92m ok \033[00m'
 MISS_STR = '\033[91m missing \033[00m'
@@ -60,7 +62,7 @@ def run_test(config, args):
     with open(training_log) as f:
         perf = json.load(f)
         for key, expected_value in config['performance']['values'].items():
-            obtained_value = coreutils.getkey(perf, key)[-1]
+            obtained_value = helpers.utils.get(perf, key, sep='/')[-1]
             print('    {:70s} {:5.2f} > {:5.2f} [{}]'.format(key, obtained_value, expected_value, OK_STR if obtained_value > expected_value else FAIL_STR))
 
 

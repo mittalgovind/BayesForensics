@@ -1,3 +1,13 @@
+# -*- coding: utf-8 -*-
+"""
+Implementation of classic and neural image signal processors. The module provides:
+
+- an abstract NIPModel class that sets up a common framework for ISP models
+- Several neural ISPs: INet, DNet, UNet
+- A trivial ONet model which serves as a NULL-ISP (allows to pass RGB-RGB pairs through the pipeline),
+- A ClassicISP class with a standard ISP (standard steps + neural demosaicing)
+
+"""
 import os
 import sys
 import json
@@ -7,10 +17,11 @@ import tensorflow as tf
 
 from collections import OrderedDict
 
+import helpers.raw
 from models.tfmodel import TFModel
 from models import layers
-from helpers import tf_helpers, paramspec, utils
-from helpers.utils import upsampling_kernel, bilin_kernel, gamma_kernels
+from helpers import tf_helpers, paramspec
+from helpers.kernels import upsampling_kernel, gamma_kernels, bilin_kernel
 
 
 class NIPModel(TFModel):
@@ -19,17 +30,16 @@ class NIPModel(TFModel):
     implement the 'construct_model' method that builds the model. See existing classes for examples.
     """
 
-    def __init__(self, loss_metric='L2', patch_size=None, label=None, in_channels=4, **kwargs):
+    def __init__(self, loss_metric='L2', patch_size=None, in_channels=4, **kwargs):
         """
         Base constructor with common setup.
 
         :param loss_metric: loss metric for NIP optimization (L2, L1, SSIM)
         :param patch_size: Optionally patch size can be given to fix placeholder dimensions (can be None)
-        :param label: A suffix to the scoped name (used when saving the model)
         :param in_channels: number of channels in the input RAW image (defaults to 4 for RGGB)
         :param kwargs: Additional arguments for specific NIP implementations
         """
-        super().__init__(label)
+        super().__init__()
         self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, in_channels), name='x')
         self.in_channels = in_channels
         self.construct_model(**kwargs)
@@ -158,7 +168,7 @@ class NIPModel(TFModel):
         if cfa_pattern is None:
             raise ValueError('This ISP is not aware of the CFA! Set the CFA explicitly or make sure "._h.cfa_pattern" is accessible!')
 
-        k0m = utils.merge_bayer(k0, cfa_pattern)
+        k0m = helpers.raw.merge_bayer(k0, cfa_pattern)
         
         if demosaicing:
             return self._model._demosaicing(np.expand_dims(k0m, axis=0), clip=False).numpy()
@@ -227,7 +237,8 @@ class UNet(NIPModel):
 
     @property
     def model_code(self):
-        return '{}_{}'.format(self.class_name, self._h.n_steps)
+        return f'{self.class_name}_{self._h.n_steps}'
+
 
 class INet(NIPModel):
     """
@@ -349,12 +360,9 @@ class DNet(NIPModel):
             f=self._h.n_features, l=self._h.n_layers)
 
 
-supported_models = [name for name, obj in inspect.getmembers(sys.modules[__name__]) if type(obj) is type and issubclass(obj, NIPModel) and name != 'NIPModel']
-
-
 class ONet(NIPModel):
     """
-    Dummy pipeline for RGB manipulation training.
+    Dummy pipeline for RGB training.
     """
 
     def construct_model(self):
@@ -458,11 +466,12 @@ class ClassicISP(NIPModel):
     """
     A tensorflow implementation of a simple camera ISP. The model expects RAW Bayer stacks
     with 4 channels (RGGB) as input, and replicates steps of a simple pipeline:
-        - upsample half-resolution RGGB stacks to full-resolution RGB Bayer images
-        - demosaicing (simple CNN model)
-        - RGB -> sRGB color conversion (based on conversion tables from the camera)
-        - [optional brightness normalization]
-        - gamma correction
+
+    - upsample half-resolution RGGB stacks to full-resolution RGB Bayer images
+    - demosaicing (simple CNN model)
+    - RGB -> sRGB color conversion (based on conversion tables from the camera)
+    - [optional brightness normalization]
+    - gamma correction
 
     See also: helpers.raw_api.unpack
     """
@@ -529,11 +538,14 @@ class ClassicISP(NIPModel):
     def summary(self):
         nf = len(self._h.c_filters)
         fs = self._h.c_filters[0] if len(set(self._h.c_filters)) == 1 else '*'        
-        k=self._h.kernel
+        k = self._h.kernel
         return f'{self.class_name}[{self._h.cfa_pattern}] + CNN demosaicing [{nf}+1 layers : {k}x{k}x{fs} -> 1x1x3]'
 
     def summary_compact(self):
         nf = len(self._h.c_filters)
         fs = self._h.c_filters[0] if len(set(self._h.c_filters)) == 1 else '*'        
-        k=self._h.kernel
+        k = self._h.kernel
         return f'{self.class_name}[{self._h.cfa_pattern}, {nf}+1 conv2D {k}x{k}x{fs} > 1x1x3]'
+
+
+supported_models = [name for name, obj in inspect.getmembers(sys.modules[__name__]) if type(obj) is type and issubclass(obj, NIPModel) and name != 'NIPModel']

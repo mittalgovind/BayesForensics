@@ -1,23 +1,40 @@
+# -*- coding: utf-8 -*-
+"""
+Implements JPEG compression models. The module provides the following:
+
+The `DifferentiableJPEG` class is a custom Tensorflow model which manually implements the JPEG codec using basic
+matrix operations. In most cases, this model should not be used directly.
+
+The `JPEG` class is the main model for most use cases. It serves as a high-level wrapper over `DifferentiableJPEG` but
+provides multiple extra features:
+- it interfaces naturally with the other components in the toolbox
+- allows to switch JPEG codecs, e.g., switch to libJPEG for final validation
+- allows for randomly choose quality factors (useful for data augmentation)
+
+An additional helper function `differentiable_jpeg` can be used if you don't want to keep your own JPEG instance. The
+function will expose a lazy-initialized instance of the JPEG model (differentiable approximation).
+
+"""
 import numpy as np
 import tensorflow as tf
 
 from models.layers import Quantization
 from models.tfmodel import TFModel
 from compression import jpeg_helpers
-from helpers.utils import jpeg_qtable, jpeg_qf_estimation, is_number
-from helpers import tf_helpers, utils
+from helpers.utils import is_number
+from compression.jpeg_helpers import jpeg_qtable, jpeg_qf_estimation
 
 _common_codec = None
 
+
 def is_valid_quality(quality):
-    if is_number(quality) and quality >= 1 and quality <= 100:
+    if is_number(quality) and 1 <= quality <= 100:
         return True
-    elif hasattr(quality, '__getitem__') and len(quality) > 1 and all((x >= 1 and x <= 100) for x in quality):
+    elif hasattr(quality, '__getitem__') and len(quality) > 1 and all((1 <= x <= 100) for x in quality):
         return True
     return False
 
 
-# @tf.function
 def differentiable_jpeg(x, quality):
     global _common_codec
     if _common_codec is None:
@@ -31,7 +48,7 @@ class DifferentiableJPEG(tf.keras.Model):
         super().__init__(self)
 
         if quality is not None and not is_valid_quality(quality):
-            raise ValueError('Invalid JPEG quality - requires an integer between 1-100 or an iterable with least 2 such numbers')
+            raise ValueError('Invalid JPEG quality: requires int in [1,100] or an iterable with least 2 such numbers')
 
         # Sanitize inputs
         if rounding_approximation is not None and rounding_approximation not in ['sin', 'harmonic', 'soft']:
@@ -47,7 +64,7 @@ class DifferentiableJPEG(tf.keras.Model):
             self._q_mtx_luma = np.ones((8, 8), dtype=np.float32) if not is_number(quality) else jpeg_qtable(quality, 0)
             self._q_mtx_chroma = np.ones((8, 8), dtype=np.float32) if not is_number(quality) else jpeg_qtable(quality, 1)
 
-        # Paramaters
+        # Parameters
         self.quality = quality
         self.trainable = trainable
         self.rounding_approximation = rounding_approximation
@@ -72,7 +89,6 @@ class DifferentiableJPEG(tf.keras.Model):
         self.quantization = Quantization(self.rounding_approximation, self.rounding_approximation_steps, latent_bpf=9)
 
     def call(self, inputs):
-        # Remember settings
         block_size = 8
 
         with tf.name_scope('jpeg'):
@@ -81,7 +97,7 @@ class DifferentiableJPEG(tf.keras.Model):
             with tf.name_scope('rgb_to_ycbcr'):
                             
                 xc = tf.pad(255.0 * inputs, [[0, 0], [0, 0], [0, 0], [1, 0]], 'CONSTANT', constant_values=1)
-                ycbcr = tf.nn.conv2d(xc, tf.reshape(tf.transpose(self._color_F), [1, 1, 4, 3]), [1, 1, 1, 1], 'SAME', name='jpeg_ycbcr')
+                ycbcr = tf.nn.conv2d(xc, tf.reshape(tf.transpose(self._color_F), [1, 1, 4, 3]), [1, 1, 1, 1], 'SAME')
 
             with tf.name_scope('blocking'):
                 # Re-organize to get non-overlapping blocks in the following form
@@ -100,7 +116,7 @@ class DifferentiableJPEG(tf.keras.Model):
             # Forward DCT transform
             with tf.name_scope('dct'):
                 Xi = tf.matmul(tf.tile(tf.expand_dims(self._dct_F, axis=0), [tf.shape(r)[0], 1, 1]), r)
-                X = tf.matmul(Xi, tf.tile(tf.expand_dims(self._dct_I, axis=0), [tf.shape(r)[0], 1, 1]), name='jpeg_dct')
+                X = tf.matmul(Xi, tf.tile(tf.expand_dims(self._dct_I, axis=0), [tf.shape(r)[0], 1, 1]))
 
             # Approximate quantization
             with tf.name_scope('quantization'):
@@ -111,7 +127,7 @@ class DifferentiableJPEG(tf.keras.Model):
                 Q = tf.concat((Ql, Qc), axis=0)
                 Q = tf.tile(Q, [(tf.shape(inputs)[0]), 1, 1])
                 X = X / Q
-                X = self.quantization(X) #tf_helpers.quantization(X, 'quantization', self.rounding_approximation, self.rounding_approximation_steps)
+                X = self.quantization(X)
                 X = X * Q
 
             with tf.name_scope('idct'):
@@ -136,11 +152,12 @@ class DifferentiableJPEG(tf.keras.Model):
             # Color conversion (YCbCr-> RGB)
             with tf.name_scope('ycbcr_to_rgb'):
                 qc = tf.pad(q + 127, [[0, 0], [0, 0], [0, 0], [1, 0]], 'CONSTANT', constant_values=1)
-                y = tf.nn.conv2d(qc, tf.reshape(tf.transpose(self._color_I), [1, 1, 4, 3]), [1, 1, 1, 1], 'SAME', name='jpeg_y')                                                
+                y = tf.nn.conv2d(qc, tf.reshape(tf.transpose(self._color_I), [1, 1, 4, 3]), [1, 1, 1, 1], 'SAME')
                 y = y / 255.0                    
                 y = tf.clip_by_value(y, 0, 1)
 
         return y, X
+
 
 class JPEG(TFModel):
     """
@@ -157,14 +174,13 @@ class JPEG(TFModel):
     For use-cases outside of the framework, the 'DifferentiableJPEG' class (tf.keras.Model) may be more appropriate.
     """
 
-    def __init__(self, quality=None, codec='soft', trainable=False, label=None):
+    def __init__(self, quality=None, codec='soft', trainable=False):
         """
         :param quality: JPEG quality level or None (can be specified later)
         :param codec: 'libjpeg', 'soft', 'sin', 'harmonic'
         :param trainable: set true to make the quantization tables trainable (under development)
-        :param label: A suffix to the scoped name (used when saving the model)
         """
-        super().__init__(label)
+        super().__init__()
 
         # Sanitize inputs
         if codec is not None and codec not in ['libjpeg', 'soft', 'sin', 'harmonic']:
@@ -241,16 +257,15 @@ class JPEG(TFModel):
             return 'JPEG(quality={},codec="{}")'.format(self.quality, self.codec)
 
     def summary(self, quality=None):
-        return 'JPEG codec ({}) w. {}'.format(
-            self.codec,
-            self._quality_mode(),
-            )
+        return f'JPEG ({self.codec}) {self._quality_mode(quality)}'
 
     def summary_compact(self, quality=None):
-        return 'JPEG ({}) {}'.format(self.codec, self._quality_mode(quality))
+        return f'JPEG ({self.codec}) {self._quality_mode(quality)}'
 
     def estimate_qf(self, channel=0):
-        """ Estimate current JPEG quality factor (smallest difference wrt IJG tables) using luma (channel=0) or chroma (1) tables. """
+        """
+        Estimate current JPEG quality factor (smallest difference wrt IJG tables) using luma (channel=0) or chroma (1) tables.
+        """
         return jpeg_qf_estimation(self._model._q_mtx_luma, channel)
 
     def _quality_mode(self, quality=None):
