@@ -63,6 +63,7 @@ class Dataset(object):
         self.files = {}
         self._loaded_data = load
         self._data_directory = data_directory
+        self._counts = (n_images, v_images, val_n_patches)
         self._val_discard = 'flat-aggressive'
         self.files['training'], self.files['validation'] = loading.discover_images(data_directory, randomize=randomize,
                                                                                    n_images=n_images, v_images=v_images)
@@ -137,16 +138,11 @@ class Dataset(object):
         :param batch_size: integer, self explanatory
         :return: tuple of np arrays (RAW, RGB) or np array (RGB)
         """
-
-        # RGB patch size
-        if 'y' in self._loaded_data:
-            patch_size = self.data['validation']['y'].shape[1]
-        else:
-            patch_size = 2 * self.data['validation']['x'].shape[1]
+        rgb_patch = self.rgb_patch_size
 
         batch = {
-            'x': np.zeros((batch_size, patch_size // 2, patch_size // 2, 4), dtype=np.float32) if 'x' in self._loaded_data else None,
-            'y': np.zeros((batch_size, patch_size, patch_size, 3), dtype=np.float32) if 'y' in self._loaded_data else None
+            'x': np.zeros((batch_size, rgb_patch // 2, rgb_patch // 2, 4), dtype=np.float32) if 'x' in self._loaded_data else None,
+            'y': np.zeros((batch_size, rgb_patch, rgb_patch, 3), dtype=np.float32) if 'y' in self._loaded_data else None
         }
 
         for b in range(batch_size):
@@ -163,6 +159,14 @@ class Dataset(object):
             return batch['x']
 
     @property
+    def rgb_patch_size(self):
+        if 'y' in self._loaded_data:
+            patch_size = self.data['validation']['y'].shape[1]
+        else:
+            patch_size = 2 * self.data['validation']['x'].shape[1]
+        return patch_size
+
+    @property
     def count_training(self):
         key = self._loaded_data[0]
         return self.data['training'][key].shape[0]
@@ -173,8 +177,10 @@ class Dataset(object):
         return self.data['validation'][key].shape[0]
 
     def __repr__(self):
-        valid_label = '' if self._val_discard is None else ' ({})'.format(self._val_discard)
-        return f'Dataset[load={self._loaded_data}] : {self.count_training} train. images + {self.count_validation} valid. patches{valid_label}'
+        args = [f'"{self._data_directory}"', f'load="{self._loaded_data}"', f'n_images={self._counts[0]}',
+                f'v_images={self._counts[1]}', f'val_rgb_patch_size={self._counts[2]}',
+                f'val_rgb_patch_size={self.rgb_patch_size}', f'discard="{self._val_discard}"']
+        return f'Dataset({", ".join(args)})'
 
     def shapes(self):
         stats = {
@@ -187,23 +193,28 @@ class Dataset(object):
 
         return stats
 
-    def summary(self):
+    @property
+    def loaded_data(self):
         if self._loaded_data == 'xy':
             db_type = 'raw+rgb'
         elif self._loaded_data == 'y':
             db_type = 'rgb'
         elif self._loaded_data == 'x':
             db_type = 'raw'
+        return db_type
 
-        valid_label = '' if self._val_discard is None else f' ({self._val_discard})'
-        label = [f'{db_type} dataset from {self._data_directory}',
-                 f'w. {self.count_training:,d} tr + {self.count_validation:,d} val patches{valid_label}']
+    def summary(self):
+        valid_label = '' if self._val_discard is None else self._val_discard
+        return f'Dataset[{os.path.split(self._data_directory)[-1]},{self.loaded_data}] : {self.count_training} train. images + {self.count_validation} valid. patches ({self.rgb_patch_size} px, {valid_label})'
 
-        for k in 'xy':
+    def details(self):
+        label = [self.summary()]
+
+        for k, l in zip('xy', ['RAW', 'RGB']):
             if k in self._loaded_data:
-                label.append(f'| {k} -> t:{self.data["training"][k].shape} + v:{self.data["validation"][k].shape}')
+                label.append(f'{l} -> training {self.data["training"][k].shape} + validation {self.data["validation"][k].shape}')
 
-        return ' '.join(label)
+        return '\n'.join(label)
 
     def get_training_generator(self, batch_size, rgb_patch_size, discard='flat'):
         """
