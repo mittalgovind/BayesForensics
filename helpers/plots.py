@@ -311,7 +311,6 @@ def sub(n_plots, figwidth=6, figheight=None, ncols=-1, fig=None, transpose=False
 def progress(k, v, results=('training', 'validation'), log='auto', axes=None, start=0, alpha=0.8):
     active = False
     markers = '.os^'[:len(results)]
-    colors = 'rgb'
     for ri, r in enumerate(results):
         print(r, markers[ri])
         if r not in v or len(v[r]) == 0:
