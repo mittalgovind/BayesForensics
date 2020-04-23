@@ -56,7 +56,7 @@ class Dataset(object):
             if os.path.isdir(os.path.join('data/raw/training_data/', data_directory)):
                 data_directory = os.path.join('data/raw/training_data/', data_directory)
             elif os.path.isdir(os.path.join('data/rgb/', data_directory)):
-                data_directory = os.path.join('data/raw/training_data/', data_directory)
+                data_directory = os.path.join('data/rgb/', data_directory)
             else:
                 raise ValueError(f'Cannot find the data directory: {data_directory}')
 
@@ -114,12 +114,12 @@ class Dataset(object):
         for b in range(batch_size):
 
             bid = batch_id * batch_size + b
-            current_raw = self.data['training']['x'][bid]
             current_rgb = self.data['training']['y'][bid]
             xx, yy = sample_patch(current_rgb, rgb_patch_size, discard, max_attempts)
             rx, ry = xx // 2, yy // 2
 
             if 'x' in self._loaded_data:
+                current_raw = self.data['training']['x'][bid]
                 batch['x'][b] = current_raw[ry:ry+raw_patch_size, rx:rx+raw_patch_size].astype(np.float) / (2**16 - 1)
             if 'y' in self._loaded_data:
                 batch['y'][b] = current_rgb[yy:yy+rgb_patch_size, xx:xx+rgb_patch_size].astype(np.float) / (2**8 - 1)
@@ -157,6 +157,9 @@ class Dataset(object):
             return batch['y']
         elif self._loaded_data == 'x':
             return batch['x']
+
+    def is_raw_and_rgb(self):
+        return len(self._loaded_data) == 2
 
     @property
     def rgb_patch_size(self):

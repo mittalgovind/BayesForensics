@@ -20,7 +20,7 @@ from collections import OrderedDict
 import helpers.raw
 from models.tfmodel import TFModel
 from models import layers
-from helpers import tf_helpers, paramspec
+from helpers import tf_helpers, paramspec, utils
 from helpers.kernels import upsampling_kernel, gamma_kernels, bilin_kernel
 
 
@@ -117,17 +117,11 @@ class NIPModel(TFModel):
 
     @property
     def _input_description(self):
-        if self.patch_size_raw is None:
-            return '(rgb)' if hasattr(self.x, 'shape') and self.x.shape[-1] == 3 else '(raw)'
-        else:
-            return 'x'.join(str(x) for x in self.x.shape[1:])
+        return utils.format_patch_shape(self.patch_size_raw)
 
     @property
     def _output_description(self):
-        if self.patch_size_rgb is None:
-            return '(rgb)' if hasattr(self.y, 'shape') and self.y.shape[-1] == 3 else '(?)'
-        else:
-            return 'x'.join(str(x) for x in self.y.shape[1:])
+        return utils.format_patch_shape(self.patch_size_rgb)
 
     @property
     def patch_size_raw(self):
@@ -366,7 +360,8 @@ class ONet(NIPModel):
     """
 
     def construct_model(self):
-        self.x = tf.keras.Input(dtype=tf.float32, shape=(None, None, 3))
+        patch_size = 2 * self.x.shape[1]
+        self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, 3))
         self.y = tf.identity(self.x)
         self._model = tf.keras.Model(inputs=self.x, outputs=self.y)
 

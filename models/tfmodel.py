@@ -135,14 +135,15 @@ class TFModel(object):
         data = [(tv.name, tv.shape, np.prod(tv.shape.as_list()), round(100 * np.prod(tv.shape.as_list()) / total, 1)) for tv in self.parameters]
         return pd.DataFrame(data, columns=['name', 'shape', 'parameters', 'total'])        
 
-    def save_model(self, dirname, epoch=0, save_args=False):
+    def save_model(self, dirname, epoch=0, save_args=False, quiet=False):
         if not dirname.endswith(self.scoped_name):
             dirname = os.path.join(dirname, self.scoped_name)
 
         if not os.path.exists(dirname):
             os.makedirs(dirname)
-        
-        logger.info(f'> {self.class_name} --> {os.path.join(dirname, self.class_name.lower())} {"JSON" if save_args else ""}')
+
+        if not quiet:
+            logger.info(f'> {self.class_name} --> {os.path.join(dirname, self.class_name.lower())} {"JSON" if save_args else ""}')
         self._model.save_weights(os.path.join(dirname, self.class_name.lower()))
 
         if save_args:
@@ -152,10 +153,11 @@ class TFModel(object):
                     'args': self.get_hyperparameters()
                 }, f, indent=4)
 
-    def load_model(self, dirname):
+    def load_model(self, dirname, quiet=False):
         if not dirname.endswith(self.scoped_name):
             dirname = os.path.join(dirname, self.scoped_name)
-        logger.info(f'> {self.class_name} <-- {os.path.join(dirname, self.class_name.lower())}')
+        if not quiet:
+            logger.info(f'> {self.class_name} <-- {os.path.join(dirname, self.class_name.lower())}')
         self._model.load_weights(os.path.join(dirname, self.class_name.lower()))
         self.reset_performance_stats()
 

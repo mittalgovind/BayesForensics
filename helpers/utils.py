@@ -68,6 +68,16 @@ def is_nan(value):
     return False
 
 
+def is_vector(data):
+
+    if isinstance(data, list) and all(is_number(x) for x in data):
+        return True
+    elif isinstance(data, np.ndarray) and data.ndim == 1:
+        return True
+    else:
+        return False
+
+
 def format_number_order(n):
     n = float(n)
     suffix = ('', 'k', 'M', 'B', 'T')
@@ -76,25 +86,34 @@ def format_number_order(n):
 
 
 def format_number(x, digits=3):
-    if isinstance(x, float):
-        w = max(0, int(np.floor(np.log10(np.abs(x))))) + (digits - 1)
-        p = max(0, - np.int(np.floor(np.log10(np.abs(x))))) + (digits - 1)
-        return f'{x:{w}.{p}f}'
-    else:
-        return f'{x}'
+    if np.isnan(x):
+        return 'nan'
+
+    if np.isinf(x):
+        return '∞'
+
+    try:
+        if isinstance(x, float) and x != 0:
+            w = max(0, int(np.floor(np.log10(np.abs(x))))) + (digits - 1)
+            p = max(0, - np.int(np.floor(np.log10(np.abs(x))))) + (digits - 1)
+            return f'{x:{w}.{p}f}'
+        else:
+            return f'{x}'
+    except:
+        return '?'
 
 
-def match_option(x, options, regexp=True):
+def match_option(x, options, regexp=False):
 
     if regexp:
         matches = [y for y in options if re.match(x, y)]
         if len(matches) == 1:
             return matches[0]
         else:
-            raise ValueError('Found {} matches!'.format(len(matches)))
+            raise ValueError(f'No regexp match: "{x}" to any of {options}!')
 
     else:
-        start_match = [y.startswith(x) for y in options]
+        start_match = [y.startswith(x) or x.startswith(y) for y in options]
 
         if sum(start_match) == 1:
             return options[start_match.index(True)]
@@ -179,6 +198,10 @@ def join_args(args, sep=','):
 
 def printd(d, indent=2, level=1):
     """ Prints a concise summary of a dict-like object (arrays/tensors are not displayed - only their shape) """
+    if len(d) == 0:
+        print('{}')
+        return
+
     print('{')
 
     width = max([len(f'{k}') for k in d.keys()])
@@ -200,6 +223,8 @@ def printd(d, indent=2, level=1):
         elif hasattr(v, 'shape'):
             if v.ndim == 0:
                 print(f'{v:.3f} (0-d array)')
+            elif len(v) == 0:
+                print(f'empty array')
             else:
                 print(f'array {v.shape} ∈ [{v.min():.3f}, {v.max():.3f}]')
 
@@ -226,3 +251,12 @@ def printd(d, indent=2, level=1):
 
     print((indent*(level-1))*' ', end='')
     print('}')
+
+
+def format_patch_shape(patch_size):
+    if patch_size is None:
+        return '?'
+    elif any(x is None for x in patch_size):
+        return '(rgb)' if patch_size[-1] == 3 else '(raw)'
+    else:
+        return '×'.join(str(x) for x in patch_size)

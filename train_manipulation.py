@@ -113,7 +113,7 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
     # Construct the workflow ----------------------------------------------------------------------
     manipulations = manipulations or ['sharpen', 'resample', 'gaussian', 'jpeg']
 
-    flow = manipulation_classification.ManipulationClassification(nip_model, manipulations, distribution, trainables, patch_size=training['patch_size'])
+    flow = manipulation_classification.ManipulationClassification(nip_model, manipulations, distribution, trainables, raw_patch_size=training['patch_size'])
     print('\n# Workflow details')
     print(flow.details())
 

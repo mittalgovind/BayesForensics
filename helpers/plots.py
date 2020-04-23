@@ -23,15 +23,16 @@ Overview
 - scatter_hex       - 2d density plot with hex binning
 
 """
-from matplotlib.figure import Figure
-import numpy as np
 import imageio
+import numpy as np
 
+from matplotlib.figure import Figure
 from skimage.transform import resize
 
-from helpers import stats
-
 from loguru import logger
+
+from helpers import stats, utils
+
 
 def configure(profile=None):
 
@@ -303,7 +304,11 @@ def sub(n_plots, figwidth=6, figheight=None, ncols=-1, fig=None, transpose=False
             if len(axes_flat) < n_plots:
                 axes_flat.append(ax)
             else:
-                ax.remove()                
+                ax.remove()
+
+    if transpose:
+        from itertools import product
+        axes_flat = [axes_flat[j * subplot_x + i] for i, j in product(range(subplot_x), range(subplot_y))]
     
     return fig, axes_flat
 
@@ -326,7 +331,7 @@ def progress(k, v, results=('training', 'validation'), log='auto', axes=None, st
     if active: axes.legend()
 
 
-def perf(training_progress, results=None, figwidth=5, log='auto', fig=None, alpha=0.9):
+def perf(training_progress, results=None, figwidth=5, log='auto', fig=None, alpha=0.25):
     """
     Plots training performance stats organized into a dictionary with the following structure:
      - {metric}/{training,validation} -> [values]
@@ -347,38 +352,26 @@ def perf(training_progress, results=None, figwidth=5, log='auto', fig=None, alph
     # If the data is not formatted as {metric: {training: [values], validation: [values]}} but rather {metric: [values]}
     # convert to the expected structure
     if any(not isinstance(v, dict) for v in training_progress.values()):
-        training_progress = {k: {'auto': v} for k, v in training_progress.items()}
-        results = ('auto',)
-
-    # Auto-detect results to show
-    if results is None:
-        results = set()
-        for v in training_progress.values():
-            results.update(list(v.keys()))
+        training_progress = {k: v for k, v in training_progress.items() if isinstance(v, dict)}
+        training_progress.update({k: {'auto': v} for k, v in training_progress.items() if utils.is_vector(v)})
 
     # Find the number of metrics with available data
-    n_plots = 0
+    active = []
 
     for i, (k, v) in enumerate(training_progress.items()):
+        # Check if all training metrics have all requested sets of results
+        if results is None or all(r in v and len(v[r]) > 0 for r in results):
+            active.append(k)
 
-        for r in results:
-            if r not in v or len(v[r]) == 0:
-                logger.debug(f'lenv={len(v[r])}')
-                active = False
-            else:
-                active = True
-                
-        if active:
-            n_plots += 1
-
-    if n_plots == 0:
+    if len(active) == 0:
         raise ValueError('No valid plots! Missing training/validation data? Use results=["training"] to select.')
 
-    fig, axes = sub(n_plots, ncols=n_plots, fig=fig)
-    fig.set_size_inches((n_plots * figwidth, figwidth * 0.75))
-    
-    for i, (k, v) in enumerate(training_progress.items()):
-        progress(k, v, results, log, axes[i], alpha=alpha)
+    fig, axes = sub(len(active), ncols=-1, fig=fig)
+    fig.set_size_inches((len(active) * figwidth, figwidth * 0.75))
+
+    for i, k in enumerate(active):
+        v = training_progress[k]
+        progress(k, v, results or v.keys(), log, axes[i], alpha=alpha)
     
     return fig
 

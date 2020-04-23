@@ -12,6 +12,7 @@ Example functionality:
 - differentiable entropy approximation
 
 """
+import os
 import tensorflow as tf
 import numpy as np
 
@@ -308,6 +309,8 @@ def print_versions():
     print('Tensorflow:', tf.__version__)
     print('GPUs:', tf.config.list_physical_devices('GPU'))
 
+def disable_warnings():
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 def disable_gpu():
     tf.config.set_visible_devices([], 'GPU')

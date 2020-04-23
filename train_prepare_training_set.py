@@ -91,7 +91,7 @@ def prepare_training_set(camera, target_pipeline, dev_settings, n_images=150, ro
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Prepares training pairs (raw inputs in *.npy and optimization targets in *.png) for a given camera')
+    parser = argparse.ArgumentParser(description='Prepare training pairs (raw inputs in *.npy and optimization targets in *.png) for a given camera')
     parser.add_argument('--cam', dest='camera', action='store', help='camera')
     parser.add_argument('--target', dest='target', action='store', default='manual',
                         help='target for optimization (manual or auto)')

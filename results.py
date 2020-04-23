@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import re
 import os
+import sys
 import argparse
 import numpy as np
 import seaborn as sns
@@ -98,7 +99,9 @@ def display_results(args):
         save_df(df, args.df, 'progress-{}.csv'.format(postfix))
 
         for col in ['psnr', 'accuracy']:
-            sns.relplot(x="step", y=col, hue='exp', row='nip', col='camera', style='exp', kind="line", legend="full", aspect=2, height=3, data=df)
+            if len(df[col].dropna()) > 0:
+                sns.relplot(x="step", y=col, hue='exp', row='nip', col='camera', style='exp', kind="line",
+                            legend="full", aspect=2, height=3, data=df)
 
         plt.show()
         return

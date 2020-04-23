@@ -21,6 +21,7 @@ import imageio
 from collections import OrderedDict
 from pathlib import Path
 from string import Formatter
+from loguru import  logger
 
 import numpy as np
 import pandas as pd
@@ -75,13 +76,13 @@ def nip_stats(dirname, avg_last_n_runs=1):
             with open(os.path.join(dirname, camera, pipe, 'progress.json')) as f:
                 ts = json.load(f)
 
-            data = ts if 'psnr' in ts else ts['Performance']
+            data = ts if 'psnr' in ts else ts['performance']
 
             df = df.append({
                 'pipeline': pipe,
                 'camera': camera,
-                'psnr': np.mean(np.mean(data['psnr'][-avg_last_n_runs:])),
-                'ssim': np.mean(np.mean(data['ssim'][-avg_last_n_runs:]))
+                'psnr': np.mean(utils.get(data, 'psnr.validation')[-avg_last_n_runs:]),
+                'ssim': np.mean(utils.get(data, 'ssim.validation')[-avg_last_n_runs:])
             }, ignore_index=True, sort=False)
 
     return df
@@ -122,9 +123,9 @@ def manipulation_metrics(nip_models, cameras, root_dir=ROOT_DIRNAME):
                                     'nip': nip,
                                     'ln': ed,
                                     'source': jf.replace(find_dir, '').replace('training.json', ''),
-                                    'psnr': data['nip']['validation']['psnr'][-1],
-                                    'ssim': data['nip']['validation']['ssim'][-1],
-                                    'accuracy': data['forensics']['validation']['accuracy'][-1]
+                                    'psnr': utils.get(data, 'nip.performance.psnr.validation')[-1],
+                                    'ssim': utils.get(data, 'nip.performance.ssim.validation')[-1],
+                                    'accuracy': utils.get(data, 'forensics.performance.accuracy.validation')[-1]
                         }, ignore_index=True)
 
     return df
@@ -153,7 +154,7 @@ def manipulation_progress(cases, root_dir=ROOT_DIRNAME):
         filename = os.path.join(root_dir, camera, nip_model, ed, '{:03d}'.format(rep), 'training.json')
 
         if not os.path.isfile(filename):
-            print('! warning: could not find file {}'.format(filename))
+            logger.warning(f'Could not find file {filename}')
             continue
 
         labels.append('{0} ({1}/{2}/{3})'.format(camera, nip_model, ed, rep))
@@ -162,16 +163,16 @@ def manipulation_progress(cases, root_dir=ROOT_DIRNAME):
             data = json.load(f)
 
         def match_length(y, x):
+            if len(x) == 0:
+                x = [np.nan]
             x = x[:len(y)]
             for _ in range(len(y) - len(x)):
                 x.append(x[-1])
             return x
 
-        d_psnr = data['nip']['validation']['psnr']
-        d_ssim = data['nip']['validation']['ssim']
-        d_accuracy = data['forensics']['validation']['accuracy']
-
-        print(len(d_accuracy), len(d_psnr), len(d_ssim))
+        d_psnr = utils.get(data, 'nip.performance.psnr.validation')
+        d_ssim = utils.get(data, 'nip.performance.ssim.validation')
+        d_accuracy = utils.get(data, 'forensics.performance.accuracy.validation')
 
         df = df.append(pd.DataFrame({
             'camera': [camera] * len(d_accuracy),
@@ -242,7 +243,7 @@ def confusion_data(run=None, root_dir=ROOT_DIRNAME):
 
     # Pre-filter only some run numbers
     if run is None:
-        print('INFO Using the first found repetition of the experiment')
+        logger.info('Using the first found repetition of the experiment')
         run = 0
 
     jsons_files = [jf for jf in jsons_files if '/{:03d}/'.format(run) in jf]
@@ -253,14 +254,14 @@ def confusion_data(run=None, root_dir=ROOT_DIRNAME):
             data = json.load(f)
 
         confusion['{}'.format(os.path.relpath(os.path.split(jf)[0], root_dir)).replace('/{:03d}'.format(run), '')] = {
-            'data': np.array(data['forensics']['validation']['confusion']),
+            'data': np.array(utils.get(data, 'forensics.performance.confusion')),
             'labels': data['summary']['Classes'] if isinstance(data['summary']['Classes'], list) else eval(data['summary']['Classes'])
         }
 
     return confusion
 
 
-def confusion_to_text(conf, labels, title='', fmt='txt'):
+def confusion_to_text(conf, labels, title='accuracy', fmt='txt'):
     """
     Converts a confusion matrix and class labels into a human-readable format (txt or tex).
     """
@@ -285,13 +286,13 @@ def confusion_to_text(conf, labels, title='', fmt='txt'):
         out.append('\\begin{document}\n')
         out.append('\\begin{preview}\n')
         out.append('\\begin{{tabular}}{{l{0}}}\n'.format(n * 'r'))
-        out.append('\\multicolumn{{{0}}}{{c}}{{{1} $\\rightarrow$ {2}\\%}} '.format(n + 1, title, np.mean(np.diag(conf))))
+        out.append('\\multicolumn{{{0}}}{{c}}{{{1} $\\rightarrow$ {2:.1f}\\%}} '.format(n + 1, title, np.mean(np.diag(conf))))
         out.append('\\tabularnewline\n')
         out.append('\\diagbox{\\textbf{True}}{\\textbf{Predicted}}')
 
         # Fill the header with class names
         for i in range(n):
-            out.append('& \\rotatebox{{90}}{{\\textbf{{{0}}}}}'.format(labels[i]))
+            out.append('& \\rotatebox{{90}}{{\\textbf{{{0}}}}}'.format(labels[i][:3]))
         out.append(' \\tabularnewline\n')
         out.append('\\toprule\n')
 
@@ -655,7 +656,7 @@ class ResultCache(object):
         args.update(kwargs)
         fmt = DefaultFormatter('*')
         pattern = os.path.join(self.prefix, *[fmt.format(x, **args) for x in self.pattern])
-        print('*>', pattern)
+        logger.info(f'*> {pattern}')
         return list(str(x) for x in Path('.').glob(pattern))
 
     def __str__(self):

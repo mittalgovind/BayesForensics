@@ -67,13 +67,13 @@ def compare_images_ab_ref(img_ref, img_a, img_b, labels=None, extras=False, fig=
     return fig
 
 
-def compare_batches(batch_a, batch_b, labels=None, fig=None, figwidth=4, nrows=3):
+def compare_batches(batch_a, batch_b, labels=None, fig=None, figwidth=4, nrows=3, transpose=False):
 
     n_images = min(len(batch_a), len(batch_b))
 
     labels = labels or ['', '']
 
-    fig, axes = plots.sub(n_images * nrows, figwidth, ncols=n_images, fig=fig)
+    fig, axes = plots.sub(n_images * nrows, figwidth, ncols=n_images, fig=fig, transpose=transpose)
 
     for i, (img_a, img_b) in enumerate(zip(batch_a, batch_b)):
 
