@@ -54,7 +54,7 @@ def restore_flow(filename, isp, manipulations, jpeg_qf, jpeg_codec, dcn_model, p
         print('info: overriding DCN model with {}'.format(dcn_model))
         distribution['compression_params']['dirname'] = dcn_model
 
-    flow = manipulation_classification.ManipulationClassification(isp, manipulations, distribution, {}, patch_size=patch_size)
+    flow = manipulation_classification.ManipulationClassification(isp, manipulations, distribution, coreutils.getkey(training_log, 'forensics/args'), {}, patch_size=patch_size)
     flow.fan.load_model(os.path.join(os.path.split(filename)[0], 'models'))
     return flow, accuracy
 
