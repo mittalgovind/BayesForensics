@@ -13,6 +13,7 @@ Example functionality:
 
 """
 import re
+import subprocess
 import sys
 from functools import reduce
 
@@ -260,3 +261,33 @@ def format_patch_shape(patch_size):
         return '(rgb)' if patch_size[-1] == 3 else '(raw)'
     else:
         return '×'.join(str(x) for x in patch_size)
+
+
+def shell(command, log=None, verbosity=2):
+
+    if verbosity == 2:
+        logger.info(f'>> {command}')
+    elif verbosity == 1:
+        if log is not None:
+            print(f'\n>> {command} \\')
+            print(f'   1> {log}.stdout 2> {log}.stderr')
+        else:
+            print(f'\n>> {command}')
+
+    if log is None:
+        p = subprocess.Popen(command, shell=True)
+    else:
+        p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    outs, errs = p.communicate()
+
+    with open(f'{log}.stdout', 'w') as fo:
+        for line in outs.decode('utf-8').splitlines():
+            fo.write(line)
+
+    with open(f'{log}.stderr', 'w') as fe:
+        for line in errs.decode('utf-8').replace('\r', '\n').splitlines():
+            fe.write(line)
+
+    p.wait()
+    return p.returncode

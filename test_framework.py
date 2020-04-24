@@ -4,7 +4,6 @@ import sys
 import json
 import shutil
 import argparse
-import subprocess
 
 from helpers import utils, tf_helpers
 
@@ -13,32 +12,14 @@ MISS_STR = '\033[91m missing \033[00m'
 FAIL_STR = '\033[91m failed \033[00m'
 
 
-def shell(command, log=None):
+def run_test(test_name, config, args):
 
-    print('\n> {}\n'.format(command))
-
-    if log is None:
-        p = subprocess.Popen(command, shell=True)
+    if not args.verbose:
+        log_path = os.path.join(args.root_dir, test_name)
     else:
-        print('  log: {}'.format(log))
-        p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        log_path = None
 
-    p.wait()
-
-    # Dump stdout
-    if log is not None:
-        with open(log, 'w') as f:
-            f.write('# STDOUT\n')
-            f.write(p.stdout.read().decode('utf-8'))
-            f.write('# STDERR\n')
-            f.write(p.stderr.read().decode('utf-8').replace('\r', '\n'))
-
-    return p.returncode
-
-
-def run_test(config, args):
-
-    code = shell(config['command'].format(cam=args.camera, root=args.root_dir), os.path.join(args.root_dir, config['log']) if not args.verbose else None)
+    code = utils.shell(config['command'].format(cam=args.camera, root=args.root_dir), log_path, verbosity=1)
     print('\n  Exit code: {}\n'.format(code))
 
     if code != 0:
@@ -100,7 +81,7 @@ def main():
         tests = args.tests.split(',')
 
     for test in tests:
-        run_test(settings[test], args)
+        run_test(test, settings[test], args)
 
 
 if __name__ == "__main__":
