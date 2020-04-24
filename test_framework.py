@@ -6,7 +6,7 @@ import shutil
 import argparse
 import subprocess
 
-from helpers import utils
+from helpers import utils, tf_helpers
 
 OK_STR = '\033[92m ok \033[00m'
 MISS_STR = '\033[91m missing \033[00m'
@@ -39,7 +39,7 @@ def shell(command, log=None):
 def run_test(config, args):
 
     code = shell(config['command'].format(cam=args.camera, root=args.root_dir), os.path.join(args.root_dir, config['log']) if not args.verbose else None)
-    print('  exit code: {}\n'.format(code))
+    print('\n  Exit code: {}\n'.format(code))
 
     if code != 0:
         print('ERROR non-zero return code for {}'.format('nip-training'))
@@ -69,8 +69,8 @@ def run_test(config, args):
 def main():
     parser = argparse.ArgumentParser(description='Train a neural imaging pipeline')
     parser.add_argument('--cam', dest='camera', action='store', help='camera', default='D90')
-    parser.add_argument('--dir', dest='root_dir', action='store', default='/tmp/neural-imaging-framework',
-                        help='output directory for temporary results, default: /tmp/neural-imaging-framework')
+    parser.add_argument('--dir', dest='root_dir', action='store', default='/tmp/neural-imaging',
+                        help='output directory for temporary results, default: /tmp/neural-imaging')
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         help='print the output of tested tools, default: false')
     parser.add_argument('--keep', dest='keep', action='store_true', default=False,
@@ -80,11 +80,15 @@ def main():
 
     args = parser.parse_args()
 
+    utils.setup_logging()
+    tf_helpers.disable_warnings()
+    tf_helpers.print_versions()
+
     with open('config/tests/framework.json') as f:
         settings = json.load(f)
 
     if os.path.exists(args.root_dir) and not args.keep:
-        print('> deleting {}'.format(args.root_dir))
+        print('\n> deleting {}'.format(args.root_dir))
         shutil.rmtree(args.root_dir)
 
     if not os.path.exists(args.root_dir):

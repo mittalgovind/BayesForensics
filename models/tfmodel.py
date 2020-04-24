@@ -8,7 +8,7 @@ import json
 
 from pathlib import Path
 
-import helpers.utils
+from helpers import utils
 
 from loguru import logger
 
@@ -118,6 +118,18 @@ class TFModel(object):
     def reset_performance_stats(self):
         self.performance = self._reset_performance(['loss'])
 
+    def log_metric(self, metric, scope, value, raw=False):
+        if not raw:
+            if utils.is_number(value):
+                value = float(value)
+            else:
+                value = float(np.mean(value))
+
+        self.performance[metric][scope].append(value)
+
+    def pop_metric(self, metric, scope):
+        return self.performance[metric][scope][-1]
+
     @property
     def parameters(self):
         return self._model.trainable_weights
@@ -144,7 +156,7 @@ class TFModel(object):
 
         if not quiet:
             logger.info(f'> {self.class_name} --> {os.path.join(dirname, self.class_name.lower())} {"JSON" if save_args else ""}')
-        self._model.save_weights(os.path.join(dirname, self.class_name.lower()))
+        self._model.save_weights(os.path.join(dirname, f'{self.class_name.lower()}.h5'), save_format='h5')
 
         if save_args:
             with open(os.path.join(dirname, f'{self.class_name.lower()}.json'), 'w') as f:
@@ -156,9 +168,17 @@ class TFModel(object):
     def load_model(self, dirname, quiet=False):
         if not dirname.endswith(self.scoped_name):
             dirname = os.path.join(dirname, self.scoped_name)
+
+        filename = os.path.join(dirname, f'{self.class_name.lower()}.h5')
+
+        # If the h5 model does not exist, try the TF snapshot
+        if not os.path.isfile(filename):
+            filename = os.path.join(dirname, self.class_name.lower())
+
         if not quiet:
-            logger.info(f'> {self.class_name} <-- {os.path.join(dirname, self.class_name.lower())}')
-        self._model.load_weights(os.path.join(dirname, self.class_name.lower()))
+            logger.info(f'> {self.class_name} <-- {filename}')
+
+        self._model.load_weights(filename)
         self.reset_performance_stats()
 
     def migrate_model(self, dirname, mapping=None, verbose=False):
@@ -228,7 +248,7 @@ class TFModel(object):
 
     def __repr__(self):
         try:
-            extra_params = helpers.utils.join_args(self._h.changed_params())
+            extra_params = utils.join_args(self._h.changed_params())
         except:
             extra_params = ''
         return f'{self.class_name}({extra_params})'

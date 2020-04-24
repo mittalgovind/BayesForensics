@@ -139,10 +139,10 @@ class NIPModel(TFModel):
             dirname = os.path.join('data/models/nip', dirname)
         super().load_model(dirname)
 
-    def save_model(self, dirname, epoch=0):
+    def save_model(self, dirname, epoch=0, quiet=False):
         if '/' not in dirname:
             dirname = os.path.join('data/models/nip', dirname)
-        super().save_model(dirname, epoch=epoch)
+        super().save_model(dirname, epoch=epoch, quiet=quiet)
 
     def process_fingerprint(self, k0, demosaicing=True, cfa_pattern=None):
         """ 

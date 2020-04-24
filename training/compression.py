@@ -277,7 +277,7 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
                 save_progress(dcn, data, training, model_output_dirname)
 
                 # Save current checkpoint
-                dcn.save_model(model_output_dirname, epoch)
+                dcn.save_model(model_output_dirname, epoch, quiet=True)
 
                 # Check for convergence or model deterioration
                 if len(perf['ssim']['validation']) > 5:
