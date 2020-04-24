@@ -7,35 +7,13 @@ import logging
 import argparse
 
 import numpy as np
-import scipy.fftpack as sfft
 
-from helpers import coreutils
+from helpers import fsutil, imdiff
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('test')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
-
-def fft_log_norm(x, boost=10, perc=0):
-    x = x.squeeze()
-    if x.ndim != 3:
-        raise ValueError('Only single images can be accepted as input.')
-    y = np.zeros_like(x)
-    for i in range(x.shape[-1]):
-        y[:, :, i] = np.abs(sfft.fft2(x[:, :, i]))
-        y[:, :, i] = sfft.fftshift(y[:, :, i])
-        y[:, :, i] = np.log(boost + y[:, :, i])
-        y[:, :, i] = nm(y[:, :, i], perc)
-    return y
-
-
-def nm(x, perc=0):
-    if np.all(x == 0):
-        return x
-    mn = x.min() if perc == 0 else np.percentile(x, perc)
-    mx = x.max() if perc == 0 else np.percentile(x, 100 - perc)
-    return ((x - mn) / (mx - mn)).clip(0, 1)
 
 
 def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patch_size=128, root_dirname='./data', output_dir=None, model_a_args=None, model_b_args=None, extras=False):
@@ -57,9 +35,9 @@ def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patc
 
     import tensorflow as tf
     from models import pipelines, tfmodel
-    from helpers import raw_api, loading
+    from helpers import raw, loading
 
-    supported_cameras = coreutils.listdir(os.path.join(root_dirname, 'models', 'nip'), '.*')
+    supported_cameras = fsutil.listdir(os.path.join(root_dirname, 'models', 'nip'), '.*')
     supported_pipelines = pipelines.supported_models
 
     if patch_size > 0 and (patch_size < 8 or patch_size > 2048):
@@ -105,7 +83,7 @@ def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patc
     if isinstance(image, int) and camera is not None:
 
         data_dirname = os.path.join(root_dirname, 'raw', 'training_data', camera)
-        files = coreutils.listdir(data_dirname, '.*\.png')
+        files = fsutil.listdir(data_dirname, '.*\.png')
         files = files[image:image+1]
         print('Loading image {} from the training set: {}'.format(image, files))
         data = loading.load_images(files, data_dirname)
@@ -119,8 +97,8 @@ def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patc
 
     elif image is not None:
         print('Loading a RAW image {}'.format(image))
-        sample_x, cfa, srgb, _ = raw_api.unpack(image, expand=True)
-        sample_y = raw_api.process(image, brightness=None, expand=True)
+        sample_x, cfa, srgb, _ = raw.unpack(image, expand=True)
+        sample_y = raw.process(image, brightness=None, expand=True)
         image = os.path.split(image)[-1]
 
     if isinstance(model_a, pipelines.ClassicISP):
@@ -147,11 +125,11 @@ def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patc
         sample_yb = sample_yb[:, 2*yy:2*(yy+patch_size), 2*xx:2*(xx+patch_size), :]
 
     # Plot images
-    fig = compare_images_ab_ref(sample_y, sample_ya, sample_yb, fig=plt.figure(), extras=extras)
+    fig = imdiff.compare_ab_ref(sample_y, sample_ya, sample_yb, fig=plt.figure(), extras=extras)
 
     if output_dir is not None:
         from tikzplotlib import save as tikz_save
-        dcomp = [x for x in coreutils.splitall(model_b_dirname) if re.match('(ln-.*|[0-9]{3})', x)]
+        dcomp = [x for x in fsutil.split(model_b_dirname) if re.match('(ln-.*|[0-9]{3})', x)]
         tikz_save('{}/examples_{}_{}_{}_{}.tex'.format(output_dir, camera, image, model_a_dirname, model_b_dirname), figureheight='8cm', figurewidth='8cm', strict=False)
     else:
         fig.tight_layout()
@@ -160,66 +138,6 @@ def compare_nips(model_a_dirname, model_b_dirname, camera=None, image=None, patc
     fig.suptitle('{}, A={}, B={}'.format(image, model_a.model_code, model_b.model_code))
     plt.show()
     plt.close(fig)
-
-
-def compare_images_ab_ref(img_ref, img_a, img_b, labels=None, extras=False, fig=None):
-    from helpers import plotting, metrics
-
-    labels = labels or ['target', '', '']
-
-    img_a = img_a.squeeze()
-    img_b = img_b.squeeze()
-    img_ref = img_ref.squeeze()
-
-    fig, axes = plotting.sub(9 if extras else 3, ncols=3, fig=fig)
-    # Index of the last axes 
-    j = 3 if extras else 2
-
-    plotting.quickshow(img_ref, '(T) {}'.format(labels[0]), axes=axes[0])
-
-    label_a = '(A) {}: {:.1f} dB / {:.3f}'.format(labels[1], metrics.psnr(img_ref, img_a), metrics.ssim(img_ref, img_a))
-    plotting.quickshow(img_a, label_a, axes=axes[1])
-
-    label_b = '(B) {}: {:.1f} dB / {:.3f}'.format(labels[2], metrics.psnr(img_ref, img_b), metrics.ssim(img_ref, img_b))
-    plotting.quickshow(img_b, label_b, axes=axes[j])
-
-    # A hack to allow image axes to zoom together
-    axes[1].get_shared_x_axes().join(axes[0], axes[1])
-    axes[j].get_shared_x_axes().join(axes[0], axes[j])
-    axes[1].get_shared_y_axes().join(axes[0], axes[1])
-    axes[j].get_shared_y_axes().join(axes[0], axes[j])
-
-    if not extras:
-        return fig
-
-    # Compute and plot difference images
-    diff_a = np.abs(img_a - img_ref)
-    diff_a_mean = diff_a.mean()
-    diff_a = nm(diff_a, 0.1)
-
-    diff_b = np.abs(img_b - img_ref)
-    diff_b_mean = diff_b.mean()
-    diff_b = nm(diff_b, 0.1)
-
-    diff_ab = np.abs(img_b - img_a)
-    diff_ab_mean = diff_ab.mean()
-    diff_ab = nm(diff_ab, 0.1)
-
-    plotting.quickshow(diff_a, 'T - A: mean abs {:.3f}'.format(diff_a_mean), axes=axes[2])
-    plotting.quickshow(diff_b, 'T - B: mean abs {:.3f}'.format(diff_b_mean), axes=axes[6])
-    plotting.quickshow(diff_ab, 'A - B: mean abs {:.3f}'.format(diff_ab_mean), axes=axes[4])
-
-    # Compute and plot spectra
-    fft_a = fft_log_norm(diff_a)
-    fft_b = fft_log_norm(diff_b)
-
-    # fft_ab = nm(np.abs(fft_a - fft_b))
-    fft_ab = nm(np.abs(fft_log_norm(img_b) - fft_log_norm(img_a)), 0.01)
-    plotting.quickshow(fft_a, 'FFT(T - A)', axes=axes[5])
-    plotting.quickshow(fft_b, 'FFT(T - B)', axes=axes[7])
-    plotting.quickshow(fft_ab, 'FFT(A) - FFT(B)', axes=axes[8])
-
-    return fig
 
 
 def main():

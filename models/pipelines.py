@@ -1,3 +1,13 @@
+# -*- coding: utf-8 -*-
+"""
+Implementation of classic and neural image signal processors. The module provides:
+
+- an abstract NIPModel class that sets up a common framework for ISP models
+- Several neural ISPs: INet, DNet, UNet
+- A trivial ONet model which serves as a NULL-ISP (allows to pass RGB-RGB pairs through the pipeline),
+- A ClassicISP class with a standard ISP (standard steps + neural demosaicing)
+
+"""
 import os
 import sys
 import json
@@ -7,10 +17,11 @@ import tensorflow as tf
 
 from collections import OrderedDict
 
+import helpers.raw
 from models.tfmodel import TFModel
 from models import layers
 from helpers import tf_helpers, paramspec, utils
-from helpers.utils import upsampling_kernel, bilin_kernel, gamma_kernels
+from helpers.kernels import upsampling_kernel, gamma_kernels, bilin_kernel
 
 
 class NIPModel(TFModel):
@@ -19,17 +30,16 @@ class NIPModel(TFModel):
     implement the 'construct_model' method that builds the model. See existing classes for examples.
     """
 
-    def __init__(self, loss_metric='L2', patch_size=None, label=None, in_channels=4, **kwargs):
+    def __init__(self, loss_metric='L2', patch_size=None, in_channels=4, **kwargs):
         """
         Base constructor with common setup.
 
         :param loss_metric: loss metric for NIP optimization (L2, L1, SSIM)
         :param patch_size: Optionally patch size can be given to fix placeholder dimensions (can be None)
-        :param label: A suffix to the scoped name (used when saving the model)
         :param in_channels: number of channels in the input RAW image (defaults to 4 for RGGB)
         :param kwargs: Additional arguments for specific NIP implementations
         """
-        super().__init__(label)
+        super().__init__()
         self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, in_channels), name='x')
         self.in_channels = in_channels
         self.construct_model(**kwargs)
@@ -107,17 +117,11 @@ class NIPModel(TFModel):
 
     @property
     def _input_description(self):
-        if self.patch_size_raw is None:
-            return '(rgb)' if hasattr(self.x, 'shape') and self.x.shape[-1] == 3 else '(raw)'
-        else:
-            return 'x'.join(str(x) for x in self.x.shape[1:])
+        return utils.format_patch_shape(self.patch_size_raw)
 
     @property
     def _output_description(self):
-        if self.patch_size_rgb is None:
-            return '(rgb)' if hasattr(self.y, 'shape') and self.y.shape[-1] == 3 else '(?)'
-        else:
-            return 'x'.join(str(x) for x in self.y.shape[1:])
+        return utils.format_patch_shape(self.patch_size_rgb)
 
     @property
     def patch_size_raw(self):
@@ -135,10 +139,36 @@ class NIPModel(TFModel):
             dirname = os.path.join('data/models/nip', dirname)
         super().load_model(dirname)
 
-    def save_model(self, dirname, epoch=0):
+    def save_model(self, dirname, epoch=0, quiet=False):
         if '/' not in dirname:
             dirname = os.path.join('data/models/nip', dirname)
-        super().save_model(dirname, epoch=epoch)
+        super().save_model(dirname, epoch=epoch, quiet=quiet)
+
+    def process_fingerprint(self, k0, demosaicing=True, cfa_pattern=None):
+        """ 
+        Map a RAW-level camera fingerprint to RGB space either via (1) CFA-informed pixel mapping or (2) demosaicing.
+        
+        (2) will be more suitable for standard PRNU detection, while (1) may be more applicable for further processing,
+        e.g., in CNN-based models. 
+        """
+        
+        try:
+            default_cfa = self._h.cfa_pattern
+        except:
+            default_cfa = None
+
+        cfa_pattern = cfa_pattern or default_cfa
+
+        if cfa_pattern is None:
+            raise ValueError('This ISP is not aware of the CFA! Set the CFA explicitly or make sure "._h.cfa_pattern" is accessible!')
+
+        k0m = helpers.raw.merge_bayer(k0, cfa_pattern)
+        
+        if demosaicing:
+            return self._model._demosaicing(np.expand_dims(k0m, axis=0), clip=False).numpy()
+        else:
+            return k0m.sum(-1)
+
 
 class UNet(NIPModel):
     """
@@ -201,7 +231,8 @@ class UNet(NIPModel):
 
     @property
     def model_code(self):
-        return '{}_{}'.format(self.class_name, self._h.n_steps)
+        return f'{self.class_name}_{self._h.n_steps}'
+
 
 class INet(NIPModel):
     """
@@ -323,21 +354,19 @@ class DNet(NIPModel):
             f=self._h.n_features, l=self._h.n_layers)
 
 
-supported_models = [name for name, obj in inspect.getmembers(sys.modules[__name__]) if type(obj) is type and issubclass(obj, NIPModel) and name != 'NIPModel']
-
-
 class ONet(NIPModel):
     """
-    Dummy pipeline for RGB manipulation training.
+    Dummy pipeline for RGB training.
     """
 
     def construct_model(self):
-        self.x = tf.keras.Input(dtype=tf.float32, shape=(None, None, 3))
+        patch_size = 2 * self.x.shape[1]
+        self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, 3))
         self.y = tf.identity(self.x)
         self._model = tf.keras.Model(inputs=self.x, outputs=self.y)
 
 
-class TensorISP():
+class __TensorISP():
     """ 
     Toy ISP implemented in Tensorflow. This class is intended for debugging and testing - for
     use in most situations, please use a more flexible 'ClassicISP' which integrates with 
@@ -432,11 +461,12 @@ class ClassicISP(NIPModel):
     """
     A tensorflow implementation of a simple camera ISP. The model expects RAW Bayer stacks
     with 4 channels (RGGB) as input, and replicates steps of a simple pipeline:
-        - upsample half-resolution RGGB stacks to full-resolution RGB Bayer images
-        - demosaicing (simple CNN model)
-        - RGB -> sRGB color conversion (based on conversion tables from the camera)
-        - [optional brightness normalization]
-        - gamma correction
+
+    - upsample half-resolution RGGB stacks to full-resolution RGB Bayer images
+    - demosaicing (simple CNN model)
+    - RGB -> sRGB color conversion (based on conversion tables from the camera)
+    - [optional brightness normalization]
+    - gamma correction
 
     See also: helpers.raw_api.unpack
     """
@@ -486,29 +516,8 @@ class ClassicISP(NIPModel):
         self.set_srgb_conversion(np.array(cameras[camera]['srgb']))
 
     @classmethod
-    def restore(cls, camera=None, dir_name='data/models/isp/ClassicISP_auto_3x3_32-32-32-32-3R/', cfa=None, srgb=None, patch_size=128):
-        import os, json
-        from pathlib import Path
-
-        for filename in Path(dir_name).glob('**/*.json'):
-            training_log_path = str(filename)
-
-        if not os.path.isfile(training_log_path):
-            raise FileNotFoundError('Could not find a training log (JSON file) in {}'.format(dir_name))
-
-        with open(training_log_path) as f:
-            training_log = json.load(f)
-
-        parameters = training_log['args']
-        parameters['patch_size'] = patch_size
-
-        # TODO JSON Does not allow to store tuples, so they are stored as string
-        for key, value in parameters.items():
-            if isinstance(value, str) and value[0] == '(' and value[-1] == ')':
-                parameters[key] = eval(value)
-
-        isp = cls(**parameters)
-        isp.load_model(dir_name)
+    def restore(cls, dir_name='data/models/isp/ClassicISP_auto_3x3_32-32-32-32-3R/', *, camera=None, cfa=None, srgb=None, patch_size=128):
+        isp = super().restore(dir_name)
 
         if camera is not None:
             isp.set_camera(camera)
@@ -524,26 +533,14 @@ class ClassicISP(NIPModel):
     def summary(self):
         nf = len(self._h.c_filters)
         fs = self._h.c_filters[0] if len(set(self._h.c_filters)) == 1 else '*'        
-        k=self._h.kernel
+        k = self._h.kernel
         return f'{self.class_name}[{self._h.cfa_pattern}] + CNN demosaicing [{nf}+1 layers : {k}x{k}x{fs} -> 1x1x3]'
 
     def summary_compact(self):
         nf = len(self._h.c_filters)
         fs = self._h.c_filters[0] if len(set(self._h.c_filters)) == 1 else '*'        
-        k=self._h.kernel
+        k = self._h.kernel
         return f'{self.class_name}[{self._h.cfa_pattern}, {nf}+1 conv2D {k}x{k}x{fs} > 1x1x3]'
 
-    def process_fingerprint(self, k0, demosaicing=True):
-        """ 
-        Map a RAW-level camera fingerprint to RGB space either via (1) CFA-informed pixel mapping or (2) demosaicing.
-        
-        (2) will be more suitable for standard PRNU detection, while (1) may be more applicable for further processing,
-        e.g., in CNN-based models. 
-        """
-        k0m = utils.merge_bayer(k0, self._h.cfa_pattern)
-        if demosaicing:
-            return self._model._demosaicing(np.expand_dims(k0m, axis=0), clip=False).numpy()
-        else:
-            return k0m.sum(-1)
 
-
+supported_models = [name for name, obj in inspect.getmembers(sys.modules[__name__]) if type(obj) is type and issubclass(obj, NIPModel) and name != 'NIPModel']

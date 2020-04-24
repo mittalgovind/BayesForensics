@@ -8,7 +8,8 @@ import argparse
 import pandas as pd
 import numpy as np
 
-from helpers import coreutils, dataset, utils
+import helpers.debugging
+from helpers import fsutil, dataset, utils
 from training.pipeline import train_nip_model
 
 # Set progress bar width
@@ -134,14 +135,14 @@ def main():
     # Load and summarize the training data
     if not args.dry:
         print('\n# Dataset')
-        data = dataset.IPDataset(data_directory, n_images=training_spec['n_images'], v_images=training_spec['v_images'], load='xy', val_rgb_patch_size=training_spec['valid_patch_size'], val_n_patches=training_spec['valid_patches'])
+        data = dataset.Dataset(data_directory, n_images=training_spec['n_images'], v_images=training_spec['v_images'], load='xy', val_rgb_patch_size=training_spec['valid_patch_size'], val_n_patches=training_spec['valid_patches'])
 
         print(data.summary())
 
         for key in ['Training', 'Validation']:
             print('{:>16s} [{:5.1f} GB] : X -> {}, Y -> {} '.format(
                 '{} data'.format(key),
-                coreutils.mem(data[key.lower()]['x']) + coreutils.mem(data[key.lower()]['y']),
+                helpers.debugging.mem(data[key.lower()]['x']) + helpers.debugging.mem(data[key.lower()]['y']),
                 data[key.lower()]['x'].shape,
                 data[key.lower()]['y'].shape
             ), flush=True)

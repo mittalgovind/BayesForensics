@@ -5,11 +5,10 @@ import json
 from collections import deque, OrderedDict
 
 import numpy as np
-# import matplotlib.pylab as plt
+
 from matplotlib.figure import Figure
 from tqdm import tqdm
 from helpers import metrics
-
 
 
 # Set progress bar width
@@ -82,8 +81,8 @@ def validate(model, data, out_directory, savefig=False, epoch=0, show_ref=False,
 
 # Show the training progress
 def show_progress(isp, out_directory):
-    from helpers import plotting
-    fig = plotting.perf(isp.performance, ['training', 'validation'], figwidth=5)    
+    from helpers import plots
+    fig = plots.perf(isp.performance, ['training', 'validation'], figwidth=5)    
     fig.suptitle(isp.model_code)
     fig.savefig(os.path.join(out_directory, 'progress.png'), bbox_inches='tight', dpi=150)
     del fig
@@ -103,7 +102,9 @@ def save_progress(model, training_summary, out_directory):
         json.dump(output_stats, f, indent=4)
 
 
-def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, validation_loss_threshold=1e-3, sampling_rate=100, resume=False, patch_size=64, batch_size=20, data=None, out_directory_root='./data/models/nip', save_best=False, discard='flat'):
+def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, validation_loss_threshold=1e-3,
+                    validation_schedule=100, resume=False, patch_size=64, batch_size=20, data=None,
+                    out_directory_root='./data/models/nip', save_best=False, discard='flat'):
     
     if data is None:
         raise ValueError('Training data seems not to be loaded!')
@@ -132,13 +133,13 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
         start_epoch = 0
     else:
         # Find training summary
-        summary_file = os.path.join(out_directory_root, camera_name, model.scoped_name, 'progress.json')
+        summary_file = os.path.join(out_directory, 'progress.json')
 
         if not os.path.isfile(summary_file):
             raise FileNotFoundError('Could not open file {}'.format(summary_file))
 
         print('Resuming training from: {}'.format(summary_file))
-        model.load_model(os.path.join(out_directory_root, camera_name))
+        model.load_model(out_directory)
 
         with open(summary_file) as f:
             summary_data = json.load(f)
@@ -147,7 +148,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
         model.performance = summary_data['performance']
 
         # Initialize counters
-        start_epoch = summary_data['Epoch']
+        start_epoch = summary_data['summary']['Epoch']
         losses_buf = deque(maxlen=10)
         loss_local = deque(maxlen=n_batches)
         losses_buf.extend(model.performance['loss']['validation'][-10:])
@@ -168,7 +169,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
     training_summary['# batches'] = n_batches
     training_summary['Patch size'] = patch_size
     training_summary['Batch size'] = batch_size
-    training_summary['Sampling rate'] = sampling_rate
+    training_summary['Validation schedule'] = validation_schedule
     training_summary['Start epoch'] = start_epoch
     training_summary['Saved checkpoint'] = None
     training_summary['Discarding policy'] = discard
@@ -200,7 +201,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
             if epoch == start_epoch:
                 developed = np.zeros_like(data['validation']['y'], dtype=np.float32)
 
-            if epoch % sampling_rate == 0:
+            if epoch % validation_schedule == 0:
                 # Use the current model to develop images in the validation set
                 developed_old = developed
                 ssims, psnrs, v_losses, developed = validate(model, data, out_directory, True, epoch, True, loss_metric=model.loss_metric)
@@ -217,12 +218,12 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
 
                 # Generate progress summary
                 training_summary['Epoch'] = epoch                
-                #show_progress(model, out_directory)
+                # show_progress(model, out_directory)
                 save_progress(model, training_summary, out_directory)
                 
                 if not save_best or (len(model.performance['loss']['validation']) > 2 and model.performance['loss']['validation'][-1] <= min(model.performance['loss']['validation'])):
                     training_summary['Saved checkpoint'] = epoch
-                    model.save_model(out_directory, epoch)                    
+                    model.save_model(out_directory, epoch, quiet=True)
                 
                 # If model deteriorated by more than 20%, drop the learning rate
                 if len(model.performance['loss']['validation']) > 5:
@@ -242,13 +243,14 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
                 else:
                     vloss_change = np.nan
 
-            progress_dict = {
-                'loss': np.mean(losses_buf), 
-                'psnr': model.performance['psnr']['validation'][-1], 
-                'ssim': model.performance['ssim']['validation'][-1], 
-                'dmse': np.log10(model.performance['dmse']['validation'][-1]),
-                'lr': learning_rate
-            }
+                progress_dict = {
+                    'psnr': model.performance['psnr']['validation'][-1],
+                    'ssim': model.performance['ssim']['validation'][-1],
+                    'dmse': np.log10(model.performance['dmse']['validation'][-1]),
+                }
+
+            progress_dict['loss'] = np.mean(losses_buf)
+            progress_dict['lr'] = learning_rate
 
             if not np.isnan(vloss_change):
                 progress_dict['dloss'] = vloss_change

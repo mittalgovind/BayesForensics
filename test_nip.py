@@ -7,7 +7,7 @@ import logging
 import argparse
 import numpy as np
 
-from helpers import coreutils, dataset, metrics, plotting, raw_api
+from helpers import fsutil, dataset, metrics, plots, raw
 from models import tfmodel, pipelines
 
 # Setup logging
@@ -22,7 +22,7 @@ def develop_image(pipeline, camera=None, batch=None, image=None, patch_size=0, p
     """
 
     if camera is not None:
-        supported_cameras = coreutils.listdir(os.path.join(root_dir,  'models', 'nip'), '.*')
+        supported_cameras = fsutil.listdir(os.path.join(root_dir, 'models', 'nip'), '.*')
         if camera not in supported_cameras:
             raise ValueError('Camera data not found ({})! Available cameras: {}'.format(camera, ', '.join(supported_cameras)))
         root_dirname = os.path.join(root_dir, 'models', 'nip', camera)
@@ -55,7 +55,7 @@ def develop_image(pipeline, camera=None, batch=None, image=None, patch_size=0, p
     
     if image is None and batch is not None:
         print('Loading a batch of {} images'.format(batch))
-        data = dataset.IPDataset(data_dirname, n_images=0, v_images=batch, val_rgb_patch_size=patch_size or 256, val_n_patches=patches)
+        data = dataset.Dataset(data_dirname, n_images=0, v_images=batch, val_rgb_patch_size=patch_size or 256, val_n_patches=patches)
         sample_x, sample_y = data.next_validation_batch(0, data.count_validation)
 
         with open('config/cameras.json') as f:
@@ -64,8 +64,8 @@ def develop_image(pipeline, camera=None, batch=None, image=None, patch_size=0, p
 
     elif image is not None:
         print('Loading a RAW image {}'.format(image))
-        sample_x, cfa, srgb, _ = raw_api.unpack(image, expand=True)
-        sample_y = raw_api.process(image, brightness=None, expand=True)
+        sample_x, cfa, srgb, _ = raw.unpack(image, expand=True)
+        sample_y = raw.process(image, brightness=None, expand=True)
 
     if isinstance(model, pipelines.ClassicISP):
         print('Configuring ISP to CFA: {} & sRGB {}'.format(cfa, srgb.round(2).tolist()))
@@ -89,8 +89,8 @@ def develop_image(pipeline, camera=None, batch=None, image=None, patch_size=0, p
 
     # Plot images ---------------------------------------------------------------------------------
     if len(sample_y) > 1:
-        sample_y = plotting.thumbnails(sample_y, batch, True)
-        sample_Y = plotting.thumbnails(sample_Y, batch, True)
+        sample_y = plots.thumbnails(sample_y, batch, True)
+        sample_Y = plots.thumbnails(sample_Y, batch, True)
     else:
         sample_y = sample_y.squeeze()
         sample_Y = sample_Y.squeeze()
@@ -101,8 +101,8 @@ def develop_image(pipeline, camera=None, batch=None, image=None, patch_size=0, p
     nrows = 2 if ncols == 1 else 1
     fig, axes = plt.subplots(nrows, ncols)
 
-    plotting.quickshow(sample_Y, '{}, PSNR={:.1f} dB, SSIM={:.2f} : {{}}'.format(model.model_code, float(psnrs.mean()), float(ssims.mean())), axes=axes[0])
-    plotting.quickshow(sample_y, 'Target RGB images () : {}', axes=axes[1])
+    plots.image(sample_Y, '{}, PSNR={:.1f} dB, SSIM={:.2f} : {{}}'.format(model.model_code, float(psnrs.mean()), float(ssims.mean())), axes=axes[0])
+    plots.image(sample_y, 'Target RGB images () : {}', axes=axes[1])
 
     plt.show()
     plt.close()

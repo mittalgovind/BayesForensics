@@ -1,17 +1,15 @@
+
 import io
-import os
-import json
 import numpy as np
 from scipy import cluster
 from collections import Counter
-from pathlib import Path
 
 from scipy.cluster.vq import vq
 from skimage.measure import compare_ssim, compare_psnr
 
+import helpers.stats
 from pyfse import pyfse
 from models import compression
-from helpers import utils
 
 
 class L3ICError(Exception):
@@ -44,7 +42,7 @@ def compress_n_stats(batch_x, dcn):
         batch_y[image_id], image_bytes = simulate_compression(batch_x[image_id:image_id + 1], dcn)
         batch_z = dcn.compress(batch_x[image_id:image_id + 1])
         stats['bytes'][image_id] = image_bytes
-        stats['entropy'][image_id] = utils.entropy(batch_z, dcn.get_codebook())
+        stats['entropy'][image_id] = helpers.stats.entropy(batch_z, dcn.get_codebook())
         stats['ssim'][image_id] = compare_ssim(batch_x[image_id], batch_y[image_id], multichannel=True, data_range=1)
         stats['psnr'][image_id] = compare_psnr(batch_x[image_id], batch_y[image_id], data_range=1)
         stats['bpp'][image_id] = 8 * image_bytes / batch_x[image_id].shape[0] / batch_x[image_id].shape[1]
@@ -226,11 +224,11 @@ def decompress(stream, model=None, verbose=False):
 
     # Get the correct DCN model
     if model is None:
-        model = restore_model('{}c'.format(n_latent))
+        model = restore('{}c'.format(n_latent))
 
     if model.latent_shape[-1] != n_latent:
         print('[l3ic decoder]', 'WARNING', 'the specified model ({}c) does not match the coded stream ({}c) - switching'.format(model.n_latent, n_latent))
-        model = restore_model('{}c'.format(n_latent))
+        model = restore('{}c'.format(n_latent))
 
     code_book = model.get_codebook()
     
@@ -274,9 +272,19 @@ def global_compress(dcn, batch_x):
     return pyfse.compress(bytes(indices.astype(np.uint8)))
 
 
-def restore_model(dir_name, patch_size=None, fetch_stats=False):
+def restore(dir_name, patch_size=None, fetch_stats=False):
     """
     Utility function to simplify restoration of DCN models. Essentially a wrapper over `tfmodel.restore`.
+
+    Instead of writing:
+    -------------------
+    from models import compression
+    tfmodel.restore('data/models/dcn/baselines/16c/', compression, key='codec')
+
+    Just use:
+    ---------
+    from compression import codec
+    codec.restore('16c')
     """
     from models import tfmodel
     return tfmodel.restore(dir_name, compression, key='codec', patch_size=patch_size, fetch_stats=fetch_stats)

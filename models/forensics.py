@@ -1,10 +1,12 @@
-import numpy as np
+# -*- coding: utf-8 -*-
+"""
+Provides image forensics models. See docs for the FAN class for details.
+"""
 import tensorflow as tf
 
-import helpers.tf_helpers
 from models.tfmodel import TFModel
 from models.layers import ConstrainedConv2D
-from helpers import utils, paramspec, tf_helpers
+from helpers import paramspec, tf_helpers
 
 
 class FAN(TFModel):
@@ -24,13 +26,12 @@ class FAN(TFModel):
     6. Output layer with K classes
     """
 
-    def __init__(self, n_classes, patch_size=None, label=None, n_filters=32, n_fscale=2, n_convolutions=4, kernel=5, dropout=0.0, use_gap=True, n_dense=0, activation='leaky_relu'):
+    def __init__(self, n_classes, patch_size=None, n_filters=32, n_fscale=2, n_convolutions=4, kernel=5, dropout=0.0, use_gap=True, n_dense=0, activation='leaky_relu'):
         """
         Creates a forensic analysis network (see class docstring for details).
 
         :param n_classes: the number of output classes
         :param patch_size: input patch size
-        :param label: A suffix to the scoped name (used when saving the model)
         :param n_filters: number of output features for the first conv layer
         :param n_fscale: multiplier for the number of output features in successive conv layers
         :param n_convolutions: the number of standard conv layers
@@ -39,11 +40,11 @@ class FAN(TFModel):
         :param use_gap: whether to use a GAP or to reshape the final conv tensor
         :param activation: activation function (see helpers.tf_helpers.activation_mapping for available activations)
         """
-        super().__init__(label)
-        self.n_classes = n_classes
+        super().__init__()
 
         # Set-up and validate hyper-parameters            
         self._h = paramspec.ParamSpec({
+            'n_classes': (7, int, (2, 256)),
             'n_filters': (32, int, (4, 128)),
             'n_fscale': (2, float, (0.25, 4)),
             'n_convolutions': (4, int, (1, 32)),
@@ -65,7 +66,7 @@ class FAN(TFModel):
 
         # Standard convolutional layers
         for _ in range(self._h.n_convolutions):
-            net = tf.keras.layers.Conv2D(n_filters, [self._h.kernel, self._h.kernel], activation=activation, padding='same')(net)
+            net = tf.keras.layers.Conv2D(n_filters, [self._h.kernel, self._h.kernel], padding='same', activation=activation)(net)
             net = tf.keras.layers.MaxPool2D([2, 2])(net)
             n_filters = int(n_filters * self._h.n_fscale)
 
@@ -122,12 +123,6 @@ class FAN(TFModel):
         grads = tape.gradient(loss, self._model.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
         return loss
-
-    def __repr__(self):
-        extra_params = ','.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in self._h.changed_params().items())
-        if len(extra_params) > 0:
-            extra_params = ','+extra_params
-        return '{}(n_classes={}{})'.format(self.class_name, self.n_classes, extra_params)
 
     def summary(self):
         return '{kernel}x{kernel} CNN: 1+{conv}+1 conv layers {gap}+ {fc} fc layers [{params:,} parameters]'.format(
