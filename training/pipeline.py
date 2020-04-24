@@ -5,11 +5,10 @@ import json
 from collections import deque, OrderedDict
 
 import numpy as np
-# import matplotlib.pylab as plt
+
 from matplotlib.figure import Figure
 from tqdm import tqdm
 from helpers import metrics
-
 
 
 # Set progress bar width
@@ -103,7 +102,9 @@ def save_progress(model, training_summary, out_directory):
         json.dump(output_stats, f, indent=4)
 
 
-def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, validation_loss_threshold=1e-3, validation_schedule=100, resume=False, patch_size=64, batch_size=20, data=None, out_directory_root='./data/models/nip', save_best=False, discard='flat'):
+def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, validation_loss_threshold=1e-3,
+                    validation_schedule=100, resume=False, patch_size=64, batch_size=20, data=None,
+                    out_directory_root='./data/models/nip', save_best=False, discard='flat'):
     
     if data is None:
         raise ValueError('Training data seems not to be loaded!')
