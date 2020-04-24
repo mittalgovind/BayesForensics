@@ -11,7 +11,9 @@ from skimage.transform import resize, rescale
 from matplotlib.figure import Figure
 
 # Own libraries and modules
-from helpers import plotting, summaries, utils, metrics
+import helpers.image
+import helpers.stats
+from helpers import plots, summaries, utils, metrics
 
 
 def visualize_distribution(dcn, data, ax=None, title=None):
@@ -57,7 +59,7 @@ def visualize_distribution(dcn, data, ax=None, title=None):
     hist = np.histogram(batch_z, bins=bin_boundaries, density=True)[0]
     hist = hist / hist.max()
 
-    entropy = utils.entropy(batch_z, codebook)
+    entropy = helpers.stats.entropy(batch_z, codebook)
 
     ticks = np.unique(np.round(np.percentile(batch_z, [1, 5, 25, 50, 75, 95, 99])))
 
@@ -189,10 +191,10 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
                                             anti_aliasing=True)
                     batch_x = batch_t            
                 
-                # Data augmentation - random horizontal flip
+                # Data augmentation
                 if np.random.uniform() < training['augmentation_probs']['flip_h']: batch_x = batch_x[:, :, ::-1, :]
                 if np.random.uniform() < training['augmentation_probs']['flip_v']: batch_x = batch_x[:, ::-1, :, :]
-                if np.random.uniform() < training['augmentation_probs']['gamma']: batch_x = utils.batch_gamma(batch_x)
+                if np.random.uniform() < training['augmentation_probs']['gamma']: batch_x = helpers.image.batch_gamma(batch_x)
 
                 # Make a training step
                 values = dcn.training_step(batch_x, learning_rate)
@@ -229,7 +231,7 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
                     caches['ssim']['validation'].append(ssim_value)
 
                     # Entropy
-                    entropy_value = utils.entropy(batch_z, codebook)
+                    entropy_value = helpers.stats.entropy(batch_z, codebook)
                     caches['entropy']['validation'].append(entropy_value)
 
                 for key in ['loss', 'ssim', 'entropy']:
@@ -238,14 +240,14 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
                 # Save current snapshot
                 indices = np.argsort(np.var(batch_x, axis=(1, 2, 3)))[::-1]
                 thumbs_pairs_all = np.concatenate((batch_x[indices[::2]], batch_y[indices[::2]]), axis=0)
-                thumbs = (255 * plotting.thumbnails(thumbs_pairs_all, n_cols=training['batch_size'] // 2)).astype(np.uint8)                
+                thumbs = (255 * plots.thumbnails(thumbs_pairs_all, ncols=training['batch_size'] // 2)).astype(np.uint8)                
                 imageio.imsave(os.path.join(model_output_dirname, 'thumbnails-{:05d}.png'.format(epoch)), thumbs)
 
                 # Save summaries to TB
                 if tensorboard:
 
                     thumbs_pairs_few = np.concatenate((batch_x[indices[:5]], batch_y[indices[:5]]), axis=0)
-                    thumbs_few = (255 * plotting.thumbnails(thumbs_pairs_few, n_cols=5)).astype(np.uint8)
+                    thumbs_few = (255 * plots.thumbnails(thumbs_pairs_few, ncols=5)).astype(np.uint8)
 
                     # Sample latent space
                     batch_z = dcn.compress(batch_x)
@@ -275,7 +277,7 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
                 save_progress(dcn, data, training, model_output_dirname)
 
                 # Save current checkpoint
-                dcn.save_model(model_output_dirname, epoch)
+                dcn.save_model(model_output_dirname, epoch, quiet=True)
 
                 # Check for convergence or model deterioration
                 if len(perf['ssim']['validation']) > 5:

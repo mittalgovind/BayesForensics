@@ -1,10 +1,12 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Provides the ParamSpec class that simplifies handling of model hyper-parameters.
+"""
 import numpy as np
-# import regex
 import types
 
 from helpers import utils
+
 
 def item_passes(check):
     def wrapper(items):
@@ -27,6 +29,7 @@ def numbers_in_range(dtype, min_value=None, max_value=None):
         return True
     return wrapper
 
+
 class ParamSpec(object):
 
     def __init__(self, specs):
@@ -34,7 +37,8 @@ class ParamSpec(object):
         self.__dict__['_specs'] = specs
         self.__dict__['_values'] = {}
 
-    def _validate_specs(self, specs):
+    @staticmethod
+    def _validate_specs(specs):
         for key, spec in specs.items():
             if type(spec) is not tuple and len(spec) != 3:
                 raise ValueError('Invalid parameter specification for key {} - expected tuple of length 3'.format(key))
@@ -161,7 +165,6 @@ class ParamSpec(object):
                         # 3. if both string - treat as a regular expression match
                         if type(validation) == str and dtype == str:
                             if validation not in candidate:
-#                            if not regex.match(validation, candidate):
                                 raise ValueError('{}: {} does not match regex ({})!'.format(key, candidate, validation))
 
                         # 4. if function - run custom validation code

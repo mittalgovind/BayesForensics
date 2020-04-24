@@ -12,4 +12,8 @@ matplotlib
 tikzplotlib
 sewar
 dahuffman
+sklearn
 python-Levenshtein
+latex
+pdf2image
+loguru

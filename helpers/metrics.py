@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+"""
+Image quality metrics.
+"""
 import numpy as np
 from skimage import metrics
 
@@ -21,6 +25,7 @@ def ssim(a, b):
     else:
         raise ValueError('Incompatible tensor shapes! {} and {}'.format(a.shape, b.shape))
 
+
 def psnr(a, b):
     if a.ndim == 4 and a.shape[0] == 1:
         a = a.squeeze()
@@ -39,6 +44,7 @@ def psnr(a, b):
 
     else:
         raise ValueError('Incompatible tensor shapes! {} and {}'.format(a.shape, b.shape))
+
 
 def mse(a, b):
     if a.ndim == 4 and a.shape[0] == 1:
@@ -61,6 +67,7 @@ def mse(a, b):
 
     return metrics.mean_squared_error(a.squeeze(), b.squeeze())
 
+
 def mae(a, b):
     if a.ndim == 4 and a.shape[0] == 1:
         a = a.squeeze()
@@ -79,6 +86,7 @@ def mae(a, b):
 
     else:
         raise ValueError('Incompatible tensor shapes! {} and {}'.format(a.shape, b.shape))
+
 
 def batch(a, b, metric=ssim):
     assert a.ndim == 4 and b.ndim == 4, 'Input arrays need to be 4-dim: batch, height, width, channels'
