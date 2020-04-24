@@ -49,7 +49,17 @@ def develop_image(pipeline, camera=None, batch=None, image=None, patch_size=0, p
             model = getattr(pipelines, pipeline)()
         else:
             model = getattr(pipelines, pipeline)(**pipeline_args)
-        model.load_model(os.path.join(root_dirname, model.model_code))
+
+        loaded_model = False
+        candidate_dirs = [os.path.join(root_dirname, model.model_code), os.path.join(root_dirname)]
+        for candidate in candidate_dirs:
+            if os.path.isdir(candidate):
+                model.load_model(candidate)
+                loaded_model = True
+                break
+
+        if not loaded_model:
+            raise FileNotFoundError(f'Could not find the corresponding model: {candidate_dirs}')
 
     # Load image(s) -------------------------------------------------------------------------------
     
