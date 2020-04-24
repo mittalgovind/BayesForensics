@@ -272,7 +272,7 @@ def shell(command, log=None, verbosity=2):
             print(f'\n>> {command} \\')
             print(f'   1> {log}.stdout 2> {log}.stderr')
         else:
-            print(f'\n>> {command}')
+            print(f'\n>> {command}\n')
 
     if log is None:
         p = subprocess.Popen(command, shell=True)
@@ -283,11 +283,11 @@ def shell(command, log=None, verbosity=2):
 
     with open(f'{log}.stdout', 'w') as fo:
         for line in outs.decode('utf-8').splitlines():
-            fo.write(line)
+            fo.write(f'{line}\n')
 
     with open(f'{log}.stderr', 'w') as fe:
         for line in errs.decode('utf-8').replace('\r', '\n').splitlines():
-            fe.write(line)
+            fe.write(f'{line}\n')
 
     p.wait()
     return p.returncode
