@@ -50,7 +50,7 @@ class FAN(TFModel):
             'kernel': (5, int, (3, 11)),
             'dropout': (0, float, (0, 1)),
             'use_gap': (False, bool, None),
-            'n_dense': (2, int, (0, 3)),
+            'n_dense': (2, int, (0, 16)),
             'activation': ('leaky_relu', str, set(tf_helpers.activation_mapping.keys()))
         })
         params = locals()
@@ -65,14 +65,14 @@ class FAN(TFModel):
 
         # Standard convolutional layers
         for _ in range(self._h.n_convolutions):
-            net = tf.keras.layers.Conv2D(n_filters, [self._h.kernel, self._h.kernel], activation=activation)(net)
+            net = tf.keras.layers.Conv2D(n_filters, [self._h.kernel, self._h.kernel], activation=activation, padding='same')(net)
             net = tf.keras.layers.MaxPool2D([2, 2])(net)
             n_filters = int(n_filters * self._h.n_fscale)
 
         n_filters = n_filters // n_fscale
 
         # Final 1 x 1 convolution
-        net = tf.keras.layers.Conv2D(n_filters, [1, 1], activation=activation)(net)
+        net = tf.keras.layers.Conv2D(int(n_filters), [1, 1], activation=activation)(net)
 
         # GAP / Feature formation
         if use_gap:
