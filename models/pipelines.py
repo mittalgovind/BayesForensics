@@ -74,23 +74,20 @@ class NIPModel(TFModel):
         """
         raise NotImplementedError()
 
+    @tf.function
     def training_step(self, batch_x, batch_y, learning_rate=None):
         """
         Make a single training step and return the loss.
         """
         with tf.GradientTape() as tape:
-
             batch_Y = self._model(batch_x)
             loss = self.loss(batch_Y, batch_y)
 
         if learning_rate is not None: self.optimizer.lr.assign(learning_rate)
         grads = tape.gradient(loss, self._model.trainable_weights)
-
-        if any(np.sum(np.isnan(x)) > 0 for x in grads):
-            raise RuntimeError('∇ NaNs: {}'.format({p.name: np.mean(np.isnan(x)) for x, p in zip(grads, self._model.trainable_weights)}))
-
         self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
-        return loss.numpy()
+
+        return loss
         
     def process(self, batch_x, training=False):
         """
@@ -106,7 +103,6 @@ class NIPModel(TFModel):
             'loss': {'training': [], 'validation': []},
             'psnr': {'validation': []},
             'ssim': {'validation': []},
-            'dmse': {'validation': []}
         }
 
     def get_hyperparameters(self):
