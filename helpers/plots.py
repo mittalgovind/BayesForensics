@@ -23,6 +23,7 @@ Overview
 - scatter_hex       - 2d density plot with hex binning
 
 """
+import os
 import imageio
 import numpy as np
 
@@ -31,7 +32,7 @@ from skimage.transform import resize
 
 from loguru import logger
 
-from helpers import stats, utils
+from helpers import stats, utils, fsutil
 
 
 def configure(profile=None):
@@ -494,6 +495,10 @@ def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1
     cc = stats.corrcoeff(x.ravel(), y.ravel())
     r2 = stats.rsquared(x.ravel(), y.ravel())
 
+    if axes is None:
+        fig = Figure()
+        axes = fig.gca()
+
     axes.plot(x.ravel(), y.ravel(), '.', alpha=alpha)
     axes.set_title('{}corr {:.2f} / R2 {:.2f}'.format(title, cc, r2))
 
@@ -502,6 +507,9 @@ def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1
 
     if xlabel is not None: axes.set_xlabel(xlabel)
     if ylabel is not None: axes.set_ylabel(ylabel)
+
+    if 'fig' in locals():
+        return fig    
 
 
 def scatter_hex(x, y, xlabel=None, ylabel=None, axes=None, marginals=True, bins=30):
@@ -528,4 +536,36 @@ def scatter_hex(x, y, xlabel=None, ylabel=None, axes=None, marginals=True, bins=
         xx = axes.get_xlim()
         axes.barh(y_bins, left=xx[1], width=0.1 * np.abs(xx[1] - xx[0]) * y_hist, zorder=-1, clip_on=False, alpha=0.5, height=y_bins[1] - y_bins[0])
         axes.set_xlim(xx)
+
+
+def to_tikz(fig, filename=None):
+    import tikzplotlib
+    from helpers import results_data as rd
+
+    tikzplotlib.clean_figure(fig=fig)
+
+    if filename is not None:
+            
+        if filename.endswith('.tex'):
+            tikzplotlib.save(filename, figure=fig)
+
+        elif filename.endswith('.pdf'):
+            tex = tikzplotlib.get_tikz_code(figure=fig)
+            rd.render_tex(tex, format='file', filename=filename)
+
+        elif filename.endswith('.*'):
+            tikzplotlib.save(filename.replace('.*', '.tex'), figure=fig)
+            tex = tikzplotlib.get_tikz_code(figure=fig)
+            rd.render_tex(tex, format='file', filename=filename.replace('.*', '.pdf'))
+
+        elif filename == '-':
+            return tikzplotlib.get_tikz_code(figure=fig)
+        
+        else:
+            raise ValueError('File format not recognized!')
+
+    else:
+        tex = tikzplotlib.get_tikz_code(figure=fig)
+        return rd.render_tex(tex)
+        
 

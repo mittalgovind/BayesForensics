@@ -447,19 +447,27 @@ def render_tex(latex, format='fig', filename=None):
     """
     from latex import build_pdf
 
+    if 'tikzpicture' in latex:
+        mode = 'tikz'
+    else:
+        mode = 'preview'
+        latex = r'\begin{preview}\n[]\end{preview}'.replace('[]', latex)
+
     if 'documentclass' not in latex:
         latex = r"""
-        \documentclass[preview]{standalone}
+        \documentclass[crop,{mode}]{standalone}
         \usepackage{booktabs}
         \usepackage{diagbox}
         \usepackage{graphicx}
+        \usepackage{pgfplots,tikz}
         \usepackage{xcolor,colortbl}
+        \usepgfplotslibrary{groupplots,dateplot}
+        \usetikzlibrary{patterns,shapes.arrows}
+        \pgfplotsset{compat=newest}
         \begin{document}
-        \begin{preview}
         []
-        \end{preview}
         \end{document}
-        """.replace('[]', latex)
+        """.replace('{mode}', mode).replace('[]', latex)
 
     pdf = build_pdf(latex)
     
