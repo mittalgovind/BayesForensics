@@ -223,20 +223,24 @@ def printd(d, indent=2, level=1):
 
         elif hasattr(v, 'shape'):
             if v.ndim == 0:
-                print(f'{v:.3f} (0-d array)')
+                print(f'{format_number(v.item())} (0-d array)')
             elif len(v) == 0:
                 print(f'empty array')
             else:
-                print(f'array {v.shape} ∈ [{v.min():.3f}, {v.max():.3f}]')
+                print(f'array {v.shape} ∈ [{format_number(v.min())}, {format_number(v.max())}]')
 
         elif isinstance(v, str):
             print('"{}"'.format(v))
 
         elif isinstance(v, list):
-            if len(v) < 5:
+            if len(v) == 0:
+                print('[]')
+            elif len(v) < 5 and is_number(v[0]):
                 print(v)
-            else:
+            elif len(v) > 5 and is_number(v[0]):
                 print(f'list of {len(v)} items: [{format_number(v[0])}, ..., {format_number(v[-1])}]')
+            else:
+                print(f'list of {len(v)} items of type <{type(v[0]).__name__}>')
 
         elif isinstance(v, tuple):
             if len(v) < 5:

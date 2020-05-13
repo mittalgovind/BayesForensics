@@ -313,9 +313,10 @@ def sub(n_plots, figwidth=6, figheight=None, ncols=-1, fig=None, transpose=False
     return fig, axes_flat
 
 
-def progress(k, v, results=('training', 'validation'), log='auto', axes=None, start=0, alpha=0.8):
+def progress(k, v, results=('training', 'validation'), log='auto', axes=None, start=0, alpha=0.8, color=None):
     active = False
     markers = '.os^'[:len(results)]
+
     for ri, r in enumerate(results):
         if r not in v or len(v[r]) == 0:
             continue
@@ -323,12 +324,15 @@ def progress(k, v, results=('training', 'validation'), log='auto', axes=None, st
         active = True
         xr = start + np.linspace(0, 100, len(v[r]))
         axes.set_title(k)
-        axes.plot(xr, v[r], f'C{ri}{markers[ri]}', alpha=0.5)
-        axes.plot(xr, stats.ma_exp(v[r], alpha), f'C{ri}-', label='{} ({:.3f})'.format(r, v[r][-1]))
+        ma = stats.ma_exp(v[r], alpha)
+        axes.plot(xr, v[r], color or f'C{ri}{markers[ri]}', alpha=0.5)
+        axes.plot(xr, ma, color or f'C{ri}-', label=f'{r} ({utils.format_number(ma[-1])})')
         if (log == 'auto' and np.std(v[r][-n_hist:])/(max(v[r]) - min(v[r])) < 0.02) or (isinstance(log, bool) and log):
             axes.set_yscale('log')
         axes.set_xlabel('Training progress [%]')
-    if active: axes.legend()
+
+    if active:
+        axes.legend()
 
 
 def perf(training_progress, results=None, figwidth=5, log='auto', fig=None, alpha=0.25):
@@ -351,9 +355,11 @@ def perf(training_progress, results=None, figwidth=5, log='auto', fig=None, alph
 
     # If the data is not formatted as {metric: {training: [values], validation: [values]}} but rather {metric: [values]}
     # convert to the expected structure
+
     if any(not isinstance(v, dict) for v in training_progress.values()):
+        auto = {k: {'auto': v} for k, v in training_progress.items() if utils.is_vector(v)}
         training_progress = {k: v for k, v in training_progress.items() if isinstance(v, dict)}
-        training_progress.update({k: {'auto': v} for k, v in training_progress.items() if utils.is_vector(v)})
+        training_progress.update(auto)
 
     # Find the number of metrics with available data
     active = []
@@ -374,6 +380,63 @@ def perf(training_progress, results=None, figwidth=5, log='auto', fig=None, alph
         progress(k, v, results or v.keys(), log, axes[i], alpha=alpha)
     
     return fig
+
+
+def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, scale=False, colors=None):
+    if axes is None:
+        fig = Figure()
+        axes = fig.gca()
+
+    cc = np.linspace(np.min([np.min(s) for s in samples]), np.max([np.max(s) for s in samples]), bins)
+    h_bins = stats.bin_edges(cc)
+
+    h_max_global = 0
+
+    for si, spls in enumerate(samples):
+
+        p50 = np.percentile(spls, 50)
+        p99 = np.percentile(spls, 99)
+        p01 = np.percentile(spls, 1)
+
+        if labels is not None:
+            label = labels[si]
+            label = label.replace('()', f'{p50:.2f}')
+        else:
+            label = None
+
+        color = colors[si] if colors is not None else None
+
+        h1 = axes.hist(spls.ravel(), h_bins, color=color, alpha=alpha, density=True, label=label)
+
+        h_max = 1.05 * np.max(h1[0])
+        if h_max > h_max_global:
+            h_max_global = h_max
+        color = h1[-1][0].get_facecolor()
+
+        if guides & 1:
+            axes.plot([p01, p01], [0, h_max], ':', color=color)
+
+        if guides & 2:
+            axes.plot([p50, p50], [0, h_max], ':', color=color)
+
+        if guides & 4:
+            axes.plot([p99, p99], [0, h_max], ':', color=color)
+
+    axes.set_yticks([])
+
+    if labels is not None:
+        axes.legend()
+
+    if scale:
+        margin = (cc[-1] - cc[0]) / 100
+        axes.set_xlim([cc[0] - margin, cc[-1] + margin])
+        axes.set_ylim([0, h_max_global * 1.01])
+
+    if xlabel is not None:
+        axes.set_xlabel(xlabel)
+
+    if 'fig' in locals():
+        return fig
 
 
 def detection(positive, negative, bins=200, axes=None, title='()', scale=True, reference=None, guides=2):

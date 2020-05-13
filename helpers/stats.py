@@ -3,6 +3,7 @@
 Common performance metrics & statistics (accuracy, tpr, auc) and helper functions (moving average).
 """
 import numpy as np
+import scipy as sp
 from scipy import stats
 
 
@@ -132,9 +133,10 @@ def entropy(samples, code_book=None):
 
 
 def bin_edges(code_book):
-    max_float = np.abs(code_book).max() * 2
+    max_float = np.max(code_book)
+    min_float = np.min(code_book)
     code_book_edges = np.convolve(code_book, [0.5, 0.5], mode='valid')
-    code_book_edges = np.concatenate((-np.array([max_float]), code_book_edges, np.array([max_float])), axis=0)
+    code_book_edges = np.concatenate((np.array([min_float]), code_book_edges, np.array([max_float])), axis=0)
     return code_book_edges
 
 
@@ -195,3 +197,14 @@ def ma_exp(x, alpha=0.1):
         y[i] = alpha * x[i] + (1-alpha) * y[i-1]
 
     return y
+
+
+def interproot(x, y, offset):
+    f = sp.interpolate.interp1d(x, y, kind='cubic')
+    return sp.optimize.root_scalar(lambda x: f(x) - offset, bracket=[x.min(), x.max()]).root
+
+
+def interpmin(x, y):
+    f = sp.interpolate.interp1d(x, y, kind='cubic')
+    X = sp.optimize.minimize_scalar(f, method='bounded', bounds=[x.min(), x.max()]).x
+    return X, f(X)
