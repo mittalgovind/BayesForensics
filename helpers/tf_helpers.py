@@ -65,6 +65,18 @@ def rsquared(a, b):
     return r2_score(a, b)
 
 
+def batch_means(x, keepdims=True):
+    return tf.math.reduce_mean(x, axis=range(1, x.ndim), keepdims=keepdims)
+
+
+def batch_stds(x, keepdims=True):
+    return tf.math.reduce_std(x, axis=range(1, x.ndim), keepdims=keepdims)
+
+
+def batch_normalization(x):
+    return (x - batch_means(x)) / (1e-9 + batch_stds(x))
+
+
 def manipulation_resample(x, factor=50, method='bilinear'):
 
     if 0 < factor <= 1:

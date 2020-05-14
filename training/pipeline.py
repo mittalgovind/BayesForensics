@@ -243,7 +243,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
                     'ssim': model.pop_metric('ssim', 'validation')
                 }
 
-            pbar.set_postfix(loss=model.pop_metric('loss', 'training'), **progress_dict) # , **progress_dict
+            pbar.set_postfix(loss=model.pop_metric('loss', 'training'), **progress_dict)
             pbar.update(1)
 
     training_summary['Epoch'] = epoch

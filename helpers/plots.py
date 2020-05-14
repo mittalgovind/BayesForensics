@@ -388,6 +388,10 @@ def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, sca
         fig = Figure()
         axes = fig.gca()
 
+    if isinstance(samples, np.ndarray) and utils.is_vector(samples):
+        samples = [samples]
+        labels = [labels]
+
     cc = np.linspace(np.min([np.min(s) for s in samples]), np.max([np.max(s) for s in samples]), bins)
     h_bins = stats.bin_edges(cc)
 

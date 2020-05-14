@@ -27,10 +27,13 @@ def detection_accuracy(positive, negative, bins=100, return_index=False):
 
     accuracies = [0.5 * (np.mean(positive >= thresh) + np.mean(negative < thresh)) for thresh in bins]
 
+    max_accuracy = np.max(accuracies)
+    index = int(np.nonzero(accuracies == max_accuracy)[0].mean())
+
     if return_index:
-        return max(accuracies), np.argmax(accuracies)
+        return max_accuracy, index
     else:
-        return max(accuracies), bins[np.argmax(accuracies)]
+        return max_accuracy, bins[index]
 
 
 def true_positive_rate(positive, negative, fpr=0.01):

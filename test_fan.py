@@ -10,9 +10,8 @@ import numpy as np
 from pathlib import Path
 
 import helpers.utils
-from helpers import fsutil, dataset, results_data
-from training.validation import validate_fan
-from compression import codec
+from helpers import dataset, results_data
+from workflows.manipulation_classification.validate import validate_fan
 
 from workflows import manipulation_classification
 

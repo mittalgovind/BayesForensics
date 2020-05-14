@@ -73,7 +73,7 @@ def is_vector(data):
 
     if isinstance(data, list) and all(is_number(x) for x in data):
         return True
-    elif isinstance(data, np.ndarray) and data.ndim == 1:
+    elif isinstance(data, np.ndarray) and (data.ndim == 1 or (data.ndim == 2 and 1 in data.shape)):
         return True
     else:
         return False

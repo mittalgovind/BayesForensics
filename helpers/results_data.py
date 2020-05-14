@@ -621,6 +621,9 @@ class ResultCache(object):
             else:
                 raise ValueError(f'Current search pattern [{pattern}] must match 1 file but matches {len(candidates)}')
 
+    def dirname(self, **kwargs):
+        return os.path.split(self.filename(**kwargs))[0]
+
     def load_all(self, **kwargs):
         """ Load all results matching the current search pattern and return a dict indexed by representative filename sections """
         results = OrderedDict()
