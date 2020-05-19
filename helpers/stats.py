@@ -100,6 +100,29 @@ def corrcoeff(a, b):
     return np.mean(a * b)
 
 
+def batch_correlations(batch, flat=False):
+    """
+    Returns correlation coefficients between images in a batch.
+    :param batch: batch of images
+    :param flat: bool, return a plain list of correlations instead of a full array (skips diagonal + lower diagonal)
+    :return:
+    """
+    if flat:
+        c = []
+    else:
+        c = np.zeros((len(batch), len(batch)))
+
+    for i in range(len(batch)):
+        for j in range(i+1 if flat else i, len(batch)):
+            if flat:
+                c.append(corrcoeff(batch[i], batch[j]))
+            else:
+                c[i, j] = corrcoeff(batch[i], batch[j])
+                c[j, i] = c[i, j]
+
+    return c
+
+
 def rsquared(a, b):
     """ Returns the coefficient of determination (R^2) between two arrays (normalized) """
     from sklearn.metrics import r2_score

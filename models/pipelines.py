@@ -130,15 +130,15 @@ class NIPModel(TFModel):
     def summary(self):
         return '{:s} : {} -> {}'.format(super().summary(), self._input_description, self._output_description)
 
-    def load_model(self, dirname):
+    def load_model(self, dirname, quiet=False):
         if '/' not in dirname:
             dirname = os.path.join('data/models/nip', dirname)
-        super().load_model(dirname)
+        super().load_model(dirname, quiet=quiet)
 
-    def save_model(self, dirname, epoch=0, quiet=False):
+    def save_model(self, dirname, epoch=0, save_args=False, quiet=False):
         if '/' not in dirname:
             dirname = os.path.join('data/models/nip', dirname)
-        super().save_model(dirname, epoch=epoch, quiet=quiet)
+        super().save_model(dirname, epoch=epoch, save_args=save_args, quiet=quiet)
 
     def process_fingerprint(self, k0, demosaicing=0, cfa_pattern=None):
         """ 
@@ -350,8 +350,7 @@ class DNet(NIPModel):
 
     @property
     def model_code(self):
-        return '{c}_{k}x{k}_{l}x{f}f'.format(c=self.class_name, k=self._h.kernel, 
-            f=self._h.n_features, l=self._h.n_layers)
+        return '{c}_{k}x{k}_{l}x{f}f'.format(c=self.class_name, k=self._h.kernel, f=self._h.n_features, l=self._h.n_layers)
 
 
 class ONet(NIPModel):
@@ -516,7 +515,7 @@ class ClassicISP(NIPModel):
         self.set_srgb_conversion(np.array(cameras[camera]['srgb']))
 
     @classmethod
-    def restore(cls, dir_name='data/models/isp/ClassicISP_auto_3x3_32-32-32-32-3R/', *, camera=None, cfa=None, srgb=None, patch_size=128):
+    def restore(cls, dir_name='data/models/isp/ClassicISP_3x3_32-32-32-32-3R/', *, camera=None, cfa=None, srgb=None, patch_size=128):
         isp = super().restore(dir_name)
 
         if camera is not None:

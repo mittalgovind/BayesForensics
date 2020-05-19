@@ -27,12 +27,13 @@ import os
 import imageio
 import numpy as np
 
-from matplotlib.figure import Figure
 from skimage.transform import resize
 
 from loguru import logger
 
 from helpers import stats, utils, fsutil
+
+__INTERACTIVE = False
 
 
 def configure(profile=None):
@@ -63,6 +64,19 @@ def configure(profile=None):
     # import seaborn as sns
     # sns.set('paper', font_scale=2, style="darkgrid")
     # sns.set_context("paper")
+
+
+def get_figure(**kwargs):
+    if __INTERACTIVE:
+        import matplotlib.pyplot as plt
+        return plt.figure(**kwargs)
+    else:
+        from matplotlib.figure import Figure
+        return Figure(**kwargs)
+
+def set_interactive(status=False):
+    global __INTERACTIVE
+    __INTERACTIVE = status
 
 
 def thumbnails(images, ncols=0, columnwise=False):
@@ -136,7 +150,7 @@ def _imarray(img, n_images, fetch_hook, titles, figwidth=4, cmap='gray', ncols=0
     if titles is not None and len(titles) != n_images:
         raise ValueError('Provided titles ({}) do not match the number of images ({})!'.format(len(titles), n_images))
 
-    fig = fig or Figure(figsize=(figwidth * subplot_x, figwidth * subplot_y))
+    fig = fig or get_figure(figsize=(figwidth * subplot_x, figwidth * subplot_y))
 
     for n in range(n_images):
         ax = fig.add_subplot(subplot_y, subplot_x, n + 1)
@@ -182,7 +196,7 @@ def images(imgs, titles=None, figwidth=4, cmap='gray', ncols=0, fig=None, rowlab
         
         if imgs.ndim == 2 or (imgs.ndim == 3 and imgs.shape[-1] == 3):
             
-            fig = fig or Figure(tight_layout=True, figsize=(figwidth, figwidth))
+            fig = fig or get_figure(tight_layout=True, figsize=(figwidth, figwidth))
             image(imgs, titles, axes=fig.gca(), cmap=cmap)
             
             return fig
@@ -243,7 +257,7 @@ def image(x, label=None, *, axes=None, cmap='gray'):
         label = label.replace('<>', '{:.2f} ± {:.2f}'.format(np.mean(x), np.std(x)))
         
     if axes is None:
-        fig = Figure()
+        fig = get_figure()
         axes = fig.gca()
 
     axes.imshow(x, cmap=cmap)
@@ -286,7 +300,7 @@ def sub(n_plots, figwidth=6, figheight=None, ncols=-1, fig=None, transpose=False
     if transpose:
         subplot_x, subplot_y = subplot_y, subplot_x
 
-    fig = fig or Figure(tight_layout=True, figsize=(figwidth * subplot_x, subplot_y * (figheight or figwidth * (subplot_y / subplot_x))))
+    fig = fig or get_figure(tight_layout=True, figsize=(figwidth * subplot_x, subplot_y * (figheight or figwidth * (subplot_y / subplot_x))))
     axes = fig.subplots(nrows=subplot_y, ncols=subplot_x)
     axes_flat = []
 
@@ -326,11 +340,12 @@ def progress(k, v, results=('training', 'validation'), log='auto', axes=None, st
         xr = start + np.linspace(0, 100, len(v[r]))
         axes.set_title(k)
         ma = stats.ma_exp(v[r], alpha)
-        axes.plot(xr, v[r], color or f'C{ri}{markers[ri]}', alpha=0.5)
+        opacity = 0.1 + 0.9 * np.exp((1 - len(xr))/100)
+        axes.plot(xr, v[r], color or f'C{ri}{markers[ri]}', alpha=opacity)
         axes.plot(xr, ma, color or f'C{ri}-', label=f'{r} ({utils.format_number(ma[-1])})')
         if (log == 'auto' and np.std(v[r][-n_hist:])/(max(v[r]) - min(v[r])) < 0.02) or (isinstance(log, bool) and log):
             axes.set_yscale('log')
-        axes.set_xlabel('Training progress [%]')
+        axes.set_xlabel(f'training progress [% of {len(xr)} steps]')
 
     if active:
         axes.legend()
@@ -383,9 +398,9 @@ def perf(training_progress, results=None, figwidth=5, log='auto', fig=None, alph
     return fig
 
 
-def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, scale=False, colors=None):
+def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, scale=False, colors=None, guide=None):
     if axes is None:
-        fig = Figure()
+        fig = get_figure()
         axes = fig.gca()
 
     if isinstance(samples, np.ndarray) and utils.is_vector(samples):
@@ -437,6 +452,9 @@ def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, sca
         axes.set_xlim([cc[0] - margin, cc[-1] + margin])
         axes.set_ylim([0, h_max_global * 1.01])
 
+    if guide is not None:
+        axes.plot([guide * 1.01, guide * 1.01], [0, h_max_global], 'k:', alpha=0.5)
+
     if xlabel is not None:
         axes.set_xlabel(xlabel)
 
@@ -474,7 +492,7 @@ def detection(positive, negative, bins=200, axes=None, title='()', scale=True, r
     v_do_match_max = np.percentile(positive, 1)
 
     if axes is None:
-        fig = Figure()
+        fig = get_figure()
         axes = fig.gca()
 
     # From bin centers, convert to bin edges for histogram computation
@@ -512,7 +530,7 @@ def roc(matching, non_matching, bins=100, axes=None, label=None, plot_guides=Tru
     auc = stats.auc(matching, non_matching)
 
     if axes is None:
-        fig = Figure()
+        fig = get_figure()
         axes = fig.gca()
 
     label = f'{label} : tpr={tpr_at_1pp_fpr:.2f} auc={auc:.2f}' if label is not None else None
@@ -563,7 +581,7 @@ def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1
     r2 = stats.rsquared(x.ravel(), y.ravel())
 
     if axes is None:
-        fig = Figure()
+        fig = get_figure()
         axes = fig.gca()
 
     axes.plot(x.ravel(), y.ravel(), '.', alpha=alpha)

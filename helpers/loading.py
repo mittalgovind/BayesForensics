@@ -70,7 +70,7 @@ def load_images(files, data_directory, extension='png', load='xy'):
     if 'y' in load:
         data['y'] = np.zeros((n_images, 2 * resolutions[0], 2 * resolutions[1], 3), dtype=np.uint8)
 
-    with tqdm.tqdm(total=n_images, ncols=100, desc='Loading images') as pbar:
+    with tqdm.tqdm(total=n_images, ncols=100, desc='Loading images', disable=os.environ.get("DISABLE_TQDM", False)) as pbar:
 
         for i, file in enumerate(files):
             npy_file = file.replace('.{}'.format(extension), '.npy')
@@ -100,12 +100,13 @@ def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='
     v_images = len(files)
     max_attempts = 100
     discard_label = '(random)' if discard is None else '({})'.format(discard)
+    discard_label = f'Loading patches {discard_label}'
     data = {}
 
     if 'x' in load: data['x'] = np.zeros((v_images * n_patches, patch_size, patch_size, 4), dtype=np.uint16)
     if 'y' in load: data['y'] = np.zeros((v_images * n_patches, 2 * patch_size, 2 * patch_size, 3), dtype=np.uint8)
 
-    with tqdm.tqdm(total=v_images * n_patches, ncols=100, desc='Loading patches {}'.format(discard_label)) as pbar:
+    with tqdm.tqdm(total=v_images * n_patches, ncols=100, desc=discard_label, disable=os.environ.get("DISABLE_TQDM", False)) as pbar:
 
         for i, file in enumerate(files):
             npy_file = file.replace('.{}'.format(extension), '.npy')

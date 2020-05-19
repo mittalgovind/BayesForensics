@@ -19,6 +19,8 @@ import numpy as np
 from helpers.kernels import gkern, repeat_2dfilter
 from IPython.display import display, HTML
 
+from loguru import logger
+
 activation_mapping = {
     'leaky_relu' : tf.keras.layers.LeakyReLU(alpha=0.2),
     'relu': tf.keras.activations.relu,
@@ -268,7 +270,8 @@ def quantize_and_clip(x):
     2. Clip values to [0, 1].
     :param x: image tensor
     """
-    return tf.clip_by_value(soft_quantization(x), 0, 1)
+    x_ = soft_quantization(x)
+    return tf.stop_gradient(tf.clip_by_value(x_, 0, 1) - x_) + x_
 
 
 def entropy(values, codebook, v=50, gamma=25):
@@ -318,11 +321,21 @@ def entropy(values, codebook, v=50, gamma=25):
 
 
 def print_versions():
-    print('Tensorflow:', tf.__version__)
+    print('Tensorflow:', )
     print('GPUs:', tf.config.list_physical_devices('GPU'))
+
 
 def disable_warnings():
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+
 def disable_gpu():
     tf.config.set_visible_devices([], 'GPU')
+
+
+def log_status():
+    devices = tf.config.list_physical_devices('GPU')
+    if not len(devices):
+        logger.warning(f'Tensorflow: {tf.__version__} is NOT using any GPUs')
+    else:
+        logger.warning(f'Tensorflow: {tf.__version__} found GPUs: {devices}')

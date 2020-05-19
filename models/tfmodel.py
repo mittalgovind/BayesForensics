@@ -178,8 +178,17 @@ class TFModel(object):
         if not quiet:
             logger.info(f'> {self.class_name} <-- {filename}')
 
+        if not self._model.built:
+            self._model.build(self.input_shape)
         self._model.load_weights(filename)
         self.reset_performance_stats()
+
+    @property
+    def input_shape(self):
+        if hasattr(self, 'x'):
+            return self.x.shape
+        else:
+            raise NotImplementedError('Input shape not available!')
 
     def migrate_model(self, dirname, mapping=None, verbose=False):
         """

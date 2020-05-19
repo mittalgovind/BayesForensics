@@ -12,6 +12,7 @@ Example functionality:
 - recursively find a key in a dictionary
 
 """
+import os
 import re
 import subprocess
 import sys
@@ -27,7 +28,7 @@ _numeric_types = {int, float, bool, np.bool, np.float, np.float16, np.float32, n
                            np.uint, np.uint8, np.uint32, np.uint16, np.uint64}
 
 
-def setup_logging(filename=None, long_date=False):
+def setup_logging(filename=None, long_date=False, level='INFO'):
     """
     Configure the logger to a compact format.
     :param filename: add an additional sink to the given file
@@ -35,18 +36,20 @@ def setup_logging(filename=None, long_date=False):
     """
 
     if long_date:
-        log_format = '{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}'
+        log_format = '<green>{time:YYYY-MM-DD HH:mm:ss}</> | <lvl>{level}</lvl> | <lvl>{message}</>'
     else:
-        log_format = '{time:HH:mm:ss} | {level} | {message}'
+        log_format = '<green>{time:HH:mm:ss}</> | <lvl>{level}</> | <lvl>{message}</lvl>'
 
     config = {
         "handlers": [
-            {"sink": sys.stderr, "format": log_format}
+            {"sink": sys.stderr, "format": log_format, "level": level, "colorize": True}
         ],
     }
 
     if filename is not None:
-        config['handlers'].append({"sink": "file.log", "serialize": True})
+        if '/' not in filename:
+            filename = os.path.join('logs', filename)
+        config['handlers'].append({"sink": filename, "serialize": False, "format": log_format, "level": level})
 
     logger.configure(**config)
 
