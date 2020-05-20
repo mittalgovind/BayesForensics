@@ -44,6 +44,7 @@ class NIPModel(TFModel):
         self.in_channels = in_channels
         self.construct_model(**kwargs)
         self._has_attributes(['y', '_model'])
+        self._model.build((None, patch_size, patch_size, in_channels))
 
         # Configure loss and model optimization
         self.loss_metric = loss_metric

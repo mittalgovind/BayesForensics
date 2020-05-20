@@ -338,4 +338,4 @@ def log_status():
     if not len(devices):
         logger.warning(f'Tensorflow: {tf.__version__} is NOT using any GPUs')
     else:
-        logger.warning(f'Tensorflow: {tf.__version__} found GPUs: {devices}')
+        logger.info(f'Tensorflow: {tf.__version__} found GPUs: {devices}')

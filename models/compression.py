@@ -84,6 +84,7 @@ class DCN(TFModel):
         # Construct the neural network model
         self.construct_model(**kwargs)
         self._has_attributes(['y', '_model', '_encoder', '_decoder'])
+        self._model.build((None, patch_size, patch_size, 3))
         
         # Loss and SSIM
         self.ssim = lambda a, b: tf.reduce_mean(tf.image.ssim(a, b, max_val=1))

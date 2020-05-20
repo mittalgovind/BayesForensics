@@ -50,71 +50,82 @@ def batch_training(config=None, dry=True):
     with open(config) as file:
         flows = json.load(file)
 
-    for flow_id, flow_config in enumerate(flows):
+    for flow_id, fc in enumerate(flows):
 
         prefix = f'(Config {flow_id+1}/{len(flows)})'
 
-        logger.info(f'{prefix} {len(flow_config)} keys -> {list(flow_config.keys())}')
+        logger.debug(f'{prefix} {len(fc)} keys -> {list(fc.keys())}')
 
         # Read the current configuration & re-use parameters from the previous one
         if flow_id == 0:
-            if 'data' not in flow_config:
+            if 'data' not in fc:
                 logger.error('Dataset not defined in the first config!')
                 sys.exit(1)
-            last_flow = dict(**flow_config)
+            last_flow = dict(**fc)
+            run_id = 0
         else:
-            if 'data' in flow_config:
+            if len(fc) == 0:
+                run_id += 1
+            else:
+                run_id = 0
+            if 'data' in fc:
                 logger.error('Dataset MUST be defined ONLY in the first config!')
                 sys.exit(1)
             new_flow = dict(**last_flow)
-            new_flow.update(flow_config)
-            flow_config = dict(**new_flow)
+            new_flow.update(fc)
+            fc = dict(**new_flow)
+            last_flow = dict(**fc)
 
         # Read parameters and create necessary objects
-        sensor = factory(flow_config['sensor'])
-        detector = factory(flow_config['detector'])
-        isp = pipelines.ClassicISP.restore(camera=flow_config['camera'])
-        channel = factory(flow_config['channel'])
-        channel_strength = factory(flow_config['channel_strength'])
-        alphas = factory(flow_config['alphas'])
-        label = flow_config['label'].format(flow_id= flow_id, **flow_config)
-        learning_rate = flow_config['learning_rate']
-        demosaicing = flow_config['demosaicing']
-
-        # Create the workflow
-        f = sf.SensorFingerprint(isp, sensor, detector, channel, alphas, channel_strength=channel_strength,
-                                 learning_rate=learning_rate, fingerprint_demosaicing=demosaicing, label=label)
+        label = fc['label'].format(flow_id=flow_id, run_id=run_id, **fc)
 
         # Actions to be performed
-        actions = set(flow_config['actions'].split(','))
+        actions = set(fc['actions'].split(','))
+        logger.info(f'{prefix} {label}: actions={actions}')
 
         if any(action not in __ACTIONS for action in actions):
             logger.error(f'{prefix}: Some actions are not supported: {actions.difference(__ACTIONS)}')
             sys.exit(1)
 
-        logger.info(f'{prefix} {label}: {f.summary()}')
-        logger.info(f'{prefix} {label}: actions={actions}')
+        # Create the workflow
+        if not dry:
+            sensor = factory(fc['sensor'])
+            detector = factory(fc['detector'])
+            isp = pipelines.ClassicISP.restore(camera=fc['camera'])
+            channel = factory(fc['channel'])
+            channel_strength = factory(fc['channel_strength'])
+            alphas = factory(fc['alphas'])
+            weights = factory(fc['weights'])
+
+            f = sf.SensorFingerprint(isp, sensor, detector, channel, alphas,
+                                     channel_strength=channel_strength,
+                                     learning_rate=fc['learning_rate'],
+                                     fingerprint_demosaicing=fc['demosaicing'],
+                                     label=label,
+                                     root_dir=fc['root_dir'])
+
+            logger.info(f'{prefix} {label}: {f.summary()}')
 
         # Load dataset
         if len(actions) > 0 and not dry and flow_id == 0:
-            data = dataset.Dataset(flow_config['camera'], **flow_config['data'])
+            data = dataset.Dataset(fc['camera'], **fc['data'])
             logger.info(f'{prefix} Loaded dataset: {data.summary()}')
         else:
-            logger.info(f'{prefix} Configured dataset: camera={flow_config["camera"]} args={flow_config["data"]}')
+            logger.info(f'{prefix} Configured dataset: camera={fc["camera"]} args={fc["data"]}')
 
         if 'train' in actions:
             t = action_defaults('train')
-            t.update(flow_config['train'])
+            t.update(fc['train'])
             logger.debug(f'(dry={dry}) Training arguments: {t}')
             if not dry:
                 sf.train_all(f, data, epochs=t['epochs'], batch_size=t['batch_size'], patch_size=t['patch_size'],
-                             restart=False, decay=t['decay'], weights=flow_config['weights'])
+                             restart=False, decay=t['decay'], weights=weights)
                 vis.training_progress(f, save=True)
                 vis.embedding_patterns(f, data, save=True)
 
         if 'validate' in actions:
             v = action_defaults('validate')
-            v.update(flow_config['validate'])
+            v.update(fc['validate'])
             logger.debug(f'(dry={dry}) Validation arguments: {v}')
             if not dry:
                 sf.validate(f, data, batch_size=10, n_reps=v['n_reps'], estimation_images=v['estimation_images'], save=True)  # (50,90)
@@ -122,7 +133,7 @@ def batch_training(config=None, dry=True):
 
         if 'threats' in actions:
             v = action_defaults('threats')
-            v.update(flow_config['threats'])
+            v.update(fc['threats'])
             logger.debug(f'(dry={dry}) Threat assessment arguments: {v}')
             if not dry:
                 sf.assess_security(f, data, residual_images=v['residual_images'], save=True)
@@ -200,7 +211,7 @@ def main():
     # Split manipulations
     # args.manipulations = args.manipulations.strip().split(',')
 
-    batch_training(args.config, args.dry)
+    batch_training(args.config, args.dry_run)
 
 
 if __name__ == "__main__":
