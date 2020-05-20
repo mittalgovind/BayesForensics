@@ -13,7 +13,7 @@ from loguru import logger
 class Dataset(object):
 
     def __init__(self, data_directory, *, randomize=2468, load='xy', n_images=120, v_images=30, val_rgb_patch_size=128,
-                 val_n_patches=1, val_discard='flat-aggressive'):
+                 val_n_patches=1, val_discard='flat-aggressive', presample_epochs=0):
         """
         Represents a [RAW-]RGB dataset for training imaging pipelines. The class preloads full resolution images and
         samples from them when requesting training batches. (Validation images are sampled upon creation.) Patch
@@ -63,17 +63,22 @@ class Dataset(object):
         self.files = {}
         self._loaded_data = load
         self._data_directory = data_directory
-        self._counts = (n_images, v_images, val_n_patches)
+        self._counts = (n_images if presample_epochs == 0 else n_images * presample_epochs, v_images, val_n_patches)
         self._val_discard = 'flat-aggressive'
         self.files['training'], self.files['validation'] = loading.discover_images(data_directory, randomize=randomize,
                                                                                    n_images=n_images, v_images=v_images)
 
-        self.data = {
-            'training': loading.load_images(self.files['training'], data_directory, load=load),
-            'validation': loading.load_patches(self.files['validation'], data_directory,
-                                               patch_size=val_rgb_patch_size // 2, n_patches=val_n_patches,
-                                               load=load, discard=val_discard)
-        }
+        self.data = {}
+        self.data['validation'] = loading.load_patches(self.files['validation'], data_directory,
+                                                       patch_size=val_rgb_patch_size // 2, n_patches=val_n_patches,
+                                                       load=load, discard=val_discard)
+
+        if presample_epochs == 0:
+            self.data['training'] = loading.load_images(self.files['training'], data_directory, load=load)
+        else:
+            self.data['training'] = loading.load_patches(self.files['training'], data_directory,
+                                                         patch_size=val_rgb_patch_size // 2, n_patches=presample_epochs,
+                                                         load=load, discard=val_discard)
 
         if 'y' in self.data['training']:
             self.H, self.W = self.data['training']['y'].shape[1:3]
@@ -86,7 +91,7 @@ class Dataset(object):
         else:
             raise KeyError('Key: {} not found!'.format(key))
 
-    def next_training_batch(self, batch_id, batch_size, rgb_patch_size, discard='flat', max_attempts=25):
+    def next_training_batch(self, batch_id, batch_size, rgb_patch_size=0, discard='flat', max_attempts=25):
         """
         Sample a new batch of training patches.
         :param batch_id: integer from 0 to (#training images // batch_size - 1)
@@ -96,11 +101,13 @@ class Dataset(object):
         :param max_attempts: maximum number of sampling attempts (if unsuccessful)
         :return: tuple of np arrays (RAW, RGB) or np array (RGB)
         """
+        if rgb_patch_size == 0:
+            rgb_patch_size = min(128, self.rgb_patch_size)
 
         if discard is not None and 'y' not in self.data['training']:
             raise ValueError('Cannot discard patches if RGB data is not loaded.')
 
-        if (batch_id + 1) * batch_size > len(self.files['training']):
+        if (batch_id + 1) * batch_size > self.count_training:
             raise ValueError('Not enough images for the requested batch_id & batch_size')
 
         raw_patch_size = rgb_patch_size // 2
@@ -114,8 +121,13 @@ class Dataset(object):
         for b in range(batch_size):
             bid = batch_id * batch_size + b
             current_rgb = self.data['training']['y'][bid]
-            xx, yy = sample_patch(current_rgb, rgb_patch_size, discard, max_attempts)
-            rx, ry = xx // 2, yy // 2
+            if rgb_patch_size == current_rgb.shape[0]:
+                xx, yy, rx, ry = 0, 0, 0, 0
+            elif rgb_patch_size < current_rgb.shape[0]:
+                xx, yy = sample_patch(current_rgb, rgb_patch_size, discard, max_attempts)
+                rx, ry = xx // 2, yy // 2
+            else:
+                raise ValueError('Requested patch size is too big!')
 
             if 'x' in self._loaded_data:
                 current_raw = self.data['training']['x'][bid]
@@ -138,6 +150,9 @@ class Dataset(object):
         :return: tuple of np arrays (RAW, RGB) or np array (RGB)
         """
         rgb_patch = self.rgb_patch_size
+
+        if (batch_id + 1) * batch_size > self.count_validation:
+            raise ValueError('Not enough images for the requested batch_id & batch_size')
 
         batch = {
             'x': np.zeros((batch_size, rgb_patch // 2, rgb_patch // 2, 4), dtype=np.float32) if 'x' in self._loaded_data else None,

@@ -85,7 +85,7 @@ def load_images(files, data_directory, extension='png', load='xy'):
         return data
 
     
-def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='flat-aggressive', extension='png', load='xy'):
+def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='flat-aggressive', extension='png', load='xy', order=1):
     """
     Sample (raw, rgb) pairs or random patches from given images.
 
@@ -120,10 +120,15 @@ def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='
                 xx, yy = sample_patch(image_y, 2 * patch_size, discard, max_attempts)
                 rx, ry = xx // 2, yy // 2
 
+                if order == 0:
+                    index = i * n_patches + b
+                else:
+                    index = i + b * v_images
+
                 if 'x' in data:
-                    data['x'][i * n_patches + b] = image_x[ry:ry + patch_size, rx:rx + patch_size, :]
+                    data['x'][index] = image_x[ry:ry + patch_size, rx:rx + patch_size, :]
                 if 'y' in data:
-                    data['y'][i * n_patches + b] = image_y[yy:yy + 2*patch_size, xx:xx + 2*patch_size, :]
+                    data['y'][index] = image_y[yy:yy + 2 * patch_size, xx:xx + 2 * patch_size, :]
 
                 pbar.update(1)
 
