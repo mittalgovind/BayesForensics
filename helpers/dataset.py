@@ -13,7 +13,7 @@ from loguru import logger
 class Dataset(object):
 
     def __init__(self, data_directory, *, randomize=2468, load='xy', n_images=120, v_images=30, val_rgb_patch_size=128,
-                 val_n_patches=1, val_discard='flat-aggressive', presample_epochs=0):
+                 val_n_patches=1, val_discard='flat-aggressive', presample_epochs=0, train_rgb_patch_size=0):
         """
         Represents a [RAW-]RGB dataset for training imaging pipelines. The class preloads full resolution images and
         samples from them when requesting training batches. (Validation images are sampled upon creation.) Patch
@@ -49,6 +49,12 @@ class Dataset(object):
         if not any(load == allowed for allowed in ['xy', 'x', 'y']):
             raise ValueError('Invalid X/Y data requested!')
 
+        if train_rgb_patch_size == 0:
+            train_rgb_patch_size = val_rgb_patch_size
+        elif presample_epochs == 0:
+            raise ValueError('Setting training patch size here only works when preloading the patches '
+                             '(when presample_epochs>0). Otherwise, full resolution images are loaded.')
+
         if not os.path.isdir(data_directory):
             if '/' in data_directory or '\\' in data_directory:
                 raise ValueError(f'Cannot find the data directory: {data_directory}')
@@ -77,7 +83,7 @@ class Dataset(object):
             self.data['training'] = loading.load_images(self.files['training'], data_directory, load=load)
         else:
             self.data['training'] = loading.load_patches(self.files['training'], data_directory,
-                                                         patch_size=val_rgb_patch_size // 2, n_patches=presample_epochs,
+                                                         patch_size=train_rgb_patch_size // 2, n_patches=presample_epochs,
                                                          load=load, discard=val_discard)
 
         if 'y' in self.data['training']:
@@ -113,34 +119,41 @@ class Dataset(object):
         raw_patch_size = rgb_patch_size // 2
 
         # Allocate memory for the batch
-        batch = {
-            'x': np.zeros((batch_size, raw_patch_size, raw_patch_size, 4), dtype=np.float32) if 'x' in self._loaded_data else None,
-            'y': np.zeros((batch_size, rgb_patch_size, rgb_patch_size, 3), dtype=np.float32) if 'y' in self._loaded_data else None
-        }
+        has_raw = 'x' in self._loaded_data
+        has_rgb = 'y' in self._loaded_data
+        bx = np.zeros((batch_size, raw_patch_size, raw_patch_size, 4), dtype=np.float32) if has_raw else None
+        by = np.zeros((batch_size, rgb_patch_size, rgb_patch_size, 3), dtype=np.float32) if has_rgb else None
+
+        if rgb_patch_size > self.rgb_patch_size:
+            raise ValueError('Requested patch size is too big!')
+
+        if 'y' not in self.data['training'] and discard is not None:
+            raise ValueError('Cannot use a patch discard policy when RGB data is not loaded!')
 
         for b in range(batch_size):
+
             bid = batch_id * batch_size + b
-            current_rgb = self.data['training']['y'][bid]
-            if rgb_patch_size == current_rgb.shape[0]:
+            current_rgb = self.data['training']['y'][bid] if has_rgb else None
+
+            if rgb_patch_size == self.rgb_patch_size:
                 xx, yy, rx, ry = 0, 0, 0, 0
-            elif rgb_patch_size < current_rgb.shape[0]:
-                xx, yy = sample_patch(current_rgb, rgb_patch_size, discard, max_attempts)
-                rx, ry = xx // 2, yy // 2
             else:
-                raise ValueError('Requested patch size is too big!')
+                xx, yy = sample_patch(current_rgb, rgb_patch_size, discard, max_attempts, self.rgb_shape)
+                rx, ry = xx // 2, yy // 2
 
-            if 'x' in self._loaded_data:
+            if has_raw:
                 current_raw = self.data['training']['x'][bid]
-                batch['x'][b] = current_raw[ry:ry+raw_patch_size, rx:rx+raw_patch_size].astype(np.float) / (2**16 - 1)
-            if 'y' in self._loaded_data:
-                batch['y'][b] = current_rgb[yy:yy+rgb_patch_size, xx:xx+rgb_patch_size].astype(np.float) / (2**8 - 1)
+                bx[b] = current_raw[ry:ry + raw_patch_size, rx:rx + raw_patch_size].astype(np.float) / (2 ** 16 - 1)
 
-        if self._loaded_data == 'xy':
-            return batch['x'], batch['y']
-        elif self._loaded_data == 'y':
-            return batch['y']
-        elif self._loaded_data == 'x':
-            return batch['x']
+            if has_rgb:
+                by[b] = current_rgb[yy:yy+rgb_patch_size, xx:xx+rgb_patch_size].astype(np.float) / (2**8 - 1)
+
+        if has_rgb and has_raw:
+            return bx, by
+        elif has_rgb:
+            return by
+        elif has_raw:
+            return bx
 
     def next_validation_batch(self, batch_id, batch_size):
         """
@@ -154,23 +167,23 @@ class Dataset(object):
         if (batch_id + 1) * batch_size > self.count_validation:
             raise ValueError('Not enough images for the requested batch_id & batch_size')
 
-        batch = {
-            'x': np.zeros((batch_size, rgb_patch // 2, rgb_patch // 2, 4), dtype=np.float32) if 'x' in self._loaded_data else None,
-            'y': np.zeros((batch_size, rgb_patch, rgb_patch, 3), dtype=np.float32) if 'y' in self._loaded_data else None
-        }
+        has_raw = 'x' in self._loaded_data
+        has_rgb = 'y' in self._loaded_data
+        bx = np.zeros((batch_size, rgb_patch // 2, rgb_patch // 2, 4), dtype=np.float32) if has_raw else None
+        by = np.zeros((batch_size, rgb_patch, rgb_patch, 3), dtype=np.float32) if has_rgb else None
 
         for b in range(batch_size):
-            if 'x' in self._loaded_data:
-                batch['x'][b] = self.data['validation']['x'][batch_id * batch_size + b].astype(np.float) / (2 ** 16 - 1)
-            if 'y' in self._loaded_data:
-                batch['y'][b] = self.data['validation']['y'][batch_id * batch_size + b].astype(np.float) / (2 ** 8 - 1)
+            if has_raw:
+                bx[b] = self.data['validation']['x'][batch_id * batch_size + b].astype(np.float) / (2 ** 16 - 1)
+            if has_rgb:
+                by[b] = self.data['validation']['y'][batch_id * batch_size + b].astype(np.float) / (2 ** 8 - 1)
 
-        if self._loaded_data == 'xy':
-            return batch['x'], batch['y']
-        elif self._loaded_data == 'y':
-            return batch['y']
-        elif self._loaded_data == 'x':
-            return batch['x']
+        if has_rgb and has_raw:
+            return bx, by
+        elif has_rgb:
+            return by
+        elif has_raw:
+            return bx
 
     def is_raw_and_rgb(self):
         return len(self._loaded_data) == 2
@@ -181,6 +194,15 @@ class Dataset(object):
             patch_size = self.data['validation']['y'].shape[1]
         else:
             patch_size = 2 * self.data['validation']['x'].shape[1]
+        return patch_size
+
+    @property
+    def rgb_shape(self):
+        if 'y' in self._loaded_data:
+            patch_size = self.data['training']['y'].shape[1:]
+        else:
+            shape = self.data['training']['x'].shape
+            patch_size = (2 * shape[1], 2 * shape[2], shape[3])
         return patch_size
 
     @property
@@ -222,7 +244,9 @@ class Dataset(object):
 
     def summary(self):
         valid_label = '' if self._val_discard is None else f', {self._val_discard}'
-        return f'Dataset[{os.path.split(self._data_directory)[-1]},{self.loaded_data}] : {self.count_training} train. images + {self.count_validation} valid. patches ({self.rgb_patch_size} px{valid_label})'
+        return f'Dataset[{os.path.split(self._data_directory)[-1]},{self.loaded_data}]: ' \
+               f'{self.count_training} train. images ({np.prod(self.rgb_shape[:2])/1e6:.1f}Mpx) ' \
+               f'+ {self.count_validation} valid. patches ({self.rgb_patch_size} px{valid_label})'
 
     def details(self):
         label = [self.summary()]
@@ -261,8 +285,9 @@ class Dataset(object):
 
     def get_training_pipeline(self, batch_size, rgb_patch_size, discard='flat'):
         import tensorflow as tf
+        types = (tf.float32, tf.float32) if self.is_raw_and_rgb() else tf.float32
         return tf.data.Dataset.from_generator(lambda: self.get_training_generator(batch_size, rgb_patch_size, discard),
-                                              output_types=len(self._loaded_data) * (tf.float32,))
+                                              output_types=types)
 
     def get_validation_pipeline(self, batch_size):
         import tensorflow as tf

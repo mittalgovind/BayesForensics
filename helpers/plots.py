@@ -351,7 +351,7 @@ def progress(k, v, results=('training', 'validation'), log='auto', axes=None, st
         axes.legend()
 
 
-def perf(training_progress, results=None, figwidth=5, log='auto', fig=None, alpha=0.25):
+def perf(training_progress, results=None, metrics=None, figwidth=5, log='auto', fig=None, alpha=0.25):
     """
     Plots training performance stats organized into a dictionary with the following structure:
      - {metric}/{training,validation} -> [values]
@@ -390,6 +390,9 @@ def perf(training_progress, results=None, figwidth=5, log='auto', fig=None, alph
 
     fig, axes = sub(len(active), ncols=-1, fig=fig)
     fig.set_size_inches((len(active) * figwidth, figwidth * 0.75))
+
+    if metrics is not None:
+        active = [x for x in active if x in metrics]
 
     for i, k in enumerate(active):
         v = training_progress[k]

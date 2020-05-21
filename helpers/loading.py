@@ -22,7 +22,7 @@ def discover_images(data_directory, n_images=120, v_images=30, extension='png', 
     """
 
     files = fsutil.listdir(data_directory, '.*\\.{}$'.format(extension))
-    logger.debug(f'{data_directory}: in total {len(files)} files available')
+    logger.debug(f'{data_directory}: in total {len(files)} files available - requested split {n_images}:{v_images}')
 
     if randomize:
         np.random.seed(randomize)
@@ -100,19 +100,26 @@ def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='
     v_images = len(files)
     max_attempts = 100
     discard_label = '(random)' if discard is None else '({})'.format(discard)
-    discard_label = f'Loading patches {discard_label}'
+    discard_label = f'Loading {2*patch_size}px patches {discard_label}'
     data = {}
 
     if 'x' in load: data['x'] = np.zeros((v_images * n_patches, patch_size, patch_size, 4), dtype=np.uint16)
     if 'y' in load: data['y'] = np.zeros((v_images * n_patches, 2 * patch_size, 2 * patch_size, 3), dtype=np.uint8)
+
+    fetch_raw = 'x' in data
+    fetch_rgb = 'y' in data
 
     with tqdm.tqdm(total=v_images * n_patches, ncols=100, desc=discard_label, disable=os.environ.get("DISABLE_TQDM", False)) as pbar:
 
         for i, file in enumerate(files):
             npy_file = file.replace('.{}'.format(extension), '.npy')
 
-            if 'x' in data: image_x = np.load(os.path.join(data_directory, npy_file))
-            if 'y' in data: image_y = imageio.imread(os.path.join(data_directory, file), pilmode='RGB')
+            # If requested, load the RAW image
+            if fetch_raw:
+                image_x = np.load(os.path.join(data_directory, npy_file))
+
+            if fetch_rgb or discard is not None:
+                image_y = imageio.imread(os.path.join(data_directory, file), pilmode='RGB')
 
             # Sample random patches
             for b in range(n_patches):
@@ -125,9 +132,9 @@ def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='
                 else:
                     index = i + b * v_images
 
-                if 'x' in data:
+                if fetch_raw:
                     data['x'][index] = image_x[ry:ry + patch_size, rx:rx + patch_size, :]
-                if 'y' in data:
+                if fetch_rgb:
                     data['y'][index] = image_y[yy:yy + 2 * patch_size, xx:xx + 2 * patch_size, :]
 
                 pbar.update(1)
@@ -135,7 +142,7 @@ def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='
         return data
 
 
-def sample_patch(rgb_image, rgb_patch_size=128, discard=None, max_attempts=25):
+def sample_patch(rgb_image, rgb_patch_size=128, discard=None, max_attempts=25, rgb_shape=None):
     """
     Sample a single patch from a full-resolution image. Sampling can be fully random or can follow a discarding policy.
     The following DISCARD modes are available:
@@ -152,8 +159,15 @@ def sample_patch(rgb_image, rgb_patch_size=128, discard=None, max_attempts=25):
     """
     xx, yy = 0, 0
 
-    max_x = rgb_image.shape[1] - rgb_patch_size
-    max_y = rgb_image.shape[0] - rgb_patch_size
+    if rgb_shape is None:
+        max_x = rgb_image.shape[1] - rgb_patch_size
+        max_y = rgb_image.shape[0] - rgb_patch_size
+    else:
+        max_x = rgb_shape[1] - rgb_patch_size
+        max_y = rgb_shape[0] - rgb_patch_size
+
+    max_x2 = max_x // 2
+    max_y2 = max_y // 2
 
     if max_x > 0 or max_y > 0:
         found = False
@@ -161,8 +175,8 @@ def sample_patch(rgb_image, rgb_patch_size=128, discard=None, max_attempts=25):
 
         while not found:
             # Sample a random patch - the number needs to be even to ensure proper Bayer alignment
-            xx = 2 * (np.random.randint(0, max_x) // 2) if max_x > 0 else 0
-            yy = 2 * (np.random.randint(0, max_y) // 2) if max_y > 0 else 0
+            xx = 2 * np.random.randint(0, max_x2) if max_x > 0 else 0
+            yy = 2 * np.random.randint(0, max_y2) if max_y > 0 else 0
 
             if not discard:
                 found = True

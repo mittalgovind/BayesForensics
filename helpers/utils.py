@@ -36,9 +36,10 @@ def setup_logging(filename=None, long_date=False, level='INFO'):
     """
 
     if long_date:
-        log_format = '<green>{time:YYYY-MM-DD HH:mm:ss}</> | <lvl>{level}</lvl> | <cyan>{name}</cyan>: <lvl>{message}</>'
+        # If needed, can add "<cyan>{name}</cyan>:" to show file which triggered the message
+        log_format = '<green>{time:YYYY-MM-DD HH:mm:ss}</> | <lvl>{level}</lvl> | <lvl>{message}</>'
     else:
-        log_format = '<green>{time:HH:mm:ss}</> | <lvl>{level}</> | <cyan>{name}</cyan>: <lvl>{message}</lvl>'
+        log_format = '<green>{time:HH:mm:ss}</> | <lvl>{level}</> | <lvl>{message}</lvl>'
 
     config = {
         "handlers": [

@@ -46,6 +46,10 @@ def msssim_loss(a, b):
     return tf.reduce_mean(255 * (1 - tf.image.ssim_multiscale(a, b, 1.0)))
 
 
+def ssim(a, b):
+    return tf.reduce_mean(tf.image.ssim(a, b, max_val=1.0))
+
+
 def corr(a, b):
     a = (a - tf.reduce_mean(a, axis=[1, 2, 3], keepdims=True)) / (1e-9 + tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True))
     b = (b - tf.reduce_mean(b, axis=[1, 2, 3], keepdims=True)) / (1e-9 + tf.math.reduce_std(b, axis=[1, 2, 3], keepdims=True))
