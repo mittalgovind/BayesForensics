@@ -104,6 +104,7 @@ def batch_training(config=None, dry=True):
                                      label=label,
                                      root_dir=fc['root_dir'])
 
+            preexisting_status = f.model_status()
             logger.info(f'{prefix} {label}: {f.summary()}')
 
         # Load dataset
@@ -120,24 +121,32 @@ def batch_training(config=None, dry=True):
             if not dry:
                 sf.train_all(f, data, epochs=t['epochs'], batch_size=t['batch_size'], patch_size=t['patch_size'],
                              restart=False, decay=t['decay'], weights=weights)
-                vis.training_progress(f, save=True)
-                vis.embedding_patterns(f, data, save=True)
+
+                if not all(preexisting_status.values()):
+                    vis.training_progress(f, save=True)
+                    vis.embedding_patterns(f, data, save=True)
+                else:
+                    logger.warning(f'{[prefix]}: The entire model seems to be already ready - skipping visualization')
 
         if 'validate' in actions:
             v = action_defaults('validate')
             v.update(fc['validate'])
             logger.debug(f'(dry={dry}) Validation arguments: {v}')
-            if not dry:
+            if not dry and not all(preexisting_status.values()):
                 sf.validate(f, data, batch_size=10, n_reps=v['n_reps'], estimation_images=v['estimation_images'], save=True)  # (50,90)
                 vis.validation(f, save=True)
+            else:
+                logger.warning(f'{prefix} skipping validation (dry run or model was ready before)')
 
         if 'threats' in actions:
             v = action_defaults('threats')
             v.update(fc['threats'])
             logger.debug(f'(dry={dry}) Threat assessment arguments: {v}')
-            if not dry:
+            if not dry and not all(preexisting_status.values()):
                 sf.assess_security(f, data, residual_images=v['residual_images'], save=True)
                 vis.security(f, 'tm*', save=True)
+            else:
+                logger.warning(f'{prefix} skipping security assessment (dry run or model was ready before)')
 
 
 def main():

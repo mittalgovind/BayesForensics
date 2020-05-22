@@ -130,12 +130,8 @@ class Dataset(object):
 
             bid = batch_id * batch_size + b
             current_rgb = self.data['training']['y'][bid] if has_rgb else None
-
-            if rgb_patch_size == self.valid_patch_size_rgb:
-                xx, yy, rx, ry = 0, 0, 0, 0
-            else:
-                xx, yy = sample_patch(current_rgb, rgb_patch_size, discard, max_attempts, self.train_image_shape_rgb)
-                rx, ry = xx // 2, yy // 2
+            xx, yy = sample_patch(current_rgb, rgb_patch_size, discard, max_attempts, self.train_image_shape_rgb)
+            rx, ry = xx // 2, yy // 2
 
             if has_raw:
                 current_raw = self.data['training']['x'][bid]
