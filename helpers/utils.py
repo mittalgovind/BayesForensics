@@ -299,3 +299,11 @@ def shell(command, log=None, verbosity=2):
 
     p.wait()
     return p.returncode
+
+
+def tqdm_width():
+    try:
+        return os.get_terminal_size()[0]
+    except OSError:
+        import shutil
+        return shutil.get_terminal_size()[0]

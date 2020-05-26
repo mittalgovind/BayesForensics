@@ -2,6 +2,9 @@ import sys
 import json
 import argparse
 
+import numpy as np
+import tensorflow as tf
+
 from models import pipelines, spn, jpeg
 
 from helpers import dataset, plots, tf_helpers, metrics, results_data, imdiff, utils
@@ -25,9 +28,9 @@ def action_defaults(action):
     if action == 'train':
         return {"epochs": 1000, "batch_size": 50, "patch_size": 128, "decay": -1}
     elif action == 'validate':
-        return {"n_reps": 10, "estimation_images": 0}
+        return {"n_reps": 100, "estimation_images": 0}
     elif action == 'threats':
-        return {"n_reps": 10, "residual_images": 1}
+        return {"n_reps": 50, "residual_images": 1}
 
 
 def factory(spec):
@@ -43,7 +46,7 @@ def factory(spec):
     return instance
 
 
-def batch_training(config=None, dry=True):
+def batch_training(config=None, dry=True, repeat=1):
 
     logger.debug(f'Loading JSON: {config}')
 
@@ -52,111 +55,119 @@ def batch_training(config=None, dry=True):
 
     for flow_id, fc in enumerate(flows):
 
-        prefix = f'(Config {flow_id+1}/{len(flows)})'
+        for run_id in range(repeat):
 
-        logger.debug(f'{prefix} {len(fc)} keys -> {list(fc.keys())}')
+            prefix = f'(Config {flow_id+1}/{len(flows)} run={run_id}/{repeat})'
+            logger.debug(f'{prefix} {len(fc)} keys -> {list(fc.keys())}')
 
-        # Read the current configuration & re-use parameters from the previous one
-        if flow_id == 0:
-            if 'data' not in fc:
-                logger.error('Dataset not defined in the first config!')
-                sys.exit(1)
-            last_flow = dict(**fc)
-            run_id = 0
-        else:
-            if len(fc) == 0:
-                run_id += 1
+            # Read the current configuration & re-use parameters from the previous one
+            if flow_id == 0:
+                if 'data' not in fc:
+                    logger.error('Dataset not defined in the first config!')
+                    sys.exit(1)
+                last_flow = dict(**fc)
             else:
-                run_id = 0
-            if 'data' in fc:
-                logger.error('Dataset MUST be defined ONLY in the first config!')
+                if 'data' in fc:
+                    logger.error('Dataset MUST be defined ONLY in the first config!')
+                    sys.exit(1)
+                new_flow = dict(**last_flow)
+                new_flow.update(fc)
+                fc = dict(**new_flow)
+                last_flow = dict(**fc)
+
+            # Read parameters and create necessary objects
+            label = fc['label'].format(flow_id=flow_id, run_id=run_id, **fc)
+
+            # Actions to be performed
+            actions = set(fc['actions'].split(','))
+            logger.info(f'{prefix} {label}: actions={actions}')
+
+            if any(action not in __ACTIONS for action in actions):
+                logger.error(f'{prefix}: Some actions are not supported: {actions.difference(__ACTIONS)}')
                 sys.exit(1)
-            new_flow = dict(**last_flow)
-            new_flow.update(fc)
-            fc = dict(**new_flow)
-            last_flow = dict(**fc)
 
-        # Read parameters and create necessary objects
-        label = fc['label'].format(flow_id=flow_id, run_id=run_id, **fc)
+            # Load dataset
+            if len(actions) > 0 and not dry and flow_id == 0:
+                data = dataset.Dataset(fc['camera'], **fc['data'])
+                logger.info(f'{prefix} Loaded dataset: {data.summary()}')
+            else:
+                logger.info(f'{prefix} Configured dataset: camera={fc["camera"]} args={fc["data"]}')
 
-        # Actions to be performed
-        actions = set(fc['actions'].split(','))
-        logger.info(f'{prefix} {label}: actions={actions}')
-
-        if any(action not in __ACTIONS for action in actions):
-            logger.error(f'{prefix}: Some actions are not supported: {actions.difference(__ACTIONS)}')
-            sys.exit(1)
-
-        # Create the workflow
-        if not dry:
-            sensor = factory(fc['sensor'])
-            detector = factory(fc['detector'])
-            isp = pipelines.ClassicISP.restore(camera=fc['camera'])
-            channel = factory(fc['channel'])
-            channel_strength = factory(fc['channel_strength'])
-            alphas = factory(fc['alphas'])
-            weights = factory(fc['weights'])
-
-            f = sf.SensorFingerprint(isp, sensor, detector, channel, alphas,
-                                     channel_strength=channel_strength,
-                                     learning_rate=fc['learning_rate'],
-                                     fingerprint_demosaicing=fc['demosaicing'],
-                                     label=label,
-                                     root_dir=fc['root_dir'])
-
-            preexisting_status = f.model_status()
-            logger.info(f'{prefix} {label}: {f.summary()}')
-
-        # Load dataset
-        if len(actions) > 0 and not dry and flow_id == 0:
-            data = dataset.Dataset(fc['camera'], **fc['data'])
-            logger.info(f'{prefix} Loaded dataset: {data.summary()}')
-        else:
-            logger.info(f'{prefix} Configured dataset: camera={fc["camera"]} args={fc["data"]}')
-
-        if 'train' in actions:
-            t = action_defaults('train')
-            t.update(fc['train'])
-            logger.debug(f'(dry={dry}) Training arguments: {t}')
+            # Create the workflow
             if not dry:
-                sf.train_all(f, data, epochs=t['epochs'], batch_size=t['batch_size'], patch_size=t['patch_size'],
-                             restart=False, decay=t['decay'], weights=weights)
+                tf.keras.backend.clear_session()
+                sensor = factory(fc['sensor'])
+                detector = factory(fc['detector'])
+                isp = pipelines.ClassicISP.restore(camera=fc['camera'])
+                channel = factory(fc['channel'])
+                channel_strength = factory(fc['channel_strength'])
+                alphas = factory(fc['alphas'])
+                weights = factory(fc['weights'])
 
-                if not all(preexisting_status.values()):
-                    vis.training_progress(f, save=True)
-                    vis.embedding_patterns(f, data, save=True)
+                # Sanity check for the ISP
+                sample_x, sample_y = data.next_validation_batch(0, 1)
+                sample_Y = isp.process(sample_x).numpy()
+                sample_ssim = np.mean(metrics.ssim(sample_y, sample_Y))
+                if sample_ssim < 0.98:
+                    logger.error(f'The ISP seems to work incorrectly: ssim={sample_ssim:.3f}!')
+                    sys.exit(1)
+
+                f = sf.SensorFingerprint(isp, sensor, detector, channel, alphas,
+                                         channel_strength=channel_strength,
+                                         learning_rate=fc['learning_rate'],
+                                         fingerprint_demosaicing=fc['demosaicing'],
+                                         label=label,
+                                         root_dir=fc['root_dir'])
+
+                preexisting_status = f.model_status()
+                logger.info(f'{prefix} {label}: {f.summary()}')
+
+            if 'train' in actions:
+                t = action_defaults('train')
+                t.update(fc['train'])
+                logger.debug(f'(dry={dry}) Training arguments: {t}')
+                if not dry:
+                    sf.train_all(f, data, epochs=t['epochs'], batch_size=t['batch_size'], patch_size=t['patch_size'],
+                                 restart=False, decay=t['decay'], weights=weights)
+
+                    if not all(preexisting_status.values()):
+                        vis.training_progress(f, save=True)
+                        vis.embedding_patterns(f, data, save=True)
+                    else:
+                        logger.warning(f'{[prefix]}: The entire model seems to be already ready - skipping visualization')
+
+            if 'validate' in actions:
+                v = action_defaults('validate')
+                v.update(fc['validate'])
+                logger.debug(f'(dry={dry}) Validation arguments: {v}')
+                if not dry and not all(preexisting_status.values()):
+                    sf.validate(f, data, batch_size=10, n_reps=v['n_reps'], estimation_images=v['estimation_images'], save=True)  # (50,90)
+                    vis.validation(f, save=True)
                 else:
-                    logger.warning(f'{[prefix]}: The entire model seems to be already ready - skipping visualization')
+                    logger.warning(f'{prefix} skipping validation (dry run or model was ready before)')
 
-        if 'validate' in actions:
-            v = action_defaults('validate')
-            v.update(fc['validate'])
-            logger.debug(f'(dry={dry}) Validation arguments: {v}')
-            if not dry and not all(preexisting_status.values()):
-                sf.validate(f, data, batch_size=10, n_reps=v['n_reps'], estimation_images=v['estimation_images'], save=True)  # (50,90)
-                vis.validation(f, save=True)
-            else:
-                logger.warning(f'{prefix} skipping validation (dry run or model was ready before)')
-
-        if 'threats' in actions:
-            v = action_defaults('threats')
-            v.update(fc['threats'])
-            logger.debug(f'(dry={dry}) Threat assessment arguments: {v}')
-            if not dry and not all(preexisting_status.values()):
-                sf.assess_security(f, data, residual_images=v['residual_images'], save=True)
-                vis.security(f, 'tm*', save=True)
-            else:
-                logger.warning(f'{prefix} skipping security assessment (dry run or model was ready before)')
+            if 'threats' in actions:
+                v = action_defaults('threats')
+                v.update(fc['threats'])
+                logger.debug(f'(dry={dry}) Threat assessment arguments: {v}')
+                if not dry and not all(preexisting_status.values()):
+                    sf.assess_security(f, data, residual_images=v['residual_images'], save=True)
+                    vis.security(f, 'tm*', save=True)
+                else:
+                    logger.warning(f'{prefix} skipping security assessment (dry run or model was ready before)')
 
 
 def main():
     parser = argparse.ArgumentParser(description='NIP & FAN optimization for manipulation detection')
 
     group = parser.add_argument_group('general parameters')
-    group.add_argument('-f', '--config', dest='config', action='store', required=True,
+    group.add_argument('-c', '--config', dest='config', action='store', required=True,
                         help='JSON file with fingerprint workflow definitions')
     group.add_argument('--dry', dest='dry_run', action='store_true',
                        help='Dry run (show configurations)')
+    group.add_argument('-r', '--repeat', dest='repeat', action='store', type=int, default=1,
+                        help='Number of repetitions for each configuration - provides {run_id} for label formatting')
+
     # group.add_argument('--cam', dest='cameras', action='append',
     #                     help='add cameras for evaluation (repeat if needed)')
     # group.add_argument('--manip', dest='manipulations', action='store', default='sharpen,resample,gaussian,jpeg',
@@ -220,7 +231,7 @@ def main():
     # Split manipulations
     # args.manipulations = args.manipulations.strip().split(',')
 
-    batch_training(args.config, args.dry_run)
+    batch_training(args.config, args.dry_run, args.repeat)
 
 
 if __name__ == "__main__":

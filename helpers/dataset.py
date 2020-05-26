@@ -237,7 +237,7 @@ class Dataset(object):
     def summary(self):
         valid_label = '' if self._val_discard is None else f', {self._val_discard}'
         return f'Dataset[{os.path.split(self._data_directory)[-1]},{self.loaded_data}]: ' \
-               f'{self.count_training} train. images ({np.prod(self.train_image_shape_rgb[:2]) / 1e6:.1f}Mpx) ' \
+               f'{self.count_training} train. images ({np.prod(self.train_image_shape_rgb[:2]) / 1e6:.1f} Mpx) ' \
                f'+ {self.count_validation} valid. patches ({self.valid_patch_size_rgb} px{valid_label})'
 
     def details(self):

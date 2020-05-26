@@ -444,6 +444,7 @@ class _ClassicISP(tf.keras.Model):
         # Brightness correction
         if self._brightness == 'percentile':
             percentile = 0.5
+            # TODO temporary fix: percentiles were removed from TF 2 and moved to TF probability
             rgb -= np.percentile(rgb, percentile)
             rgb /= np.percentile(rgb, 100 - percentile)
         elif self._brightness == 'shift':
