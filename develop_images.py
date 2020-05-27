@@ -7,7 +7,7 @@ import logging
 import argparse
 import tensorflow as tf
 
-from helpers import fsutil
+from helpers import fsutil, utils
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('data')
@@ -38,7 +38,6 @@ def develop_images(camera, pipeline, n_images=0, root_dir='./data', model_dir='n
     # Lazy loading of remaining dependencies to ensure responsiveness of the CLI
     import numpy as np
     import imageio
-    import tqdm
     from helpers import raw
     from models import pipelines
 
@@ -64,7 +63,7 @@ def develop_images(camera, pipeline, n_images=0, root_dir='./data', model_dir='n
     if n_images > 0:
         npy_filenames = npy_filenames[:n_images]
 
-    for npy_file in tqdm.tqdm(npy_filenames, ncols=120, desc='Developing ({}/{})'.format(camera, pipeline)):
+    for npy_file in utils.progress_bar(npy_filenames, f'Developing ({camera}/{pipeline})'):
 
         # Find the original RAW file (for standard pipelines.py)
         raw_file = os.path.join(raw_directory, os.path.splitext(npy_file)[0])

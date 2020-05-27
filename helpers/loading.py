@@ -4,9 +4,8 @@ Helper functions for finding & loading images and extracting patches.
 """
 import os
 import numpy as np
-import tqdm
 import imageio
-from helpers import fsutil
+from helpers import fsutil, utils
 
 from loguru import logger
 
@@ -70,7 +69,7 @@ def load_images(files, data_directory, extension='png', load='xy'):
     if 'y' in load:
         data['y'] = np.zeros((n_images, 2 * resolutions[0], 2 * resolutions[1], 3), dtype=np.uint8)
 
-    with tqdm.tqdm(total=n_images, ncols=100, desc='Loading images', disable=os.environ.get("DISABLE_TQDM", False)) as pbar:
+    with utils.progress_bar(n_images, 'Loading images') as pbar:
 
         for i, file in enumerate(files):
             npy_file = file.replace('.{}'.format(extension), '.npy')
@@ -109,7 +108,7 @@ def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='
     fetch_raw = 'x' in data
     fetch_rgb = 'y' in data
 
-    with tqdm.tqdm(total=v_images * n_patches, ncols=100, desc=discard_label, disable=os.environ.get("DISABLE_TQDM", False)) as pbar:
+    with utils.progress_bar(v_images * n_patches, discard_label) as pbar:
 
         for i, file in enumerate(files):
             npy_file = file.replace('.{}'.format(extension), '.npy')

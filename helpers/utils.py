@@ -18,6 +18,8 @@ import subprocess
 import sys
 from functools import reduce
 
+from tqdm import tqdm
+
 import Levenshtein
 import numpy as np
 
@@ -307,3 +309,11 @@ def tqdm_width():
     except OSError:
         import shutil
         return shutil.get_terminal_size()[0]
+
+
+def progress_bar(iter_total, desc=None):
+    disabled = os.environ.get("DISABLE_TQDM", False)
+    if is_number(iter_total):
+        return tqdm(desc=desc, total=int(iter_total), ncols=tqdm_width(), disable=disabled)
+    else:
+        return tqdm(iter_total, desc=desc, ncols=tqdm_width(), disable=disabled)

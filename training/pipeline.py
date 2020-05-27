@@ -6,14 +6,10 @@ from collections import deque, OrderedDict
 
 import numpy as np
 import tensorflow as tf
-
 from matplotlib.figure import Figure
-from tqdm import tqdm
-from helpers import metrics, dataset, tf_helpers
 
+from helpers import metrics, dataset, tf_helpers, utils
 
-# Set progress bar width
-TQDM_WIDTH = 200
 
 # Disable unimportant logging and import TF
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -183,7 +179,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
     print(f'Batches{n_batches}')
     print('', flush=True)
 
-    with tqdm(total=n_epochs, ncols=TQDM_WIDTH, desc='{} for {}'.format(model.model_code, camera_name)) as pbar:
+    with utils.progress_bar(n_epochs, f'{model.model_code} for {camera_name}') as pbar:
 
         pbar.update(start_epoch)
         learning_rate = 1e-4
@@ -256,7 +252,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
     return out_directory
 
 
-def train_nip_bare(model, camera_name, n_epochs=10000, lr_schedule=None, validation_loss_threshold=1e-3,
+def __train_nip_bare(model, camera_name, n_epochs=10000, lr_schedule=None, validation_loss_threshold=1e-3,
                     validation_schedule=100, resume=False, patch_size=64, batch_size=20, data=None,
                     out_directory_root='./data/models/nip', save_best=False, discard='flat'):
 
@@ -277,7 +273,7 @@ def train_nip_bare(model, camera_name, n_epochs=10000, lr_schedule=None, validat
 
     learning_rate = 1e-3
 
-    with tqdm(total=n_epochs, ncols=TQDM_WIDTH, desc='{} for {}'.format(model.model_code, camera_name)) as pbar:
+    with utils.progress_bar(n_epochs, f'{model.model_code} for {camera_name}') as pbar:
         pbar.update(start_epoch)
 
         for epoch in range(start_epoch, n_epochs):

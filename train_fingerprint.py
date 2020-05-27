@@ -55,43 +55,44 @@ def batch_training(config=None, dry=True, repeat=1):
 
     for flow_id, fc in enumerate(flows):
 
-        for run_id in range(repeat):
+        # Read the current configuration & re-use parameters from the previous one
+        if flow_id == 0:
+            if 'data' not in fc:
+                logger.error('Dataset not defined in the first config!')
+                sys.exit(1)
+            last_flow = dict(**fc)
+        else:
+            if 'data' in fc:
+                logger.error('Dataset MUST be defined ONLY in the first config!')
+                sys.exit(1)
+            new_flow = dict(**last_flow)
+            new_flow.update(fc)
+            fc = dict(**new_flow)
+            last_flow = dict(**fc)
 
+        prefix = f'(Config {flow_id + 1}/{len(flows)})'
+
+        # Actions to be performed
+        actions = set(fc['actions'].split(','))
+        logger.info(f'{prefix}: actions={actions}')
+
+        if any(action not in __ACTIONS for action in actions):
+            logger.error(f'{prefix}: Some actions are not supported: {actions.difference(__ACTIONS)}')
+            sys.exit(1)
+
+        # Load dataset
+        if len(actions) > 0 and not dry and flow_id == 0:
+            data = dataset.Dataset(fc['camera'], **fc['data'])
+            logger.info(f'Loaded dataset: {data.summary()}')
+        else:
+            logger.info(f'Configured dataset: camera={fc["camera"]} args={fc["data"]}')
+
+        for run_id in range(repeat):
             prefix = f'(Config {flow_id+1}/{len(flows)} run={run_id}/{repeat})'
             logger.debug(f'{prefix} {len(fc)} keys -> {list(fc.keys())}')
 
-            # Read the current configuration & re-use parameters from the previous one
-            if flow_id == 0:
-                if 'data' not in fc:
-                    logger.error('Dataset not defined in the first config!')
-                    sys.exit(1)
-                last_flow = dict(**fc)
-            else:
-                if 'data' in fc:
-                    logger.error('Dataset MUST be defined ONLY in the first config!')
-                    sys.exit(1)
-                new_flow = dict(**last_flow)
-                new_flow.update(fc)
-                fc = dict(**new_flow)
-                last_flow = dict(**fc)
-
             # Read parameters and create necessary objects
             label = fc['label'].format(flow_id=flow_id, run_id=run_id, **fc)
-
-            # Actions to be performed
-            actions = set(fc['actions'].split(','))
-            logger.info(f'{prefix} {label}: actions={actions}')
-
-            if any(action not in __ACTIONS for action in actions):
-                logger.error(f'{prefix}: Some actions are not supported: {actions.difference(__ACTIONS)}')
-                sys.exit(1)
-
-            # Load dataset
-            if len(actions) > 0 and not dry and flow_id == 0:
-                data = dataset.Dataset(fc['camera'], **fc['data'])
-                logger.info(f'{prefix} Loaded dataset: {data.summary()}')
-            else:
-                logger.info(f'{prefix} Configured dataset: camera={fc["camera"]} args={fc["data"]}')
 
             # Create the workflow
             if not dry:
@@ -150,9 +151,9 @@ def batch_training(config=None, dry=True, repeat=1):
                 v = action_defaults('threats')
                 v.update(fc['threats'])
                 logger.debug(f'(dry={dry}) Threat assessment arguments: {v}')
-                if not dry and not all(preexisting_status.values()):
+                if not dry: # and not all(preexisting_status.values()):
                     sf.assess_security(f, data, residual_images=v['residual_images'], save=True)
-                    vis.security(f, 'tm*', save=True)
+                    vis.security(f, 'tm_all', save=True)
                 else:
                     logger.warning(f'{prefix} skipping security assessment (dry run or model was ready before)')
 

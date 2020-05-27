@@ -5,7 +5,6 @@
 import os
 import shutil
 import numpy as np
-import tqdm
 from collections import deque, OrderedDict
 
 from loguru import logger
@@ -194,7 +193,7 @@ def train_manipulation_nip(flow, training, data, directories=None, overwrite=Fal
         print('{:30s}: {}'.format(k, v))
     print('', flush=True)
 
-    with tqdm.tqdm(total=training['n_epochs'], ncols=120, desc='Train') as pbar:
+    with utils.progress_bar(training['n_epochs'], 'Train manip. classification') as pbar:
         
         epoch = 0
         conf = np.identity(flow.n_classes)

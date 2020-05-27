@@ -1,5 +1,4 @@
 import os
-import tqdm
 import json
 import imageio
 import numpy as np
@@ -162,7 +161,7 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
     if tensorboard:
         summary_writer = tf.summary.create_file_writer(model_output_dirname)
 
-    with tqdm.tqdm(total=training['n_epochs'], ncols=160, desc=dcn.model_code.split('/')[-1]) as pbar:
+    with utils.progress_bar(training['n_epochs'], dcn.model_code.split('/')[-1]) as pbar:
 
         for epoch in range(0, training['n_epochs']):
 
