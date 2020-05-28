@@ -199,8 +199,12 @@ def get(data, key, default=None, sep='.'):
         return default
 
 
-def join_args(args, sep=','):
-    return sep.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in args.items())
+def join_args(args, sep=',', prefix=False):
+    out = sep.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in args.items())
+    if prefix and len(args) > 0:
+        return f'{sep}{out}'
+    else:
+        return out
 
 
 def printd(d, indent=2, level=1):
