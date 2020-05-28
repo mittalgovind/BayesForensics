@@ -328,7 +328,7 @@ def sub(n_plots, figwidth=6, figheight=None, ncols=-1, fig=None, transpose=False
     return fig, axes_flat
 
 
-def progress(k, v, results=('training', 'validation'), log='auto', axes=None, start=0, alpha=0.8, color=None):
+def progress(k, v, results=('training', 'validation'), log='auto', axes=None, start=0, alpha=0.8, color=None, title=None):
     active = False
     markers = '.os^'[:len(results)]
 
@@ -338,11 +338,12 @@ def progress(k, v, results=('training', 'validation'), log='auto', axes=None, st
         n_hist = len(v[r]) // 2
         active = True
         xr = start + np.linspace(0, 100, len(v[r]))
-        axes.set_title(k)
+        if title is not None:
+            axes.set_title(title)
         ma = stats.ma_exp(v[r], alpha)
         opacity = 0.1 + 0.9 * np.exp((1 - len(xr))/100)
         axes.plot(xr, v[r], color or f'C{ri}{markers[ri]}', alpha=opacity)
-        axes.plot(xr, ma, color or f'C{ri}-', label=f'{r} ({utils.format_number(ma[-1])})')
+        axes.plot(xr, ma, color or f'C{ri}-', label=f'{k}:{r} ({utils.format_number(ma[-1])})')
         if (log == 'auto' and np.std(v[r][-n_hist:])/(max(v[r]) - min(v[r])) < 0.02) or (isinstance(log, bool) and log):
             axes.set_yscale('log')
         axes.set_xlabel(f'training progress [% of {len(xr)} steps]')
