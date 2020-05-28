@@ -645,6 +645,16 @@ class ResultCache(object):
         except ValueError:
             return False
 
+    def can_write(self, **kwargs):
+        exists = self.exists(**kwargs)
+        mode = get_overwrite_mode()
+        if not exists:
+            return True
+        elif mode == 'overwrite' or mode == 'rotate':
+            return True
+        else:
+            return False
+
     def filename(self, **kwargs):
         """ Generate a unique filename for the current context. Raises exception if not unique. Add keyword args to narrow down. """ 
         args = {**self.kwargs}

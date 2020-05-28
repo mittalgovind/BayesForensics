@@ -117,7 +117,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
         raise ValueError(f'Batch size ({batch_size}) exceeds dataset size ({data.count_training}/{data.count_validation})!')
 
     # Set up training output
-    out_directory = os.path.join(out_directory_root, camera_name, model.model_code, model.scoped_name)
+    out_directory = os.path.join(out_directory_root, camera_name, model.model_code)
 
     if os.path.exists(out_directory) and not resume:
         print('WARNING directory {} exists, skipping...'.format(out_directory))
@@ -248,51 +248,5 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
         model.save_model(out_directory, epoch)
     show_progress(model, out_directory)
     save_progress(model, training_summary, out_directory)
-
-    return out_directory
-
-
-def __train_nip_bare(model, camera_name, n_epochs=10000, lr_schedule=None, validation_loss_threshold=1e-3,
-                    validation_schedule=100, resume=False, patch_size=64, batch_size=20, data=None,
-                    out_directory_root='./data/models/nip', save_best=False, discard='flat'):
-
-    # Set up training output
-    out_directory = os.path.join(out_directory_root, camera_name, model.model_code, model.scoped_name)
-
-    # n_batches = data.count_training // batch_size
-    n_tail = 5
-
-    # losses_buf = deque(maxlen=10)
-    # loss_local = deque(maxlen=n_batches)
-    start_epoch = 0
-
-    if lr_schedule is None:
-        lr_schedule = {0: 1e-3, 1000: 1e-4, 2000: 1e-5}
-    elif isinstance(lr_schedule, float):
-        lr_schedule = {0: lr_schedule}
-
-    learning_rate = 1e-3
-
-    with utils.progress_bar(n_epochs, f'{model.model_code} for {camera_name}') as pbar:
-        pbar.update(start_epoch)
-
-        for epoch in range(start_epoch, n_epochs):
-
-            if hasattr(data, 'next_training_batch'):
-
-                for batch_id in range(data.count_training // batch_size):
-                    batch_x, batch_y = data.next_training_batch(batch_id, batch_size, patch_size, discard=discard)
-                    loss = model.training_step(batch_x, batch_y, learning_rate)
-                    # loss_local.append(loss)
-
-            else:
-
-                for batch_x, batch_y in data:
-                    model.training_step(batch_x, batch_y, learning_rate)
-
-            # model.performance['loss']['training'].append(float(np.mean(loss_local)))
-            # losses_buf.append(model.performance['loss']['training'][-1])
-
-            pbar.update(1)
 
     return out_directory

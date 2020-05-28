@@ -146,7 +146,7 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
 
     n_tail = 5
     learning_rate = training['learning_rate']
-    model_output_dirname = os.path.join(directory, dcn.model_code, dcn.scoped_name)
+    model_output_dirname = os.path.join(directory, dcn.model_code)
     
     if os.path.isdir(model_output_dirname) and not overwrite:
         print('WARNING Directory {} exists, skipping... (use overwrite=True)'.format(model_output_dirname))

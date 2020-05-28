@@ -208,7 +208,7 @@ def main():
             out_dir = train_nip_model(model, args.camera, args.epochs, validation_loss_threshold=convergence_threshold,
                 patch_size=args.patch_size, resume=args.resume, data=data, out_directory_root=args.out_dir)
         else:
-            out_dir = os.path.join(out_directory_root, args.camera, model.model_code, model.scoped_name)
+            out_dir = os.path.join(out_directory_root, args.camera, model.model_code)
 
         # Fill results
         if args.fill is not None:

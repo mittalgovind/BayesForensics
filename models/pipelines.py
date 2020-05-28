@@ -134,6 +134,8 @@ class NIPModel(TFModel):
     def load_model(self, dirname, quiet=False):
         if '/' not in dirname:
             dirname = os.path.join('data/models/nip', dirname)
+        if not os.path.isdir(dirname):
+            dirname = os.path.join(dirname, self.class_name.lower())
         super().load_model(dirname, quiet=quiet)
 
     def save_model(self, dirname, epoch=0, save_args=False, quiet=False):
@@ -472,11 +474,10 @@ class ClassicISP(NIPModel):
     See also: helpers.raw_api.unpack
     """
 
-    def construct_model(self, srgb_mat=None, kernel=5, c_filters=(), cfa_pattern='gbrg', residual=True, brightness=None):
-        
+    def construct_model(self, srgb_mat=None, kernel=3, c_filters=(32, 32, 32, 32), cfa_pattern='gbrg', residual=True, brightness=None):
         self._h = paramspec.ParamSpec({
-            'kernel': (5, int, (3, 11)),
-            'c_filters': ((), tuple, paramspec.numbers_in_range(int, 1, 1024)),
+            'kernel': (3, int, (3, 11)),
+            'c_filters': ((32, 32, 32, 32), tuple, paramspec.numbers_in_range(int, 1, 1024)),
             'cfa_pattern': ('gbrg', str, {'gbrg', 'rggb', 'bggr'}),
             'residual': (True, bool, None)
         })
@@ -517,7 +518,8 @@ class ClassicISP(NIPModel):
         self.set_srgb_conversion(np.array(cameras[camera]['srgb']))
 
     @classmethod
-    def restore(cls, dir_name='data/models/isp/ClassicISP_3x3_32-32-32-32-3R/', *, camera=None, cfa=None, srgb=None, patch_size=128):
+    def restore(cls, dir_name=None, *, camera=None, cfa=None, srgb=None, patch_size=128):
+        dir_name = dir_name or 'data/models/isp/ClassicISP_3x3_32-32-32-32-3R/'
         isp = super().restore(dir_name)
 
         if camera is not None:

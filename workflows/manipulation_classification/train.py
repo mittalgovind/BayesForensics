@@ -251,13 +251,13 @@ def train_manipulation_nip(flow, training, data, directories=None, overwrite=Fal
                 validate.save_training_progress(training_summary, flow, nip_save_dir, quiet=True)
 
                 # Save models
-                flow.fan.save_model(os.path.join(model_directory, flow.fan.scoped_name), epoch, quiet=True)
+                flow.fan.save_model(os.path.join(model_directory), epoch, quiet=True)
 
                 if flow.is_trainable('nip'):
-                    flow.nip.save_model(os.path.join(model_directory, flow.nip.scoped_name), epoch, quiet=True)
+                    flow.nip.save_model(os.path.join(model_directory), epoch, quiet=True)
 
                 if isinstance(flow.codec, compression.DCN) and flow.is_trainable('dcn'):
-                    flow.codec.save_model(os.path.join(model_directory, flow.codec.scoped_name), epoch, quiet=True)
+                    flow.codec.save_model(os.path.join(model_directory), epoch, quiet=True)
 
                 # Monitor memory usage - used to have memory leaks in matplotlib
                 if collect_memory_stats['ram']:
@@ -317,14 +317,14 @@ def train_manipulation_nip(flow, training, data, directories=None, overwrite=Fal
     # Save models
     logger.info('Saving models...')
 
-    flow.fan.save_model(os.path.join(model_directory, flow.fan.scoped_name), epoch)
+    flow.fan.save_model(os.path.join(model_directory), epoch)
 
     if flow.is_trainable('nip'):
-        flow.nip.save_model(os.path.join(model_directory, flow.nip.scoped_name), epoch)
+        flow.nip.save_model(os.path.join(model_directory), epoch)
 
     if flow.is_trainable('dcn') and isinstance(flow.codec, compression.DCN):
-        flow.codec.save_model(os.path.join(model_directory, flow.codec.scoped_name), epoch)
-        shutil.copyfile(os.path.join(flow._distribution['compression_params']['dirname'], flow.codec.scoped_name, 'progress.json'),
-                        os.path.join(model_directory, flow.codec.scoped_name, 'progress.json'))
+        flow.codec.save_model(os.path.join(model_directory), epoch)
+        shutil.copyfile(os.path.join(flow._distribution['compression_params']['dirname'], 'progress.json'),
+                        os.path.join(model_directory, 'progress.json'))
 
     return model_directory

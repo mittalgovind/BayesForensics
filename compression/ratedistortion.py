@@ -288,7 +288,7 @@ def get_dcn_df(directory, model_directory, write_files=False, force_calc=False):
 
                 df = df.append({'image_id': image_id,
                                 'filename': filename,
-                                'model_dir': os.path.relpath(os.path.split(str(model_dir))[0], model_directory).replace(dcn.scoped_name, ''),
+                                'model_dir': os.path.relpath(os.path.split(str(model_dir))[0], model_directory).replace(dcn.model_filename, ''),
                                 'codec': dcn.model_code,
                                 'ssim': compare_ssim(batch_x[image_id], batch_y[0], multichannel=True, data_range=1),
                                 'psnr': compare_psnr(batch_x[image_id], batch_y[0], data_range=1),

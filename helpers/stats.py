@@ -227,7 +227,10 @@ def ma_exp(x, alpha=0.1):
 
 def interproot(x, y, offset):
     f = sp.interpolate.interp1d(x, y, kind='cubic')
-    return sp.optimize.root_scalar(lambda x: f(x) - offset, bracket=[x.min(), x.max()]).root
+    try:
+        return sp.optimize.root_scalar(lambda x: f(x) - offset, bracket=[x.min(), x.max()]).root
+    except:
+        return 0
 
 
 def interpmin(x, y):

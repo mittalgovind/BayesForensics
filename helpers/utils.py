@@ -321,3 +321,33 @@ def progress_bar(iter_total, desc=None):
         return tqdm(desc=desc, total=int(iter_total), ncols=tqdm_width(), disable=disabled)
     else:
         return tqdm(iter_total, desc=desc, ncols=tqdm_width(), disable=disabled)
+
+
+def factory(spec):
+    import models
+
+    if isinstance(spec, str):
+        if spec[0] == '(' and spec[-1] == ')':
+            instance = eval(spec)
+        else:
+            instance = eval(f'models.{spec}')
+
+    elif isinstance(spec, dict):
+        cls = getattr(models, spec['class'])
+
+        if 'args' in spec:
+            args = get(spec, 'args', {})
+            for k in args.keys():
+                if isinstance(args[k], str) and args[k][0] == '(' and args[k][-1] == ')':
+                    args[k] = eval(args[k])
+            instance = cls(**args)
+
+        elif 'checkpoint' in spec:
+            instance = cls.restore(get(spec, 'checkpoint'))
+        else:
+            raise ValueError('Invalid model definition! Was expecting either "args" or "checkpoint" keys!')
+
+    else:
+        raise ValueError('Model definition not supported!')
+
+    return instance
