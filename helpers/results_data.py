@@ -655,10 +655,17 @@ class ResultCache(object):
         else:
             return False
 
+    @staticmethod
+    def _sanitize_keys(args):
+        for k in args.keys():
+            if not isinstance(args[k], str):
+                args[k] = fsutil.sanitize(str(args[k]), '')
+
     def filename(self, **kwargs):
         """ Generate a unique filename for the current context. Raises exception if not unique. Add keyword args to narrow down. """ 
         args = {**self.kwargs}
         args.update(kwargs)
+        self._sanitize_keys(args)
         try:
             filename = os.path.join(self.prefix, *[x.format(**args) for x in self.pattern])
             if '*' in filename:
@@ -692,8 +699,6 @@ class ResultCache(object):
     def save(self, results, **kwargs):
         """ Save results for a given context (use extra keyword args to narrow down) """ 
         filename = self.filename(**kwargs)
-        # if not overwrite and os.path.isfile(filename):
-        #     raise FileExistsError(f'File {filename} exists! Use overwrite=True if needed.')
         save(results, filename=filename)
 
     @staticmethod
@@ -718,6 +723,7 @@ class ResultCache(object):
         """ Find all files matching the current context """
         args = {**self.kwargs}
         args.update(kwargs)
+        self._sanitize_keys(args)
         fmt = DefaultFormatter('*')
         pattern = os.path.join(*[fmt.format(x, **args) for x in self.pattern])
         logger.info(f'*> {pattern}')

@@ -83,7 +83,7 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
             logger.info(f'Configured dataset: camera={fc["camera"]} args={fc["data"]}')
 
         for run_id in range(start_rep, repeat):
-            prefix = f'(Config {flow_id+1}/{len(flows)} run={run_id}/{repeat})'
+            prefix = f'(Config {flow_id+1}/{len(flows)} run={run_id+1}/{repeat})'
             logger.debug(f'{prefix} {len(fc)} keys -> {list(fc.keys())}')
 
             # Generate a label for the current model based on current settings
