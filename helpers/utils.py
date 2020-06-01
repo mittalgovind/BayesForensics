@@ -311,8 +311,7 @@ def tqdm_width():
     try:
         return os.get_terminal_size()[0]
     except OSError:
-        import shutil
-        return shutil.get_terminal_size()[0]
+        return 120
 
 
 def progress_bar(iter_total, desc=None):

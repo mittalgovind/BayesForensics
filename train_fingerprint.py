@@ -32,7 +32,7 @@ def action_defaults(action):
         return {"n_reps": 50, "residual_images": 1}
 
 
-def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=None, overwrite=False):
+def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=None, overwrite=False, active_configs=None):
 
     if overwrite:
         results_data.set_overwrite_mode('backup')
@@ -40,7 +40,10 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
         results_data.set_overwrite_mode('warning')
 
     logger.info(f'Using overwrite mode="{results_data.get_overwrite_mode()}"')
+    logger.info(f'Requested run_ids: {list(range(start_rep, repeat))}')
     logger.debug(f'Loading JSON: {config}')
+    if active_configs is not None and len(active_configs) > 0:
+        logger.warning(f'{len(active_configs)} active configurations: {active_configs}')
 
     with open(config) as file:
         flows = json.load(file)
@@ -81,6 +84,10 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
             logger.info(f'Loaded dataset: {data.summary()}')
         else:
             logger.info(f'Configured dataset: camera={fc["camera"]} args={fc["data"]}')
+
+        if active_configs is not None and len(active_configs) > 0:
+            if flow_id not in active_configs:
+                logger.info(f'{prefix} skipping configuration, as requested...')
 
         for run_id in range(start_rep, repeat):
             prefix = f'(Config {flow_id+1}/{len(flows)} run={run_id+1}/{repeat})'
@@ -166,13 +173,18 @@ def main():
                        help='Actions: train,validate,threats (overrides settings in the config file)')
     group.add_argument('-o', '--overwrite', dest='overwrite', action='store_true',
                        help='Force test results to be recalculated again (does not apply to training)')
+    group.add_argument('-C', '--configs', dest='configs', action='store',
+                       help='Force test results to be recalculated again (does not apply to training)')
 
     args = parser.parse_args()
 
     if args.actions is not None:
         args.actions = args.actions.split(',')
 
-    batch_training(args.config, args.dry_run, args.repeat, args.start_rep, args.actions, args.overwrite)
+    if args.configs is not None:
+        args.configs = [int(x) for x in args.configs.split(',')]
+
+    batch_training(args.config, args.dry_run, args.repeat, args.start_rep, args.actions, args.overwrite, args.configs)
 
 
 if __name__ == "__main__":
