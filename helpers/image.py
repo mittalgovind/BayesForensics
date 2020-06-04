@@ -44,6 +44,8 @@ def crop_middle(image, patch=128):
 
 def fft_log_norm(x, boost=10, perc=0):
     x = x.squeeze()
+    if x.ndim == 2:
+        x = x.reshape((x.shape[0], x.shape[1], 1))
     if x.ndim != 3:
         raise ValueError('Only single images can be accepted as input.')
     y = np.zeros_like(x)
