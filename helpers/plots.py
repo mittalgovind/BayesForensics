@@ -26,6 +26,7 @@ Overview
 import os
 import imageio
 import numpy as np
+import scipy.stats as sps
 
 from skimage.transform import resize
 
@@ -91,7 +92,7 @@ def thumbnails(images, ncols=0, columnwise=False):
         img_size = images.shape[1:]
         
         if len(img_size) == 2:
-            img_size.append(1)
+            img_size += (1,)
                         
     elif type(images) is list or type(images) is tuple:
         
@@ -100,7 +101,7 @@ def thumbnails(images, ncols=0, columnwise=False):
         img_size = list(images[0].shape)
         
         if len(img_size) == 2:
-            img_size.append(1)
+            img_size += (1,)
     
     ncols = ncols if ncols > 0 else n_images
     images_x = ncols or int(np.ceil(np.sqrt(n_images)))
@@ -237,7 +238,7 @@ def images(imgs, titles=None, figwidth=4, cmap='gray', ncols=0, fig=None, rowlab
     return fig
 
 
-def image(x, label=None, *, axes=None, cmap='gray'):
+def image(x, label=None, *, axes=None, cmap='gray', vrange=None):
     """
     Plot a single image, hide ticks & add a formatted title with patterns replaced as follows:
     - '()' -> '(height x width)'
@@ -260,7 +261,13 @@ def image(x, label=None, *, axes=None, cmap='gray'):
         fig = get_figure()
         axes = fig.gca()
 
-    axes.imshow(x, cmap=cmap)
+    if vrange is None:
+        axes.imshow(x, cmap=cmap)
+    elif isinstance(vrange, tuple) and len(vrange) == 2:
+        axes.imshow(x, cmap=cmap, vmin=vrange[0], vmax=vrange[1])
+    else:
+        axes.imshow(x, cmap=cmap, vmin=0, vmax=1)
+
     if len(label) > 0:
         axes.set_title(label)
     axes.set_xticks([])
@@ -466,7 +473,7 @@ def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, sca
         return fig
 
 
-def detection(positive, negative, bins=200, axes=None, title='()', scale=True, reference=None, guides=2):
+def detection(positive, negative, bins=200, axes=None, title='()', scale=True, reference=None, guides=2, kde=True):
     """
     Plot histograms of positive & negative detection scores.
 
@@ -507,7 +514,18 @@ def detection(positive, negative, bins=200, axes=None, title='()', scale=True, r
     if reference is not None:
         h3 = axes.hist(reference.ravel(), h_bins, color='gray', alpha=0.4, density=True, label='reference')
 
-    h_max = 1.05 * max( np.max(h1[0]), np.max(h2[0]) )
+    if kde:
+        kde_pos = sps.gaussian_kde(positive.ravel())
+        axes.plot(h_bins, kde_pos.pdf(h_bins), color='g')
+
+        kde_neg = sps.gaussian_kde(negative.ravel())
+        axes.plot(h_bins, kde_neg.pdf(h_bins), color='r')
+
+        if reference is not None:
+            kde_ref = sps.gaussian_kde(reference.ravel())
+            axes.plot(h_bins, kde_ref.pdf(h_bins), color='gray')
+
+    h_max = 1.05 * max( np.max(h1[0]), np.max(h2[0]))
     if guides == 2:
         axes.plot([v_do_match_max, v_do_match_max], [0, h_max], 'g--')
         axes.plot([v_no_match_min, v_no_match_min], [0, h_max], 'r--')
@@ -577,7 +595,7 @@ def intervals(x, y, p=10, xlabel=None, ylabel=None, style='.-', axes=None):
     if xlabel is not None: axes.set_xlabel(xlabel)
 
 
-def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1, guide=False):
+def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1, guide=False, color=None):
 
     title = '{} : '.format(title) if title is not None else ''
 
@@ -588,7 +606,7 @@ def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1
         fig = get_figure()
         axes = fig.gca()
 
-    axes.plot(x.ravel(), y.ravel(), '.', alpha=alpha)
+    axes.plot(x.ravel(), y.ravel(), '.', alpha=alpha, color=color)
     axes.set_title('{}corr {:.2f} / R2 {:.2f}'.format(title, cc, r2))
 
     if guide:
