@@ -152,8 +152,11 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
                 if dry_run:
                     logger.warning(f'{prefix} skipping security assessment (dry run)')
                 else:
-                    sf.assess_security(f, data, residual_images=v['residual_images'], save=True)
-                    vis.security(f, 'tm_all', save=True)
+                    try:
+                        sf.assess_security(f, data, residual_images=v['residual_images'], save=True)
+                        vis.security(f, 'tm_all', save=True)
+                    except Exception as e:
+                        logger.error(e)
 
 
 
