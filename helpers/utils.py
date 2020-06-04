@@ -194,7 +194,7 @@ def is_interactive():
 
 def get(data, key, default=None, sep='.'):
     try:
-        return reduce(lambda c, k: c.get(k, {}), key.split(sep), data)
+        return reduce(lambda c, k: c.get(k, default), key.split(sep), data)
     except KeyError:
         return default
 

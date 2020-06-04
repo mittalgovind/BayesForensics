@@ -650,7 +650,7 @@ class ResultCache(object):
         mode = get_overwrite_mode()
         if not exists:
             return True
-        elif mode == 'overwrite' or mode == 'rotate':
+        elif mode == 'overwrite' or mode == 'backup':
             return True
         else:
             return False

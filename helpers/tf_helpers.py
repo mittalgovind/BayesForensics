@@ -325,8 +325,8 @@ def entropy(values, codebook, v=50, gamma=25):
 
 
 def print_versions():
-    print('Tensorflow:', )
-    print('GPUs:', tf.config.list_physical_devices('GPU'))
+    print(f'Tensorflow: {tf.__version__}')
+    print(f'GPUs: {tf.config.list_physical_devices("GPU")}')
 
 
 def disable_warnings():

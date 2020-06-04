@@ -86,7 +86,6 @@ class Dataset(object):
                                                          patch_size=train_rgb_patch_size // 2, n_patches=presample_epochs,
                                                          load=load, discard=val_discard)
 
-
     def __getitem__(self, key):
         if key in ['training', 'validation']:
             return self.data[key]
