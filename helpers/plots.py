@@ -545,7 +545,7 @@ def detection(positive, negative, bins=200, axes=None, title='()', scale=True, r
         return fig
 
 
-def roc(matching, non_matching, bins=100, axes=None, label=None, plot_guides=True):
+def roc(matching, non_matching, bins=1000, axes=None, label=None, plot_guides=True):
 
     tpr, fpr = stats.roc(matching, non_matching, bins)
     tpr_at_1pp_fpr = stats.true_positive_rate(matching, non_matching, 0.01)
