@@ -156,7 +156,10 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
                         sf.assess_security(f, data, residual_images=v['residual_images'], save=True)
                         vis.security(f, 'tm_all', save=True)
                     except Exception as e:
-                        logger.error(e)
+                        exception_type, exception_object, exception_traceback = sys.exc_info()
+                        e_filename = exception_traceback.tb_frame.f_code.co_filename
+                        e_line_number = exception_traceback.tb_lineno
+                        logger.error(f'{e} @{e_filename}:{e_line_number}')
 
 
 

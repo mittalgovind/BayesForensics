@@ -409,7 +409,7 @@ def perf(training_progress, results=None, metrics=None, figwidth=5, log='auto', 
     return fig
 
 
-def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, scale=False, colors=None, guide=None):
+def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, scale=False, colors=None, guide=None, kde=False):
     if axes is None:
         fig = get_figure()
         axes = fig.gca()
@@ -444,6 +444,12 @@ def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, sca
             h_max_global = h_max
         color = h1[-1][0].get_facecolor()
 
+        if kde:
+            e_color = (color[0] * 0.75, color[1] * 0.75, color[2] * 0.75, 0.7)
+            d_bins = np.linspace(h_bins[0], h_bins[-1], 200)
+            kde_pos = sps.gaussian_kde(spls.ravel())
+            axes.plot(d_bins, kde_pos.pdf(d_bins), color=e_color, linewidth=2)
+
         if guides & 1:
             axes.plot([p01, p01], [0, h_max], ':', color=color)
 
@@ -473,7 +479,7 @@ def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, sca
         return fig
 
 
-def detection(positive, negative, bins=200, axes=None, title='()', scale=True, reference=None, guides=2, kde=True):
+def detection(positive, negative, bins=100, axes=None, title='()', scale=True, reference=None, guides=2, kde=True):
     """
     Plot histograms of positive & negative detection scores.
 
@@ -525,7 +531,9 @@ def detection(positive, negative, bins=200, axes=None, title='()', scale=True, r
             kde_ref = sps.gaussian_kde(reference.ravel())
             axes.plot(h_bins, kde_ref.pdf(h_bins), color='gray')
 
-    h_max = 1.05 * max( np.max(h1[0]), np.max(h2[0]))
+    h_max = max(np.max(h1[0]), np.max(h2[0]))
+    h_max = min(h_max, 5 * np.max(h1[0][1:]))
+    h_max = 1.05 * h_max
     if guides == 2:
         axes.plot([v_do_match_max, v_do_match_max], [0, h_max], 'g--')
         axes.plot([v_no_match_min, v_no_match_min], [0, h_max], 'r--')
@@ -610,7 +618,13 @@ def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1
     axes.set_title('{}corr {:.2f} / R2 {:.2f}'.format(title, cc, r2))
 
     if guide:
-        axes.plot(axes.get_xlim(), axes.get_ylim(), 'k:', alpha=0.2)
+        p1 = min(np.min(x), np.min(y))
+        p2 = max(np.max(x), np.max(y))
+        axes.plot([p1, p2], [p1, p2], 'k--', alpha=0.3)
+        span_x = np.max(x) - np.min(x)
+        span_y = np.max(y) - np.min(y)
+        axes.set_xlim([np.min(x) - span_x * 0.05, np.max(x) + span_x * 0.05])
+        axes.set_ylim([np.min(y) - span_y * 0.05, np.max(y) + span_y * 0.05])
 
     if xlabel is not None: axes.set_xlabel(xlabel)
     if ylabel is not None: axes.set_ylabel(ylabel)

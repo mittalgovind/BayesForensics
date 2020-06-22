@@ -31,7 +31,7 @@ from helpers import fsutil, utils
 ROOT_DIRNAME = './data/m/5-raw/cvpr2019'
 
 __EXISTING_RESULTS_ACTIONS = ['exception', 'warning', 'overwrite', 'backup']
-__EXISTING_RESULTS_ACTION = 'overwrite'
+__EXISTING_RESULTS_ACTION = 'warning'
 
 
 def set_overwrite_mode(mode):
