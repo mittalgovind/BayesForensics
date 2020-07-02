@@ -295,13 +295,17 @@ def shell(command, log=None, verbosity=2):
 
     outs, errs = p.communicate()
 
-    with open(f'{log}.stdout', 'w') as fo:
-        for line in outs.decode('utf-8').splitlines():
-            fo.write(f'{line}\n')
+    if log is not None:
 
-    with open(f'{log}.stderr', 'w') as fe:
-        for line in errs.decode('utf-8').replace('\r', '\n').splitlines():
-            fe.write(f'{line}\n')
+        assert outs is not None, 'The output from the sub-process is null'
+
+        with open(f'{log}.stdout', 'w') as fo:
+            for line in outs.decode('utf-8').splitlines():
+                fo.write(f'{line}\n')
+
+        with open(f'{log}.stderr', 'w') as fe:
+            for line in errs.decode('utf-8').replace('\r', '\n').splitlines():
+                fe.write(f'{line}\n')
 
     p.wait()
     return p.returncode
@@ -315,11 +319,15 @@ def tqdm_width():
 
 
 def progress_bar(iter_total, desc=None):
-    disabled = os.environ.get("DISABLE_TQDM", False)
+    disabled = os.environ.get('DISABLE_TQDM', False)
     if is_number(iter_total):
         return tqdm(desc=desc, total=int(iter_total), ncols=tqdm_width(), disable=disabled)
     else:
         return tqdm(iter_total, desc=desc, ncols=tqdm_width(), disable=disabled)
+
+
+def set_progressbar_status(status=False):
+    os.environ['DISABLE_TQDM'] = str(status)
 
 
 def factory(spec):
