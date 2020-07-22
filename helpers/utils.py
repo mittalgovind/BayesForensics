@@ -207,18 +207,31 @@ def join_args(args, sep=',', prefix=False):
         return out
 
 
-def printd(d, indent=2, level=1):
-    """ Prints a concise summary of a dict-like object (arrays/tensors are not displayed - only their shape) """
+def printd(d, filters=None, indent=2, level=1):
+    """
+    Prints a concise summary of a dict-like object (arrays/tensors are not displayed - only their shape)
+
+    :param d: input dictionary (or dict-like object)
+    :param filters: a collection of regexp filters (for each recursion level) to select keys for printing
+    :param indent: indentation size (#spaces)
+    :param level: current recursion level (should be 1 in all direct calls)
+    """
     if len(d) == 0:
         print('{}')
         return
 
     print('{')
 
+    if isinstance(filters, str):
+        raise ValueError('The filters should be a collection of strings (for each recursion level)')
+
     width = max([len(f'{k}') for k in d.keys()])
     has_dicts = any([isinstance(d[k], dict) for k in d.keys()])
 
     for k, v in d.items():
+
+        if filters is not None and level <= len(filters) and not re.match(filters[level-1], k):
+            continue
 
         # Print the key (align to the left if there are nested dicts, otherwise to the right)
         print((indent*level)*' ', end='')
@@ -229,7 +242,7 @@ def printd(d, indent=2, level=1):
 
         # Print the values, depending on their type
         if isinstance(v, dict):
-            printd(v, indent=indent, level=level + 1)
+            printd(v, filters, indent, level + 1)
 
         elif hasattr(v, 'shape'):
             if v.ndim == 0:
