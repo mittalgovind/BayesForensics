@@ -518,7 +518,7 @@ def detection(positive, negative, bins=100, axes=None, title='()', scale=True, r
     h1 = axes.hist(positive.ravel(), h_bins, color='g', alpha=0.4, density=True, label='positive')
     h2 = axes.hist(negative.ravel(), h_bins, color='r', alpha=0.4, density=True, label='negative')
     if reference is not None:
-        h3 = axes.hist(reference.ravel(), h_bins, color='gray', alpha=0.4, density=True, label='reference')
+        h3 = axes.hist(reference.ravel(), h_bins, color='orange', alpha=0.4, density=True, label='reference')
 
     if kde:
         kde_pos = sps.gaussian_kde(positive.ravel())
@@ -596,9 +596,11 @@ def intervals_bulk(x, y, p=10):
     return fig
 
 
-def intervals(x, y, p=10, xlabel=None, ylabel=None, style='.-', axes=None):
-    axes.plot(x, np.percentile(y, 50, axis=0), style)
-    axes.fill_between(x, np.percentile(y, p, axis=0), np.percentile(y, 100-p, axis=0), alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',)
+def intervals(x, y, p=10, xlabel=None, ylabel=None, style='.-', axes=None, label=None):
+    h = axes.plot(x, np.percentile(y, 50, axis=0), style, label=label)
+    color = h[0].get_color()
+    axes.fill_between(x, np.percentile(y, p, axis=0), np.percentile(y, 100-p, axis=0), alpha=0.2,
+                      edgecolor=color, facecolor=color)
     if ylabel is not None: axes.set_ylabel(ylabel)
     if xlabel is not None: axes.set_xlabel(xlabel)
 

@@ -334,9 +334,9 @@ def tqdm_width():
 def progress_bar(iter_total, desc=None):
     disabled = os.environ.get('DISABLE_TQDM', False)
     if is_number(iter_total):
-        return tqdm(desc=desc, total=int(iter_total), ncols=tqdm_width(), disable=disabled)
+        return tqdm(desc=desc, total=int(iter_total), ncols=tqdm_width(), disable=disabled, position=0, leave=True)
     else:
-        return tqdm(iter_total, desc=desc, ncols=tqdm_width(), disable=disabled)
+        return tqdm(iter_total, desc=desc, ncols=tqdm_width(), disable=disabled, position=0, leave=True)
 
 
 def set_progressbar_status(status=False):
