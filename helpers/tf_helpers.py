@@ -202,6 +202,18 @@ def residual(x, hsv=False):
     return y
 
 
+@tf.function
+def residual_norm(rgb_src, src_batch=0, shuffle=True):
+    if shuffle:
+        rgb_src = tf.random.shuffle(rgb_src)
+    if src_batch > 0:
+        rgb_src = rgb_src[:src_batch]
+    res_src = residual(rgb_src) 
+    res_src = tf.reduce_mean(res_src, axis=0, keepdims=True)
+    res_src = (res_src - tf.reduce_mean(res_src)) / (1e-9 + tf.math.reduce_std(res_src))
+    return res_src
+
+
 def _strip_consts(graph_def, max_const_size=32):
     """Strip large constant values from graph_def."""
     strip_def = tf.compat.v1.GraphDef()

@@ -292,8 +292,8 @@ def merge_bayer(bayer_stack, cfa_pattern):
     assert bayer_stack.ndim == 3
 
     h, w = bayer_stack.shape[0:2]
-
-    image_rgb = np.zeros((2*h, 2*w, 3), dtype=bayer_stack.dtype)
+    
+    image_rgb = np.zeros((2*h, 2*w, 3), dtype=np.float32) # bayer_stack.dtype
 
     if cfa_pattern == 'GBRG':
         image_rgb[1::2, 0::2, 0] = bayer_stack[:, :, 0]
