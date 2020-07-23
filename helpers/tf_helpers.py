@@ -214,6 +214,12 @@ def residual_norm(rgb_src, src_batch=0, shuffle=True):
     return res_src
 
 
+def soft_saturation(x, t, alpha=0.1):
+    t = tf.abs(tf.cast(t, tf.float32))
+    excess = tf.cast(tf.abs(x) > t, tf.float32)
+    return x * (1 - excess) + excess * (tf.sign(x) * t + alpha * (x - tf.sign(x) * t))
+
+
 def _strip_consts(graph_def, max_const_size=32):
     """Strip large constant values from graph_def."""
     strip_def = tf.compat.v1.GraphDef()

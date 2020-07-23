@@ -418,7 +418,15 @@ def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, sca
         samples = [samples]
         labels = [labels]
 
-    cc = np.linspace(np.min([np.min(s) for s in samples]), np.max([np.max(s) for s in samples]), bins)
+    s_min = np.min([np.min(s) for s in samples])
+    s_max = np.max([np.max(s) for s in samples])
+    
+    if s_min == s_max:
+        delta = 10 ** (np.log10(s_max) - 1)
+        s_min -= delta
+        s_max += delta
+        
+    cc = np.linspace(s_min, s_max, bins)
     h_bins = stats.bin_edges(cc)
 
     h_max_global = 0
@@ -445,10 +453,13 @@ def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, sca
         color = h1[-1][0].get_facecolor()
 
         if kde:
-            e_color = (color[0] * 0.75, color[1] * 0.75, color[2] * 0.75, 0.7)
-            d_bins = np.linspace(h_bins[0], h_bins[-1], 200)
-            kde_pos = sps.gaussian_kde(spls.ravel())
-            axes.plot(d_bins, kde_pos.pdf(d_bins), color=e_color, linewidth=2)
+            try:
+                e_color = (color[0] * 0.75, color[1] * 0.75, color[2] * 0.75, 0.7)
+                d_bins = np.linspace(h_bins[0], h_bins[-1], 200)
+                kde_pos = sps.gaussian_kde(spls.ravel())
+                axes.plot(d_bins, kde_pos.pdf(d_bins), color=e_color, linewidth=2)
+            except np.linalg.LinAlgError as e:
+                logger.warning(f'Plotting error (KDE): {e}')
 
         if guides & 1:
             axes.plot([p01, p01], [0, h_max], ':', color=color)

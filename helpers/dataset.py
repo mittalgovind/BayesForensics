@@ -46,7 +46,7 @@ class Dataset(object):
         :param val_discard: patch discard mode (for validation data)
         """
 
-        if not any(load == allowed for allowed in ['xy', 'x', 'y']):
+        if not any(load == allowed for allowed in {'xy', 'x', 'y'}):
             raise ValueError('Invalid X/Y data requested!')
 
         if train_rgb_patch_size == 0:
