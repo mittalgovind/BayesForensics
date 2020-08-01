@@ -47,10 +47,10 @@ class ParamSpec(object):
                 continue
 
             if spec[1] is str and not any(type(spec[2]) is s for s in [str, set, types.FunctionType]):
-                raise ValueError('String data types can be validated by a regex (string), enum (set) or custom function')
+                raise ValueError(f'Error at key={key}: String data types can be validated by a regex (string), enum (set) or custom function')
 
             if utils.is_numeric_type(spec[1]) and not any(type(spec[2]) is s for s in [tuple, set]):
-                raise ValueError('Numeric data types can be validated by a range (2-elem tuple), or enum (set)')
+                raise ValueError(f'Error at key={key}: Numeric data types can be validated by a range (2-elem tuple), or enum (set)')
 
     def add(self, specs):
         self._validate_specs(specs)

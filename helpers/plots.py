@@ -529,7 +529,7 @@ def detection(positive, negative, bins=100, axes=None, title='()', scale=True, r
     h1 = axes.hist(positive.ravel(), h_bins, color='g', alpha=0.4, density=True, label='positive')
     h2 = axes.hist(negative.ravel(), h_bins, color='r', alpha=0.4, density=True, label='negative')
     if reference is not None:
-        h3 = axes.hist(reference.ravel(), h_bins, color='orange', alpha=0.4, density=True, label='reference')
+        h3 = axes.hist(reference.ravel(), h_bins, color='tab:blue', alpha=0.4, density=True, label='reference')
 
     if kde:
         kde_pos = sps.gaussian_kde(positive.ravel())
@@ -540,7 +540,7 @@ def detection(positive, negative, bins=100, axes=None, title='()', scale=True, r
 
         if reference is not None:
             kde_ref = sps.gaussian_kde(reference.ravel())
-            axes.plot(h_bins, kde_ref.pdf(h_bins), color='gray')
+            axes.plot(h_bins, kde_ref.pdf(h_bins), color='tab:blue')
 
     h_max = max(np.max(h1[0]), np.max(h2[0]))
     h_max = min(h_max, 5 * np.max(h1[0][1:]))

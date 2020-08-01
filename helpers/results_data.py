@@ -657,7 +657,11 @@ class ResultCache(object):
 
     @staticmethod
     def _sanitize_keys(args):
-        for k in args.keys():
+        for k in list(args.keys()):
+            # drop keys with null values
+            if args[k] is None:
+                del args[k]
+                continue
             if not isinstance(args[k], str):
                 args[k] = fsutil.sanitize(str(args[k]), '')
 

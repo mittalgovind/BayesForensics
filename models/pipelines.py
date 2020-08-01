@@ -508,7 +508,9 @@ class ClassicISP(NIPModel):
 
     @property
     def model_code(self):
-        return 'ClassicISP_{cfa}_{k}x{k}_{fs}-{of}{r}'.format(fs='-'.join([f'{x:d}' for x in self._h.c_filters]), of=3, k=self._h.kernel, cfa=self._h.cfa_pattern, r='R' if self._h.residual else '')
+        return 'ClassicISP_{cfa}_{k}x{k}_{fs}-{of}{r}'.format(
+            fs=utils.format_sequence_rle(self._h.c_filters),
+            of=3, k=self._h.kernel, cfa=self._h.cfa_pattern, r='R' if self._h.residual else '')
 
     def set_camera(self, camera):
         """ Sets both CFA and sRGB based on camera presets from 'config/cameras.json' """

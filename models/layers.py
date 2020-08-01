@@ -9,6 +9,24 @@ import helpers.kernels
 from helpers import tf_helpers
 
 
+class PaddedConv2D(tf.keras.layers.Layer):
+
+    def __init__(self, n_filters, kernel=3, activation=None, use_bias=True, padding='reflect', use_bn=False):
+        super().__init__()
+        self.padding = padding
+        self._activation = activation
+        self._pad = (kernel - 1) // 2
+        self._padding_spec = [[0, 0], [self._pad, self._pad], [self._pad, self._pad], [0, 0]]
+        self._conv = tf.keras.layers.Conv2D(n_filters, kernel, 1, 'valid', activation=None, use_bias=use_bias)
+        self._bn = tf.keras.layers.BatchNormalization() if use_bn else None
+
+    def call(self, input, *, training=False):
+        y = self._conv(tf.pad(input, self._padding_spec, self.padding))
+        y = self._bn(y) if self._bn is not None else y
+        y = self._activation(y) if self._activation is not None else y
+        return y
+
+
 class ConstrainedConv2D(tf.keras.layers.Layer):
     """
     Implementation of a trainable constrained residual filter (based on [1] and extended to RGB inputs). 

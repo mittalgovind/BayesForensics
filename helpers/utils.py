@@ -85,6 +85,27 @@ def is_vector(data):
         return False
 
 
+def format_sequence_rle(numbers, sep='-'):
+    """
+    Formats a sequence of numbers (int) using RLE, e.g., (32,32,32,64,64,1) -> '32x3-64x2-1'
+    :param numbers: list of numbers
+    :param sep: separator
+    :return: 
+    """
+    items = []
+    counter = 1
+    for i in range(1, len(numbers)):
+        if numbers[i - 1] != numbers[i]:
+            items.append(f'{numbers[i - 1]}x{counter}' if counter > 1 else f'{numbers[i - 1]}')
+            counter = 1
+        else:
+            counter += 1
+        if i == len(numbers) - 1:
+            items.append(f'{numbers[i]}x{counter}' if counter > 1 else f'{numbers[i]}')
+
+    return sep.join(items)
+
+
 def format_number_order(n):
     n = float(n)
     suffix = ('', 'k', 'M', 'B', 'T')
@@ -328,7 +349,7 @@ def tqdm_width():
     try:
         return os.get_terminal_size()[0]
     except OSError:
-        return 120
+        return 200
 
 
 def progress_bar(iter_total, desc=None):

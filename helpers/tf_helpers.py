@@ -22,7 +22,8 @@ from IPython.display import display, HTML
 from loguru import logger
 
 activation_mapping = {
-    'leaky_relu' : tf.keras.layers.LeakyReLU(alpha=0.2),
+    'none': None,
+    'leaky_relu': tf.keras.layers.LeakyReLU(alpha=0.2),
     'relu': tf.keras.activations.relu,
     'tanh': tf.keras.activations.tanh,
     'sigmoid': tf.keras.activations.sigmoid,
@@ -30,12 +31,12 @@ activation_mapping = {
 }
 
 
-def mse(a, b):
-    return tf.reduce_mean(tf.math.pow(255 * a - 255 * b, 2.0))
+def mse(a, b, s=255.0):
+    return tf.reduce_mean(tf.math.pow(s * a - s * b, 2))
 
 
-def mae(a, b):
-    return tf.reduce_mean(tf.math.abs(255 * a - 255 * b))
+def mae(a, b, s=255.0):
+    return tf.reduce_mean(tf.math.abs(s * a - s * b))
 
 
 def ssim_loss(a, b):
@@ -61,7 +62,7 @@ def corrcoeff(a, b):
     a = (a - tf.reduce_mean(a)) / (1e-9 + tf.math.reduce_std(a))
     b = (b - tf.reduce_mean(b)) / (1e-9 + tf.math.reduce_std(b))
     c = tf.reduce_mean(a * b)
-    return c.numpy()
+    return c
 
 
 def rsquared(a, b):
@@ -79,7 +80,7 @@ def batch_stds(x, keepdims=True):
     return tf.math.reduce_std(x, axis=range(1, x.ndim), keepdims=keepdims)
 
 
-def batch_normalization(x):
+def instance_normalization(x):
     return (x - batch_means(x)) / (1e-9 + batch_stds(x))
 
 
@@ -152,24 +153,19 @@ def manipulation_sharpen(x, strength=1, hsv=True):
     if gk is None or gk.ndim != 2 or gk.shape[0] != gk.shape[1]:
         raise ValueError('Invalid filter! {}'.format(gk))
 
-    kernel = gk.shape[0]
     gfilter = repeat_2dfilter(gk, 3)
+
     if hsv:
         gfilter[:, :, 1:2, 1:2] = 0
         gfilter[2, 2, 1:2, 1:2] = 1
 
     gkk = tf.constant(gfilter, tf.float32)
-    pad = kernel // 2
-
+    pad = gk.shape[0] // 2
     y = tf.pad(x, [[0, 0], [pad, pad], [pad, pad], [0, 0]], 'SYMMETRIC')
 
-    if hsv:
-        y = tf.image.rgb_to_hsv(y)
-
+    y = tf.image.rgb_to_hsv(y) if hsv else y
     y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], 'VALID')
-
-    if hsv:
-        y = tf.image.hsv_to_rgb(y)
+    y = tf.image.hsv_to_rgb(y) if hsv else y
 
     return tf.clip_by_value(y, 0, 1)
 
@@ -183,6 +179,7 @@ def residual(x, hsv=False):
 
     kernel = gk.shape[0]
     gfilter = repeat_2dfilter(gk, 3)
+
     if hsv:
         gfilter[:, :, 1:2, 1:2] = 0
         gfilter[2, 2, 1:2, 1:2] = 1
@@ -191,13 +188,9 @@ def residual(x, hsv=False):
 
     y = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
 
-    if hsv:
-        y = tf.image.rgb_to_hsv(y)
-
+    y = tf.image.rgb_to_hsv(y) if hsv else y
     y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], 'VALID')
-
-    if hsv:
-        y = tf.image.hsv_to_rgb(y)
+    y = tf.image.hsv_to_rgb(y) if hsv else y
 
     return y
 

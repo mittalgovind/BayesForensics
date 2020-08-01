@@ -260,7 +260,10 @@ class JPEG(TFModel):
         return f'JPEG ({self.codec}) {self._quality_mode(quality)}'
 
     def summary_compact(self, quality=None):
-        return f'JPEG ({self.codec}) {self._quality_mode(quality)}'
+        if self.codec == 'libjpeg':
+            return f'JPEG {self._quality_mode(quality)}'
+        else:
+            return f'dJPEG {self._quality_mode(quality)}'
 
     def estimate_qf(self, channel=0):
         """
