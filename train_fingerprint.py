@@ -21,6 +21,8 @@ tf_helpers.log_status()
 
 __ACTIONS = ['train', 'retrain', 'validate', 'threats']
 
+data = None
+
 
 def action_defaults(action):
     action = utils.match_option(action, __ACTIONS)
@@ -30,6 +32,14 @@ def action_defaults(action):
         return {"n_reps": 100, "estimation_images": 0}
     elif action == 'threats':
         return {"n_reps": 50, "residual_images": 1}
+
+
+def get_data(fc):
+    global data
+    if data is None:
+        data = dataset.Dataset(fc['camera'], **fc['data'])
+        logger.info(f'Loaded dataset: {data.summary()}')
+    return data
 
 
 def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=None, overwrite=False, active_configs=None):
@@ -78,13 +88,6 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
             logger.error(f'{prefix}: Some actions are not supported: {actions.difference(__ACTIONS)}')
             sys.exit(1)
 
-        # Load dataset
-        if len(actions) > 0 and not dry_run and flow_id == 0:
-            data = dataset.Dataset(fc['camera'], **fc['data'])
-            logger.info(f'Loaded dataset: {data.summary()}')
-        else:
-            logger.info(f'Configured dataset: camera={fc["camera"]} args={fc["data"]}')
-
         if active_configs is not None and len(active_configs) > 0:
             if flow_id not in active_configs:
                 logger.info(f'{prefix} skipping configuration, as requested...')
@@ -104,15 +107,6 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
 
                 f = sf.SensorFingerprint.restore(flow_settings)
 
-                # # Sanity check for the ISP
-                sample_x, sample_y = data.next_validation_batch(0, 1)
-                sample_Y = f.isp.process(sample_x).numpy()
-                sample_ssim = np.mean(metrics.ssim(sample_y, sample_Y))
-
-                if sample_ssim < 0.97:
-                    logger.error(f'The ISP seems to work incorrectly: ssim={sample_ssim:.3f}!')
-                    sys.exit(1)
-
                 preexisting_model = all(f.model_status())
                 logger.info(f'{prefix} {label}: {f.summary()}')
 
@@ -127,8 +121,10 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
 
                 if dry_run:
                     logger.warning(f'{prefix} skipping training (dry run)')
+                elif f.model_ready():
+                    logger.warning(f'{prefix} skipping training (model is ready)')
                 else:
-                    sf.train_all(f, data, epochs=t['epochs'], batch_size=t['batch_size'], patch_size=t['patch_size'],
+                    sf.train_all(f, lambda: get_data(fc), epochs=t['epochs'], batch_size=t['batch_size'], patch_size=t['patch_size'],
                                  restart=False, decay=t['decay'], weights=weights)
                     vis.training_progress(f, save=True)
                     vis.embedding_patterns(f, data, save=True)
@@ -141,7 +137,7 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
                 if dry_run:
                     logger.warning(f'{prefix} skipping validation (dry run)')
                 else:
-                    sf.validate(f, data, batch_size=10, n_reps=v['n_reps'], estimation_images=v['estimation_images'], save=True)  # (50,90)
+                    sf.validate(f, lambda: get_data(fc), batch_size=10, n_reps=v['n_reps'], estimation_images=v['estimation_images'], save=True)  # (50,90)
                     vis.validation(f, save=True)
 
             if 'threats' in actions:
@@ -153,8 +149,8 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
                     logger.warning(f'{prefix} skipping security assessment (dry run)')
                 else:
                     try:
-                        sf.assess_security(f, data, residual_images=v['residual_images'], save=True)
-                        vis.security(f, 'tm_all', save=True)
+                        sf.assess_security(f, lambda: get_data(fc), residual_images=v['residual_images'], n_reps=v['n_reps'], save=True)
+                        vis.security(f, 'all', save=True)
                     except Exception as e:
                         exception_type, exception_object, exception_traceback = sys.exc_info()
                         e_filename = exception_traceback.tb_frame.f_code.co_filename
