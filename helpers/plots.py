@@ -409,6 +409,28 @@ def perf(training_progress, results=None, metrics=None, figwidth=5, log='auto', 
     return fig
 
 
+def boxplots(samples, labels, axes=None, guides=None, xlabel=None):
+    if axes is None:
+        fig = get_figure()
+        axes = fig.gca()
+
+    bp = axes.boxplot([x.ravel() for x in samples], vert=False, notch='True', patch_artist=True)
+
+    for ci, o in enumerate(bp['boxes']):
+        o.set(facecolor=f'C{ci}', alpha=0.5)
+
+    for flier in bp['fliers']:
+        flier.set(marker='.', color=f'C{ci}', alpha=0.5)
+
+    for ti, t in enumerate(guides):
+        axes.plot([t, t], [0.5, len(samples)+0.5], 'k:' if ti == 0 else 'k--')
+
+    if xlabel is not None:
+        axes.set_xlabel(xlabel)
+
+    axes.set_yticklabels(labels)
+
+
 def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, scale=False, colors=None, guide=None, kde=False):
     if axes is None:
         fig = get_figure()
@@ -532,26 +554,34 @@ def detection(positive, negative, bins=100, axes=None, title='()', scale=True, r
         h3 = axes.hist(reference.ravel(), h_bins, color='tab:blue', alpha=0.4, density=True, label='reference')
 
     if kde:
+        dd = np.linspace(cc_min, cc_max, max(100, 10 * bins))
+        d_bins = stats.bin_edges(dd)
+
         kde_pos = sps.gaussian_kde(positive.ravel())
-        axes.plot(h_bins, kde_pos.pdf(h_bins), color='g')
+        axes.plot(d_bins, kde_pos.pdf(d_bins), color='g')
 
         kde_neg = sps.gaussian_kde(negative.ravel())
-        axes.plot(h_bins, kde_neg.pdf(h_bins), color='r')
+        axes.plot(d_bins, kde_neg.pdf(d_bins), color='r')
 
         if reference is not None:
             kde_ref = sps.gaussian_kde(reference.ravel())
-            axes.plot(h_bins, kde_ref.pdf(h_bins), color='tab:blue')
+            axes.plot(d_bins, kde_ref.pdf(d_bins), color='tab:blue')
 
     h_max = max(np.max(h1[0]), np.max(h2[0]))
     h_max = min(h_max, 5 * np.max(h1[0][1:]))
     h_max = 1.05 * h_max
-    if guides == 2:
-        axes.plot([v_do_match_max, v_do_match_max], [0, h_max], 'g--')
-        axes.plot([v_no_match_min, v_no_match_min], [0, h_max], 'r--')
-        axes.plot([cc[thr_id], cc[thr_id]], [0, max(h1[0][thr_id], 0.05 * h_max)], 'k:')
-    elif guides == 1:
-        axes.plot([cc[thr_id], cc[thr_id]], [0, h_max], 'k:')
-    
+
+    if utils.is_number(guides):
+        if guides == 2:
+            axes.plot([v_do_match_max, v_do_match_max], [0, h_max], 'g--')
+            axes.plot([v_no_match_min, v_no_match_min], [0, h_max], 'r--')
+            axes.plot([cc[thr_id], cc[thr_id]], [0, max(h1[0][thr_id], 0.05 * h_max)], 'k:')
+        elif guides == 1:
+            axes.plot([cc[thr_id], cc[thr_id]], [0, h_max], 'k:')
+    else:
+        for g in guides:
+            axes.plot([g, g], [0, h_max], 'k:')
+
     axes.set_title(title.replace('()', f'acc. {bin_accuracy:.2f}, tpr @ 1\\%far={tpr:.2f}'))
     
     if scale:

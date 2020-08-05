@@ -365,11 +365,16 @@ def set_progressbar_status(status=False):
 
 
 def factory(spec):
+    if spec is None:
+        return None
+
     import models
 
     if isinstance(spec, str):
         if spec[0] == '(' and spec[-1] == ')':
             instance = eval(spec)
+        elif spec == 'None':
+            return None
         else:
             instance = eval(f'models.{spec}')
 
@@ -387,6 +392,9 @@ def factory(spec):
             instance = cls.restore(get(spec, 'checkpoint'))
         else:
             raise ValueError('Invalid model definition! Was expecting either "args" or "checkpoint" keys!')
+
+    elif isinstance(spec, int) or isinstance(spec, float):
+        return spec
 
     else:
         raise ValueError('Model definition not supported!')

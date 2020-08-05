@@ -25,6 +25,7 @@ activation_mapping = {
     'none': None,
     'leaky_relu': tf.keras.layers.LeakyReLU(alpha=0.2),
     'relu': tf.keras.activations.relu,
+    'selu': tf.keras.activations.selu,
     'tanh': tf.keras.activations.tanh,
     'sigmoid': tf.keras.activations.sigmoid,
     'softsign': tf.keras.activations.softsign
