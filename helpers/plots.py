@@ -564,9 +564,12 @@ def detection(positive, negative, bins=100, axes=None, title='()', scale=True, r
         axes.plot(d_bins, kde_neg.pdf(d_bins), color='r')
 
         if reference is not None:
-            kde_ref = sps.gaussian_kde(reference.ravel())
-            axes.plot(d_bins, kde_ref.pdf(d_bins), color='tab:blue')
-
+            try:
+                kde_ref = sps.gaussian_kde(reference.ravel())
+                axes.plot(d_bins, kde_ref.pdf(d_bins), color='tab:blue')
+            except np.linalg.LinAlgError as e:
+                logger.warning(f'Plotting error (KDE): {e}')
+                
     h_max = max(np.max(h1[0]), np.max(h2[0]))
     h_max = min(h_max, 5 * np.max(h1[0][1:]))
     h_max = 1.05 * h_max

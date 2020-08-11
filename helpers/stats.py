@@ -5,7 +5,7 @@ Common performance metrics & statistics (accuracy, tpr, auc) and helper function
 import numpy as np
 import scipy as sp
 from scipy import stats
-
+from scipy import cluster
 
 def detection_accuracy(positive, negative, bins=100, return_index=False):
     """
@@ -164,6 +164,21 @@ def bin_edges(code_book):
     code_book_edges = np.convolve(code_book, [0.5, 0.5], mode='valid')
     code_book_edges = np.concatenate((np.array([min_float]), code_book_edges, np.array([max_float])), axis=0)
     return code_book_edges
+
+
+def quantize(samples, code_book, return_indices=False):
+
+    if not isinstance(samples, np.ndarray):
+        np.array(samples)
+    if not isinstance(code_book, np.ndarray):
+        code_book = np.ndarray(code_book)
+
+    indices, distortion = cluster.vq.vq(samples.reshape((-1)), code_book)
+
+    if return_indices:
+        return indices
+    else:
+        return code_book[indices].reshape(samples.shape)
 
 
 def kld_discrete(samples_a, samples_b, bins=25):

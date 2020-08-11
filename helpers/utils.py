@@ -371,12 +371,17 @@ def factory(spec):
     import models
 
     if isinstance(spec, str):
+
         if spec[0] == '(' and spec[-1] == ')':
             instance = eval(spec)
         elif spec == 'None':
             return None
-        else:
+        elif hasattr(models, spec):
             instance = eval(f'models.{spec}')
+        elif re.match('^[0-9\\.]+$', spec):
+            instance = float(spec)
+        else:
+            raise ValueError(f'Unsupported string: "{spec}"')
 
     elif isinstance(spec, dict):
         cls = getattr(models, spec['class'])
