@@ -26,6 +26,10 @@ class PaddedConv2D(tf.keras.layers.Layer):
         y = self._activation(y) if self._activation is not None else y
         return y
 
+    def reset_layer(self, alpha=0):
+        tf_helpers.reset_layer(self._conv, alpha)
+        tf_helpers.reset_layer(self._bn, alpha)
+
 
 class ConstrainedConv2D(tf.keras.layers.Layer):
     """

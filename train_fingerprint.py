@@ -82,7 +82,6 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
         # Actions to be performed
         if not actions_override:
             actions = set(fc['actions'].split(','))
-        logger.info(f'{prefix}: actions={actions}')
 
         if any(action not in __ACTIONS for action in actions):
             logger.error(f'{prefix}: Some actions are not supported: {actions.difference(__ACTIONS)}')
@@ -90,7 +89,10 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
 
         if active_configs is not None and len(active_configs) > 0:
             if flow_id not in active_configs:
-                logger.info(f'{prefix} skipping configuration, as requested...')
+                logger.info(f'{prefix}: skipping configuration, as requested...')
+                continue
+
+        logger.info(f'{prefix}: actions={actions}')
 
         for run_id in range(start_rep, repeat):
             prefix = f'(Config {flow_id+1}/{len(flows)} run={run_id+1}/{repeat})'
@@ -126,8 +128,9 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
                 else:
                     sf.train_all(f, lambda: get_data(fc), epochs=t['epochs'], batch_size=t['batch_size'], patch_size=t['patch_size'],
                                  restart=False, decay=t['decay'], weights=weights)
-                    vis.training_progress(f, save=True)
                     vis.embedding_patterns(f, data, save=True)
+
+                vis.training_progress(f, save=True)
 
             if 'validate' in actions:
                 v = action_defaults('validate')
@@ -137,7 +140,7 @@ def batch_training(config=None, dry_run=True, repeat=1, start_rep=0, actions=Non
                 if dry_run:
                     logger.warning(f'{prefix} skipping validation (dry run)')
                 else:
-                    sf.validate(f, lambda: get_data(fc), batch_size=10, n_reps=v['n_reps'], estimation_images=v['estimation_images'], save=True)  # (50,90)
+                    sf.validate(f, lambda: get_data(fc), batch_size=10, n_reps=v['n_reps'], estimation_images=v['estimation_images'], save=True)
                     vis.validation(f, save=True)
 
             if 'threats' in actions:
@@ -176,7 +179,7 @@ def main():
     group.add_argument('-o', '--overwrite', dest='overwrite', action='store_true',
                        help='Force test results to be recalculated again (does not apply to training)')
     group.add_argument('-C', '--configs', dest='configs', action='store',
-                       help='Force test results to be recalculated again (does not apply to training)')
+                       help='Process only some of the workflow configurations (e.g., 1,2)')
 
     args = parser.parse_args()
 

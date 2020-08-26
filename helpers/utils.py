@@ -92,6 +92,12 @@ def format_sequence_rle(numbers, sep='-'):
     :param sep: separator
     :return: 
     """
+
+    if len(numbers) == 0:
+        return ''
+    elif len(numbers) == 1:
+        return f'{numbers[0]}'
+
     items = []
     counter = 1
     for i in range(1, len(numbers)):
@@ -374,14 +380,19 @@ def factory(spec):
 
         if spec[0] == '(' and spec[-1] == ')':
             instance = eval(spec)
-        elif spec == 'None':
+        elif spec.lower() == 'none':
             return None
         elif hasattr(models, spec):
             instance = eval(f'models.{spec}')
         elif re.match('^[0-9\\.]+$', spec):
-            instance = float(spec)
+            instance = float(spec) if '.' in spec else int(spec)
         else:
-            raise ValueError(f'Unsupported string: "{spec}"')
+            try:
+                instance = eval(spec)
+            except NameError:
+                instance = eval(f'models.{spec}')
+            except Exception as e:
+                raise ValueError(f'Unsupported string: "{spec}"')
 
     elif isinstance(spec, dict):
         cls = getattr(models, spec['class'])

@@ -133,8 +133,8 @@ def manipulation_median(x, kernel=3):
 def manipulation_gaussian(x, kernel, std, skip_clip=False):
     kernel = int(kernel)
     gk = gkern(kernel, std)
-    gfilter = np.zeros((kernel, kernel, 3, 3))
-    for r in range(3):
+    gfilter = np.zeros((kernel, kernel, x.shape[-1], x.shape[-1]))
+    for r in range(x.shape[-1]):
         gfilter[:, :, r, r] = gk
     gkk = tf.constant(gfilter, tf.float32)
     xp = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
@@ -208,7 +208,7 @@ def residual_norm(rgb_src, src_batch=0, shuffle=True):
     return res_src
 
 
-def soft_saturation(x, t, alpha=0.1):
+def soft_saturation(x, t=30, alpha=0.01):
     t = tf.abs(tf.cast(t, tf.float32))
     excess = tf.cast(tf.abs(x) > t, tf.float32)
     return x * (1 - excess) + excess * (tf.sign(x) * t + alpha * (x - tf.sign(x) * t))
@@ -355,3 +355,35 @@ def log_status():
         logger.warning(f'Tensorflow: {tf.__version__} is NOT using any GPUs')
     else:
         logger.info(f'Tensorflow: {tf.__version__} found GPUs: {devices}')
+
+
+def reset_layer(layer, alpha=0):
+    """
+    Patchwork method to reinitialize TF layers: use kernel/bias initializers to sample
+    new parameters; then, set to: (1-a) * old + a * new
+    :param layer: TF layer object
+    :param alpha: weight for the old parameter values
+    :return:
+    """
+
+    if layer is None:
+        return
+
+    w = layer.get_weights()
+    k_init = layer.kernel_initializer
+    b_init = layer.bias_initializer
+    updates = 0
+
+    if layer.kernel is not None:
+        print(f'setting: {layer}')
+        w[0] = (1 - alpha) * k_init(layer.kernel.shape) + alpha * w[0]
+        updates += 1
+    if layer.bias is not None:
+        print(f'setting: {layer}')
+        w[1] = (1 - alpha) * b_init(layer.bias.shape) + alpha * w[1]
+        updates += 1
+
+    if not updates:
+        logger.warning(f'No weights were updated for layer: {layer}')
+
+    layer.set_weights(w)
