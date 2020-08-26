@@ -80,7 +80,7 @@ def set_interactive(status=False):
     __INTERACTIVE = status
 
 
-def thumbnails(images, ncols=0, columnwise=False):
+def thumbnails(images, ncols=0, columnwise=False, cell_size=None, pad=0):
     """
     Return a numpy array with image thumbnails.
     """
@@ -107,27 +107,48 @@ def thumbnails(images, ncols=0, columnwise=False):
     images_x = ncols or int(np.ceil(np.sqrt(n_images)))
     images_y = int(np.ceil(n_images / images_x))
     size = (images_y, images_x)
-        
+
+    if cell_size is not None:
+        img_size = (cell_size, cell_size, img_size[-1])
+
     # Allocate space for the thumbnails
-    output = np.zeros((size[0] * img_size[0], size[1] * img_size[1], img_size[2]))
+    output = np.zeros((size[0] * (img_size[0] + 2*pad), size[1] * (img_size[1] + 2*pad), img_size[2]))
         
     for r in range(n_images):
         bx = int(r % images_x)
         by = int(np.floor(r / images_x))
+
         if columnwise:
             by = int(r % images_y)
             bx = int(np.floor(r / images_y))
-        current = images[r].squeeze()
+
+        current = images[r]
+        
+        if current.ndim > 3:
+            current = current.squeeze()
+
         if current.shape[0] != img_size[0] or current.shape[1] != img_size[1]:
             current = resize(current, img_size[:-1], anti_aliasing=True)
+
         if len(current.shape) == 2:
             current = np.expand_dims(current, axis=2)
-        output[by*img_size[0]:(by+1)*img_size[0], bx*img_size[1]:(bx+1)*img_size[1], :] = current
+
+        if pad:
+            if current.ndim == 2:
+                np_pad = ((pad, pad), (pad, pad))
+            elif current.ndim == 3:
+                np_pad = ((pad, pad), (pad, pad), (0, 0))
+            else:
+                raise ValueError(f'Could not pad the current cell: {current.shape}')
+
+            current = np.pad(current, np_pad)
+
+        output[by*(img_size[0]+2*pad):(by+1)*(img_size[0]+2*pad), bx*(img_size[1]+2*pad):(bx+1)*(img_size[1]+2*pad), :] = current
         
     return output
     
 
-def _imarray(img, n_images, fetch_hook, titles, figwidth=4, cmap='gray', ncols=0, fig=None, rowlabels=None):
+def _imarray(img, n_images, fetch_hook, titles, figwidth=4, cmap='gray', ncols=0, fig=None, rowlabels=None, global_vrange=None):
     """
     Function for plotting arrays of images. Not intended to be used directly. See 'images' for typical use cases.
     """
@@ -155,14 +176,26 @@ def _imarray(img, n_images, fetch_hook, titles, figwidth=4, cmap='gray', ncols=0
 
     for n in range(n_images):
         ax = fig.add_subplot(subplot_y, subplot_x, n + 1)
-        image(fetch_hook(img, n), titles[n] if titles is not None else None, axes=ax, cmap=cmap)
+
+        if isinstance(global_vrange, bool) and global_vrange:
+            vrange = np.max([np.max(np.abs(x)) for x in img])
+            vrange = (-vrange, vrange)
+        elif isinstance(global_vrange, bool) and not global_vrange:
+            vrange = np.max(np.abs(fetch_hook(img, n)))
+            vrange = (-vrange, vrange)
+        elif isinstance(global_vrange, tuple):
+            vrange = global_vrange
+        else:
+            vrange = None
+
+        image(fetch_hook(img, n), titles[n] if titles is not None else None, axes=ax, cmap=cmap, vrange=vrange)
         if rowlabels is not None and n % subplot_x == 0:
             ax.set_ylabel(rowlabels[n // subplot_x])
 
     return fig
     
 
-def images(imgs, titles=None, figwidth=4, cmap='gray', ncols=0, fig=None, rowlabels=None):
+def images(imgs, titles=None, figwidth=4, cmap='gray', ncols=0, fig=None, rowlabels=None, global_vrange=None):
     """
     Plot a series of images (in various structures). Not thoroughly tested, but should work with:
 
@@ -182,6 +215,7 @@ def images(imgs, titles=None, figwidth=4, cmap='gray', ncols=0, fig=None, rowlab
     :param cmap: color map
     :param ncols: number of columns or: 0 for sqrt(#images) cols; use negative to set the number of rows
     :param fig: specify the target figure for plotting
+    :param global_vrange: display all images with the same intensity range
     """
         
     if type(imgs) is list or type(imgs) is tuple:
@@ -191,7 +225,7 @@ def images(imgs, titles=None, figwidth=4, cmap='gray', ncols=0, fig=None, rowlab
         def fetch_example(image, n):
             return image[n]        
                     
-        return _imarray(imgs, n_images, fetch_example, titles, figwidth, cmap, ncols, fig, rowlabels)
+        return _imarray(imgs, n_images, fetch_example, titles, figwidth, cmap, ncols, fig, rowlabels, global_vrange)
             
     elif type(imgs) in [np.ndarray, imageio.core.util.Image]:
         
@@ -230,7 +264,7 @@ def images(imgs, titles=None, figwidth=4, cmap='gray', ncols=0, fig=None, rowlab
         else:
             raise ValueError('Unsupported array dimensions {}!'.format(imgs.shape))
             
-        return _imarray(imgs, n_images, fetch_example, titles, figwidth, cmap, ncols, fig, rowlabels)
+        return _imarray(imgs, n_images, fetch_example, titles, figwidth, cmap, ncols, fig, rowlabels, global_vrange)
             
     else:
         raise ValueError('Unsupported array type {}!'.format(type(imgs)))
@@ -265,8 +299,12 @@ def image(x, label=None, *, axes=None, cmap='gray', vrange=None):
         axes.imshow(x, cmap=cmap)
     elif isinstance(vrange, tuple) and len(vrange) == 2:
         axes.imshow(x, cmap=cmap, vmin=vrange[0], vmax=vrange[1])
+    elif isinstance(vrange, bool) and vrange:
+        axes.imshow(x, cmap=cmap, vmin=np.min(x), vmax=np.max(x))
+    elif isinstance(vrange, bool) and not vrange:
+        axes.imshow(x, cmap=cmap, vmin=-np.max(np.abs(x)), vmax=np.max(np.abs(x)))
     else:
-        axes.imshow(x, cmap=cmap, vmin=0, vmax=1)
+        raise ValueError('Invalid vrange - supported types: None, 2-elem tuple & boolean')
 
     if len(label) > 0:
         axes.set_title(label)
@@ -340,19 +378,27 @@ def progress(k, v, results=('training', 'validation'), log='auto', axes=None, st
     markers = '.os^'[:len(results)]
 
     for ri, r in enumerate(results):
+
         if r not in v or len(v[r]) == 0:
             continue
+
         n_hist = len(v[r]) // 2
         active = True
         xr = start + np.linspace(0, 100, len(v[r]))
+
         if title is not None:
             axes.set_title(title)
+
         ma = stats.ma_exp(v[r], alpha)
         opacity = 0.1 + 0.9 * np.exp((1 - len(xr))/100)
         axes.plot(xr, v[r], color or f'C{ri}{markers[ri]}', alpha=opacity)
         axes.plot(xr, ma, color or f'C{ri}-', label=f'{k}:{r} ({utils.format_number(ma[-1])})')
-        if (log == 'auto' and np.std(v[r][-n_hist:])/(max(v[r]) - min(v[r])) < 0.02) or (isinstance(log, bool) and log):
+
+        # Change scale to log if requested
+        auto_switch_to_log = (log == 'auto' and np.std(v[r][-n_hist:])/(max(v[r]) - min(v[r])) < 0.02)
+        if (auto_switch_to_log and np.min(v[r])) > 0 or (isinstance(log, bool) and log):
             axes.set_yscale('log')
+            
         axes.set_xlabel(f'training progress [% of {len(xr)} steps]')
 
     if active:
@@ -439,16 +485,23 @@ def hist(samples, bins, labels, xlabel=None, guides=0, axes=None, alpha=0.4, sca
     if isinstance(samples, np.ndarray) and utils.is_vector(samples):
         samples = [samples]
         labels = [labels]
-
-    s_min = np.min([np.min(s) for s in samples])
-    s_max = np.max([np.max(s) for s in samples])
-    
-    if s_min == s_max:
-        delta = 10 ** (np.log10(s_max) - 1)
-        s_min -= delta
-        s_max += delta
         
-    cc = np.linspace(s_min, s_max, bins)
+    if utils.is_number(bins):
+        s_min = np.min([np.min(s) for s in samples])
+        s_max = np.max([np.max(s) for s in samples])
+        
+        if s_min == s_max:
+            delta = 10 ** (np.log10(s_max) - 1)
+            s_min -= delta
+            s_max += delta
+            
+        cc = np.linspace(s_min, s_max, bins)
+        
+    else:
+        cc = bins
+        s_min = np.min(cc)
+        s_min = np.max(cc)
+        
     h_bins = stats.bin_edges(cc)
 
     h_max_global = 0
@@ -649,7 +702,7 @@ def intervals(x, y, p=10, xlabel=None, ylabel=None, style='.-', axes=None, label
     if xlabel is not None: axes.set_xlabel(xlabel)
 
 
-def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1, guide=False, color=None):
+def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1, guide=False, color=None, kde=False, marginals=False):
 
     title = '{} : '.format(title) if title is not None else ''
 
@@ -659,8 +712,11 @@ def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1
     if axes is None:
         fig = get_figure()
         axes = fig.gca()
+        
+    x = x.ravel()
+    y = y.ravel()
 
-    axes.plot(x.ravel(), y.ravel(), '.', alpha=alpha, color=color)
+    axes.plot(x, y, '.', alpha=alpha, color=color, zorder=1)
     axes.set_title('{}corr {:.2f} / R2 {:.2f}'.format(title, cc, r2))
 
     if guide:
@@ -671,6 +727,39 @@ def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1
         span_y = np.max(y) - np.min(y)
         axes.set_xlim([np.min(x) - span_x * 0.05, np.max(x) + span_x * 0.05])
         axes.set_ylim([np.min(y) - span_y * 0.05, np.max(y) + span_y * 0.05])
+        
+    if kde:
+        span_x = np.max(x) - np.min(x)
+        span_y = np.max(y) - np.min(y)
+        xmin = np.min(x) - span_x * 0.05
+        xmax = np.max(x) + span_x * 0.05
+        ymin = np.min(y) - span_y * 0.05
+        ymax = np.max(y) + span_y * 0.05
+        xx, yy = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
+        positions = np.vstack([xx.ravel(), yy.ravel()])
+        values = np.vstack([x, y])
+        kernel = sps.gaussian_kde(values)
+        f = np.reshape(kernel(positions).T, xx.shape)
+        cfset = axes.contourf(xx, yy, f, cmap='Blues', alpha=0.35, zorder=2)
+        cset = axes.contour(xx, yy, f, colors='k', alpha=0.35, zorder=2)
+
+    if marginals:
+        yy = axes.get_ylim()
+        xx = axes.get_xlim()
+
+        # X marginal
+        x_hist, x_bins = np.histogram(x.reshape((-1, )), bins=30)
+        x_bins = np.convolve(x_bins, [0.5, 0.5], mode='valid')
+        x_hist = x_hist / x_hist.max()
+        axes.bar(x_bins, bottom=yy[1], height=0.1 * np.abs(yy[1] - yy[0]) * x_hist, zorder=-1, clip_on=False, alpha=0.5, width=x_bins[1] - x_bins[0])
+        axes.set_ylim(yy)
+
+        # Y marginal
+        y_hist, y_bins = np.histogram(y.reshape((-1, )), bins=30)
+        y_bins = np.convolve(y_bins, [0.5, 0.5], mode='valid')
+        y_hist = y_hist / y_hist.max()
+        axes.barh(y_bins, left=xx[1], width=0.1 * np.abs(xx[1] - xx[0]) * y_hist, zorder=-1, clip_on=False, alpha=0.5, height=y_bins[1] - y_bins[0])
+        axes.set_xlim(xx)
 
     if xlabel is not None: axes.set_xlabel(xlabel)
     if ylabel is not None: axes.set_ylabel(ylabel)
@@ -680,6 +769,14 @@ def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1
 
 
 def scatter_hex(x, y, xlabel=None, ylabel=None, axes=None, marginals=True, bins=30):
+
+    if axes is None:
+        fig = get_figure()
+        axes = fig.gca()
+        return_fig = True
+    else:
+        return_fig = False
+
     axes.hexbin(x, y, gridsize=50, bins=bins, cmap='Blues')
     axes.set_xticks([])
     axes.set_yticks([])
@@ -688,11 +785,14 @@ def scatter_hex(x, y, xlabel=None, ylabel=None, axes=None, marginals=True, bins=
     if ylabel is not None: axes.set_ylabel(ylabel)
 
     if marginals:
+
+        yy = axes.get_ylim()
+        xx = axes.get_xlim()
+
         # X marginal
         x_hist, x_bins = np.histogram(x.reshape((-1, )), bins=bins)
         x_bins = np.convolve(x_bins, [0.5, 0.5], mode='valid')
         x_hist = x_hist / x_hist.max()
-        yy = axes.get_ylim()
         axes.bar(x_bins, bottom=yy[1], height=0.1 * np.abs(yy[1] - yy[0]) * x_hist, zorder=-1, clip_on=False, alpha=0.5, width=x_bins[1] - x_bins[0])
         axes.set_ylim(yy)
 
@@ -700,9 +800,11 @@ def scatter_hex(x, y, xlabel=None, ylabel=None, axes=None, marginals=True, bins=
         y_hist, y_bins = np.histogram(y.reshape((-1, )), bins=bins)
         y_bins = np.convolve(y_bins, [0.5, 0.5], mode='valid')
         y_hist = y_hist / y_hist.max()
-        xx = axes.get_xlim()
         axes.barh(y_bins, left=xx[1], width=0.1 * np.abs(xx[1] - xx[0]) * y_hist, zorder=-1, clip_on=False, alpha=0.5, height=y_bins[1] - y_bins[0])
         axes.set_xlim(xx)
+
+    if return_fig:
+        return fig
 
 
 def to_tikz(fig, filename=None):
