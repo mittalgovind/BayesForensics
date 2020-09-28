@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" 
+"""
 Helper functions & classes to work with results.
 
 Useful functions to display data:
@@ -31,7 +31,7 @@ from helpers import fsutil, utils
 ROOT_DIRNAME = './data/m/5-raw/cvpr2019'
 
 __EXISTING_RESULTS_ACTIONS = ['exception', 'warning', 'overwrite', 'backup']
-__EXISTING_RESULTS_ACTION = 'warning'
+__EXISTING_RESULTS_ACTION = 'overwrite'
 
 
 def set_overwrite_mode(mode):
@@ -63,7 +63,7 @@ class DefaultFormatter(Formatter):
 
 def autodetect_cameras(dirname):
     """ Returns a list of known cameras (based on available NIP). """
-    
+
     counter = 5
     while counter > 0 and not os.path.exists(os.path.join(dirname, 'models', 'nip')):
         dirname = os.path.split(dirname)[0]
@@ -103,8 +103,8 @@ def nip_stats(dirname, avg_last_n_runs=1):
 
 
 def manipulation_metrics(nip_models, cameras, root_dir=ROOT_DIRNAME):
-    """ 
-    Returns a dataframe with aggregated metrics from manipulation classification (NIP-specific). 
+    """
+    Returns a dataframe with aggregated metrics from manipulation classification (NIP-specific).
     """
 
     nip_models = [nip_models] if type(nip_models) is str else nip_models
@@ -210,7 +210,7 @@ def manipulation_progress(cases, root_dir=ROOT_DIRNAME):
 
 def manipulation_summary(dirname):
     """
-    Returns a dataframe with aggregated metrics from manipulation classification (generic). 
+    Returns a dataframe with aggregated metrics from manipulation classification (generic).
     """
     df = pd.DataFrame(columns=['scenario', 'run', 'accuracy', 'nip_ssim', 'nip_psnr', 'dcn_ssim', 'dcn_entropy'])
     for filename in Path(dirname).glob('**/training.json'):
@@ -235,20 +235,20 @@ def manipulation_summary(dirname):
             'dcn_ssim': dcn_ssim[-1],
             'dcn_entropy': dcn_entr[-1]
         }, ignore_index=True, sort=False)
-    
+
     return df
 
 
 def confusion_data(run=None, root_dir=ROOT_DIRNAME):
     """
     Returns a dictionary of all confusion matrices found under a given directory (recursive):
-    
+
     '{normalized-directory-path}' : {
         'data': N x N confusion matrix,
         'labels': names of the classes,
     }
 
-    Note: assumes the directory structure has a 3-digit run number, e.g, /000/ in the path: 
+    Note: assumes the directory structure has a 3-digit run number, e.g, /000/ in the path:
     """
 
     confusion = OrderedDict()
@@ -376,7 +376,7 @@ def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0,
         out.append('\\begin{document}\n')
         out.append('\\begin{preview}\n')
         out.append('\\begin{{tabular}}{{l{0}}}\n'.format(m * 'r'))
-        if title is not None: 
+        if title is not None:
             out.append('\\multicolumn{{{0}}}{{c}}{{{1}}} '.format(m + 1, title))
             out.append('\\tabularnewline\n')
             out.append('\\toprule\n')
@@ -412,7 +412,7 @@ def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0,
 
     elif fmt == 'txt':
         out.append('\n')
-        if title is not None: 
+        if title is not None:
             out.append('#{}\n'.format(title))
         out.append('{:>{width}}'.format(dim_labels, width=l))
         for i in range(m):
@@ -450,7 +450,7 @@ def convert_table(conf, labels, dim_labels='c\\r', title=None, fmt='txt', dec=0,
 
 def render_tex(latex, format='fig', filename=None):
     """
-    Renders a LaTeX snippet for display in a Jupyter notebook. 
+    Renders a LaTeX snippet for display in a Jupyter notebook.
 
     Output format:
     - file  - saves the rendered document as PDF / PNG (depending on the extension);
@@ -484,28 +484,28 @@ def render_tex(latex, format='fig', filename=None):
         """.replace('{mode}', mode).replace('[]', latex)
 
     pdf = build_pdf(latex)
-    
+
     if format == 'file':
         filename = filename or '/tmp/{}.pdf'.format(''.join(np.random.choice(list('abcdef'), 10, replace=True)))
-        
+
         if filename.endswith('.pdf'):
             with open(filename, 'wb') as f:
                 f.write(pdf.data)
-            
+
         elif filename.endswith('.png'):
             from pdf2image import convert_from_bytes
             image = convert_from_bytes(pdf.data)
             imageio.imwrite(filename, image)
-        
+
         return filename
-    
+
     elif format == 'bytes':
         return pdf
-    
+
     elif format == 'array':
         from pdf2image import convert_from_bytes
         return np.array(convert_from_bytes(pdf.data)[0])
-    
+
     elif format == 'fig':
         from pdf2image import convert_from_bytes
         from matplotlib.figure import Figure
@@ -556,11 +556,11 @@ def save(results, *, filename=None, prefix=None):
 
     if extension == '.npz':
         np.savez(filename, **results)
-    
+
     elif extension == '.json':
         with open(filename, 'w') as f:
             json.dump(results, f, indent=2)
-    
+
     else:
         raise ValueError(f'Unsupported format: {extension}')
 
@@ -627,7 +627,7 @@ class ResultCache(object):
         elif isinstance(pattern, Iterable):
             self.pattern = tuple(pattern)
         self.kwargs = kwargs
-        
+
     def set(self, **kwargs):
         self.kwargs.update(kwargs)
 
@@ -666,7 +666,7 @@ class ResultCache(object):
                 args[k] = fsutil.sanitize(str(args[k]), '')
 
     def filename(self, **kwargs):
-        """ Generate a unique filename for the current context. Raises exception if not unique. Add keyword args to narrow down. """ 
+        """ Generate a unique filename for the current context. Raises exception if not unique. Add keyword args to narrow down. """
         args = {**self.kwargs}
         args.update(kwargs)
         self._sanitize_keys(args)
@@ -696,12 +696,12 @@ class ResultCache(object):
         return results
 
     def load(self, **kwargs):
-        """ Load results for a given context (use extra keyword args to narrow down) """ 
+        """ Load results for a given context (use extra keyword args to narrow down) """
         filename = self.filename(**kwargs)
         return load(filename)
-    
+
     def save(self, results, **kwargs):
-        """ Save results for a given context (use extra keyword args to narrow down) """ 
+        """ Save results for a given context (use extra keyword args to narrow down) """
         filename = self.filename(**kwargs)
         save(results, filename=filename)
 
@@ -739,7 +739,7 @@ class ResultCache(object):
             self.__class__.__name__,
             os.path.join(self.prefix, *[fmt.format(x, **self.kwargs) for x in self.pattern])
             )
-        
+
     def __repr__(self):
         return '{}({},"{}"{})'.format(
             self.__class__.__name__,
