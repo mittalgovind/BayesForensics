@@ -124,6 +124,34 @@ def manipulation_gaussian(x, kernel, std, skip_clip=False):
     else:
         return tf.clip_by_value(y, 0, 1)
 
+def residual(x, hsv=False):
+    with tf.name_scope('residual_filter'):
+
+        # Prepare the sharpening filter
+        gk = np.array([[-0.0833, -0.1667, -0.0833], [-0.1667, 1, -0.1667], [-0.0833, -0.1667, -0.0833]])
+
+        if gk is None or gk.ndim != 2 or gk.shape[0] != gk.shape[1]:
+            raise ValueError('Invalid filter! {}'.format(gk))
+
+        kernel = gk.shape[0]
+        gfilter = repeat_2dfilter(gk, 3)
+        if hsv:
+            gfilter[:, :, 1:2, 1:2] = 0
+            gfilter[2, 2, 1:2, 1:2] = 1
+
+        gkk = tf.constant(gfilter, tf.float32)
+
+        y = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
+
+        if hsv:
+            y = tf.image.rgb_to_hsv(y)
+
+        y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], 'VALID')
+
+        if hsv:
+            y = tf.image.hsv_to_rgb(y)
+
+        return y
 
 def manipulation_sharpen(x, strength=1, hsv=True):
     # Prepare the sharpening filter
@@ -155,6 +183,9 @@ def manipulation_sharpen(x, strength=1, hsv=True):
 
     return tf.clip_by_value(y, 0, 1)
 
+def residual(x, hsv=False):
+    # Prepare the sharpening filter
+    gk = np.array([[-0.0833, -0.1667, -0.0833], [-0.1667, 1, -0.1667], [-0.0833, -0.1667, -0.0833]])
 
 def residual(x, hsv=False):
     # Prepare the sharpening filter
