@@ -14,8 +14,7 @@ from loguru import logger
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # Helper functions
-from helpers import fsutil, dataset, utils
-from compression import codec
+from helpers import dataset, utils
 
 
 @utils.logCall
@@ -48,7 +47,7 @@ def batch_training(nip_model, camera_names=None, root_directory=None, loss_metri
             raise FileNotFoundError('Invalid JPEG quality: expecting a number or comma separated numbers & got: {}'.format(jpeg_quality))
 
     # Lazy loading to minimize delays when checking cli parameters
-    from training.manipulation import train_manipulation_nip
+    from workflows.manipulation_classification.train import train_manipulation_nip
     from workflows import manipulation_classification
 
     camera_names = camera_names or ['D90', 'D7000', 'EOS-5D', 'EOS-40D']

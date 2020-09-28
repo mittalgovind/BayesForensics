@@ -44,6 +44,8 @@ def crop_middle(image, patch=128):
 
 def fft_log_norm(x, boost=10, perc=0):
     x = x.squeeze()
+    if x.ndim == 2:
+        x = x.reshape((x.shape[0], x.shape[1], 1))
     if x.ndim != 3:
         raise ValueError('Only single images can be accepted as input.')
     y = np.zeros_like(x)
@@ -88,13 +90,46 @@ def catc(*args):
     return np.concatenate(args, axis=-1)
 
 
-def normalize(x, perc=0):
+def normalize(x, perc=0, mode=None, keep_axis=None):
     """
     Normalize the input array to [0, 1]. Optionally, cut top and bottom outliers (based on percentiles).
     """
-    if perc == 0:
-        return ((x - np.min(x)) / (np.max(x) - np.min(x) + 1e-9)).clip(0, 1)
+
+    if keep_axis is None:
+        if mode is not None:
+            if mode == 'channel':
+                axis = tuple(range(x.ndim - 1))
+            elif mode == 'batch':
+                axis = tuple(range(1, x.ndim))
+            else:
+                raise ValueError(f'Unknown aggregation mode! {mode}')
+        else:
+            axis = None
     else:
-        mn = np.percentile(x, perc)
-        mx = np.percentile(x, 100 - perc)
-        return ((x - mn) / (mx - mn + 1e-9)).clip(0, 1)
+        axis = set(range(x.ndim))
+        discard_axis = keep_axis if keep_axis >= 0 else x.ndim + keep_axis
+        if discard_axis not in axis:
+            raise ValueError(f'Trying to drop a non-existent axis! axis={axis} drop={discard_axis}')
+        axis.discard(discard_axis)
+        axis = tuple(axis)
+
+    if perc == 0:
+        mn = np.min(x, axis=axis, keepdims=True)
+        mx = np.max(x, axis=axis, keepdims=True)
+    else:
+        mn = np.percentile(x, perc, axis=axis, keepdims=True)
+        mx = np.percentile(x, 100 - perc, axis=axis, keepdims=True)
+
+    return ((x - mn) / (mx - mn + 1e-9)).clip(0, 1)
+
+
+def normalize_residual(x):
+    return x / np.abs(x).max() / 2 + 0.5
+
+
+# def encode_residuals(x):
+#     x = x / np.abs(x).max()
+#     y = np.zeros_like(x)
+#     y[x > 0] = np.maximum(x, 0)
+#     y[x < 0] = np.maximum(-x, 0)
+#     return y

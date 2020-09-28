@@ -38,16 +38,16 @@ def compare_images_ab_ref(img_ref, img_a, img_b, labels=None, extras=False, fig=
         return fig
 
     # Compute and plot difference images
-    diff_a = np.abs(img_a - img_ref)
-    diff_a_mean = diff_a.mean()
+    diff_a = img_a - img_ref
+    diff_a_mean = np.abs(diff_a).mean()
     diff_a = image.normalize(diff_a, 0.1)
 
-    diff_b = np.abs(img_b - img_ref)
-    diff_b_mean = diff_b.mean()
+    diff_b = img_b - img_ref
+    diff_b_mean = np.abs(diff_b).mean()
     diff_b = image.normalize(diff_b, 0.1)
 
-    diff_ab = np.abs(img_b - img_a)
-    diff_ab_mean = diff_ab.mean()
+    diff_ab = img_b - img_a
+    diff_ab_mean = np.abs(diff_ab).mean()
     diff_ab = image.normalize(diff_ab, 0.1)
 
     plots.image(diff_a, 'T - A: mean abs {:.3f}'.format(diff_a_mean), axes=axes[2])

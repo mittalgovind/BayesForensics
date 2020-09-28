@@ -19,21 +19,25 @@ import numpy as np
 from helpers.kernels import gkern, repeat_2dfilter
 from IPython.display import display, HTML
 
+from loguru import logger
+
 activation_mapping = {
-    'leaky_relu' : tf.keras.layers.LeakyReLU(alpha=0.2),
+    'none': None,
+    'leaky_relu': tf.keras.layers.LeakyReLU(alpha=0.2),
     'relu': tf.keras.activations.relu,
+    'selu': tf.keras.activations.selu,
     'tanh': tf.keras.activations.tanh,
     'sigmoid': tf.keras.activations.sigmoid,
     'softsign': tf.keras.activations.softsign
 }
 
 
-def mse(a, b):
-    return tf.reduce_mean(tf.math.pow(255 * a - 255 * b, 2.0))
+def mse(a, b, s=255.0):
+    return tf.reduce_mean(tf.math.pow(s * a - s * b, 2))
 
 
-def mae(a, b):
-    return tf.reduce_mean(tf.math.abs(255 * a - 255 * b))
+def mae(a, b, s=255.0):
+    return tf.reduce_mean(tf.math.abs(s * a - s * b))
 
 
 def ssim_loss(a, b):
@@ -42,6 +46,10 @@ def ssim_loss(a, b):
 
 def msssim_loss(a, b):
     return tf.reduce_mean(255 * (1 - tf.image.ssim_multiscale(a, b, 1.0)))
+
+
+def ssim(a, b):
+    return tf.reduce_mean(tf.image.ssim(a, b, max_val=1.0))
 
 
 def corr(a, b):
@@ -55,7 +63,7 @@ def corrcoeff(a, b):
     a = (a - tf.reduce_mean(a)) / (1e-9 + tf.math.reduce_std(a))
     b = (b - tf.reduce_mean(b)) / (1e-9 + tf.math.reduce_std(b))
     c = tf.reduce_mean(a * b)
-    return c.numpy()
+    return c
 
 
 def rsquared(a, b):
@@ -63,6 +71,18 @@ def rsquared(a, b):
     a = (a - tf.reduce_mean(a)) / (1e-9 + tf.math.reduce_std(a))
     b = (b - tf.reduce_mean(b)) / (1e-9 + tf.math.reduce_std(b))
     return r2_score(a, b)
+
+
+def batch_means(x, keepdims=True):
+    return tf.math.reduce_mean(x, axis=range(1, x.ndim), keepdims=keepdims)
+
+
+def batch_stds(x, keepdims=True):
+    return tf.math.reduce_std(x, axis=range(1, x.ndim), keepdims=keepdims)
+
+
+def instance_normalization(x):
+    return (x - batch_means(x)) / (1e-9 + batch_stds(x))
 
 
 def manipulation_resample(x, factor=50, method='bilinear'):
@@ -113,8 +133,8 @@ def manipulation_median(x, kernel=3):
 def manipulation_gaussian(x, kernel, std, skip_clip=False):
     kernel = int(kernel)
     gk = gkern(kernel, std)
-    gfilter = np.zeros((kernel, kernel, 3, 3))
-    for r in range(3):
+    gfilter = np.zeros((kernel, kernel, x.shape[-1], x.shape[-1]))
+    for r in range(x.shape[-1]):
         gfilter[:, :, r, r] = gk
     gkk = tf.constant(gfilter, tf.float32)
     xp = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
@@ -162,24 +182,19 @@ def manipulation_sharpen(x, strength=1, hsv=True):
     if gk is None or gk.ndim != 2 or gk.shape[0] != gk.shape[1]:
         raise ValueError('Invalid filter! {}'.format(gk))
 
-    kernel = gk.shape[0]
     gfilter = repeat_2dfilter(gk, 3)
+
     if hsv:
         gfilter[:, :, 1:2, 1:2] = 0
         gfilter[2, 2, 1:2, 1:2] = 1
 
     gkk = tf.constant(gfilter, tf.float32)
-    pad = kernel // 2
-
+    pad = gk.shape[0] // 2
     y = tf.pad(x, [[0, 0], [pad, pad], [pad, pad], [0, 0]], 'SYMMETRIC')
 
-    if hsv:
-        y = tf.image.rgb_to_hsv(y)
-
+    y = tf.image.rgb_to_hsv(y) if hsv else y
     y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], 'VALID')
-
-    if hsv:
-        y = tf.image.hsv_to_rgb(y)
+    y = tf.image.hsv_to_rgb(y) if hsv else y
 
     return tf.clip_by_value(y, 0, 1)
 
@@ -188,7 +203,8 @@ def residual(x, hsv=False):
     gk = np.array([[-0.0833, -0.1667, -0.0833], [-0.1667, 1, -0.1667], [-0.0833, -0.1667, -0.0833]])
 
 def residual(x, hsv=False):
-    # Prepare the sharpening filter
+
+    # Prepare the residual filter
     gk = np.array([[-0.0833, -0.1667, -0.0833], [-0.1667, 1, -0.1667], [-0.0833, -0.1667, -0.0833]])
 
     if gk is None or gk.ndim != 2 or gk.shape[0] != gk.shape[1]:
@@ -196,6 +212,7 @@ def residual(x, hsv=False):
 
     kernel = gk.shape[0]
     gfilter = repeat_2dfilter(gk, 3)
+
     if hsv:
         gfilter[:, :, 1:2, 1:2] = 0
         gfilter[2, 2, 1:2, 1:2] = 1
@@ -204,15 +221,29 @@ def residual(x, hsv=False):
 
     y = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
 
-    if hsv:
-        y = tf.image.rgb_to_hsv(y)
-
+    y = tf.image.rgb_to_hsv(y) if hsv else y
     y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], 'VALID')
-
-    if hsv:
-        y = tf.image.hsv_to_rgb(y)
+    y = tf.image.hsv_to_rgb(y) if hsv else y
 
     return y
+
+
+@tf.function
+def residual_norm(rgb_src, src_batch=0, shuffle=True):
+    if shuffle:
+        rgb_src = tf.random.shuffle(rgb_src)
+    if src_batch > 0:
+        rgb_src = rgb_src[:src_batch]
+    res_src = residual(rgb_src) 
+    res_src = tf.reduce_mean(res_src, axis=0, keepdims=True)
+    res_src = (res_src - tf.reduce_mean(res_src)) / (1e-9 + tf.math.reduce_std(res_src))
+    return res_src
+
+
+def soft_saturation(x, t=30, alpha=0.01):
+    t = tf.abs(tf.cast(t, tf.float32))
+    excess = tf.cast(tf.abs(x) > t, tf.float32)
+    return x * (1 - excess) + excess * (tf.sign(x) * t + alpha * (x - tf.sign(x) * t))
 
 
 def _strip_consts(graph_def, max_const_size=32):
@@ -287,7 +318,8 @@ def quantize_and_clip(x):
     2. Clip values to [0, 1].
     :param x: image tensor
     """
-    return tf.clip_by_value(soft_quantization(x), 0, 1)
+    x_ = soft_quantization(x)
+    return tf.stop_gradient(tf.clip_by_value(x_, 0, 1) - x_) + x_
 
 
 def entropy(values, codebook, v=50, gamma=25):
@@ -337,11 +369,53 @@ def entropy(values, codebook, v=50, gamma=25):
 
 
 def print_versions():
-    print('Tensorflow:', tf.__version__)
-    print('GPUs:', tf.config.list_physical_devices('GPU'))
+    print(f'Tensorflow: {tf.__version__}')
+    print(f'GPUs: {tf.config.list_physical_devices("GPU")}')
+
 
 def disable_warnings():
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+
 def disable_gpu():
     tf.config.set_visible_devices([], 'GPU')
+
+
+def log_status():
+    devices = tf.config.list_physical_devices('GPU')
+    if not len(devices):
+        logger.warning(f'Tensorflow: {tf.__version__} is NOT using any GPUs')
+    else:
+        logger.info(f'Tensorflow: {tf.__version__} found GPUs: {devices}')
+
+
+def reset_layer(layer, alpha=0):
+    """
+    Patchwork method to reinitialize TF layers: use kernel/bias initializers to sample
+    new parameters; then, set to: (1-a) * old + a * new
+    :param layer: TF layer object
+    :param alpha: weight for the old parameter values
+    :return:
+    """
+
+    if layer is None:
+        return
+
+    w = layer.get_weights()
+    k_init = layer.kernel_initializer
+    b_init = layer.bias_initializer
+    updates = 0
+
+    if layer.kernel is not None:
+        print(f'setting: {layer}')
+        w[0] = (1 - alpha) * k_init(layer.kernel.shape) + alpha * w[0]
+        updates += 1
+    if layer.bias is not None:
+        print(f'setting: {layer}')
+        w[1] = (1 - alpha) * b_init(layer.bias.shape) + alpha * w[1]
+        updates += 1
+
+    if not updates:
+        logger.warning(f'No weights were updated for layer: {layer}')
+
+    layer.set_weights(w)

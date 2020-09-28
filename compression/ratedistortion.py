@@ -1,5 +1,4 @@
 import os
-import tqdm
 import imageio
 import pandas as pd
 import numpy as np
@@ -42,7 +41,7 @@ def get_jpeg_df(directory, write_files=False, effective_bytes=True, force_calc=F
     else:
         df = pd.DataFrame(columns=['image_id', 'filename', 'codec', 'quality', 'ssim', 'psnr', 'msssim', 'msssim_db', 'bytes', 'bpp'])
 
-        with tqdm.tqdm(total=len(files) * len(quality_levels), ncols=120, desc='JPEG') as pbar:
+        with utils.progress_bar(len(files) * len(quality_levels), 'JPEG') as pbar:
 
             for image_id, filename in enumerate(files):
 
@@ -106,7 +105,7 @@ def get_jpeg2k_df(directory, write_files=False, effective_bytes=True, force_calc
     else:
         df = pd.DataFrame(columns=['image_id', 'filename', 'codec', 'quality', 'ssim', 'psnr', 'msssim', 'msssim_db', 'bytes', 'bpp'])
 
-        with tqdm.tqdm(total=len(files) * len(quality_levels), ncols=120, desc='JP2k') as pbar:
+        with utils.progress_bar(len(files) * len(quality_levels), 'JP2k') as pbar:
 
             for image_id, filename in enumerate(files):
 
@@ -183,7 +182,7 @@ def get_bpg_df(directory, write_files=False, effective_bytes=True, force_calc=Fa
     else:
         df = pd.DataFrame(columns=['image_id', 'filename', 'codec', 'quality', 'ssim', 'psnr', 'msssim', 'msssim_db', 'bytes', 'bpp'])
 
-        with tqdm.tqdm(total=len(files) * len(quality_levels), ncols=120, desc='BPG') as pbar:
+        with utils.progress_bar(len(files) * len(quality_levels), 'BPG') as pbar:
 
             for image_id, filename in enumerate(files):
 
@@ -289,7 +288,7 @@ def get_dcn_df(directory, model_directory, write_files=False, force_calc=False):
 
                 df = df.append({'image_id': image_id,
                                 'filename': filename,
-                                'model_dir': os.path.relpath(os.path.split(str(model_dir))[0], model_directory).replace(dcn.scoped_name, ''),
+                                'model_dir': os.path.relpath(os.path.split(str(model_dir))[0], model_directory).replace(dcn.model_filename, ''),
                                 'codec': dcn.model_code,
                                 'ssim': compare_ssim(batch_x[image_id], batch_y[0], multichannel=True, data_range=1),
                                 'psnr': compare_psnr(batch_x[image_id], batch_y[0], data_range=1),

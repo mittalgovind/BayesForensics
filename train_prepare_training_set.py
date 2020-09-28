@@ -6,9 +6,8 @@ import exifread
 import os
 import sys
 import logging
-import tqdm
 import argparse
-from helpers import raw, fsutil
+from helpers import raw, fsutil, utils
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('data')
@@ -62,7 +61,7 @@ def prepare_training_set(camera, target_pipeline, dev_settings, n_images=150, ro
     # Iterate over RAW files and produce:
     #  1. RGGB Bayer stacks (H/2, W/2, 4)
     #  2. RGB Optimization target (H, W, 3)
-    for nef_file in tqdm.tqdm(raw_filenames_selected, ncols=120, desc='Preparing train. data ({})'.format(camera)):
+    for nef_file in utils.progress_bar(raw_filenames_selected, f'Preparing train. data ({camera})'):
 
         out_npy = os.path.join(out_directory, os.path.splitext(nef_file)[0] + '.npy')
         out_png = os.path.join(out_directory, os.path.splitext(nef_file)[0] + '.png')

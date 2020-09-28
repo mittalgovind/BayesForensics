@@ -18,32 +18,6 @@ TQDM_WIDTH = 120
 # Disable unimportant logging and import TF
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-def get_parameters(csv_file, metrics=('ssim', 'psnr', 'loss', 'params')):
-
-    parameters = pd.DataFrame(columns=['scenario', 'label', 'active', 'run_group'])
-
-    if csv_file is not None:
-        parameters = parameters.append(pd.read_csv(csv_file), ignore_index=True, sort=True)
-
-    if len(parameters) == 0:
-        cli_params = {
-            'scenario': np.nan,
-            'label': 'command-line',
-            'active': True,
-            'run_group': np.nan
-        }
-        parameters = parameters.append(cli_params, ignore_index=True)
-
-    # If requested, add columns to include validation results
-    for key in metrics:
-        parameters[key] = np.nan
-
-    for col in parameters.columns:
-        if col.startswith('@'):
-            parameters[col] = parameters[col].apply(eval)
-            parameters = parameters.rename(columns={col: col[1:]})
-
-    return parameters
 
 def get_parameters(csv_file, metrics=('ssim', 'psnr', 'loss', 'params')):
 
@@ -234,7 +208,7 @@ def main():
             out_dir = train_nip_model(model, args.camera, args.epochs, validation_loss_threshold=convergence_threshold,
                 patch_size=args.patch_size, resume=args.resume, data=data, out_directory_root=args.out_dir)
         else:
-            out_dir = os.path.join(out_directory_root, args.camera, model.model_code, model.scoped_name)
+            out_dir = os.path.join(out_directory_root, args.camera, model.model_code)
 
         # Fill results
         if args.fill is not None:

@@ -103,7 +103,7 @@ class TFModel(object):
     - summary                 - a human-readable summary of the model (name + rudimentary layer specs + parameter count)
     - model_code              - represents a concise, coded summary of the models hyper parameters
     - class_name              - convenience method to access class name
-    - scoped_name             - class name (lower case) [+ postfix label] (e.g., unet / unet_a / fan)
+    - model_filename             - class name (lower case) [+ postfix label] (e.g., unet / unet_a / fan)
                                 used as a directory name for storing models
     """
 
@@ -148,28 +148,31 @@ class TFModel(object):
         return pd.DataFrame(data, columns=['name', 'shape', 'parameters', 'total'])        
 
     def save_model(self, dirname, epoch=0, save_args=False, quiet=False):
-        if not dirname.endswith(self.scoped_name):
-            dirname = os.path.join(dirname, self.scoped_name)
+        # if not dirname.endswith(self.model_filename):
+        #     dirname = os.path.join(dirname, self.model_filename)
 
         if not os.path.exists(dirname):
             os.makedirs(dirname)
 
         if not quiet:
             logger.info(f'> {self.class_name} --> {os.path.join(dirname, self.class_name.lower())} {"JSON" if save_args else ""}')
-        self._model.save_weights(os.path.join(dirname, f'{self.class_name.lower()}.h5'), save_format='h5')
+        self._model.save_weights(os.path.join(dirname, self.model_filename), save_format='h5')
 
         if save_args:
-            with open(os.path.join(dirname, f'{self.class_name.lower()}.json'), 'w') as f:
+            json_filename = self.model_filename.replace('.h5', '')
+            json_filename = f'{json_filename}.json'
+
+            with open(os.path.join(dirname, json_filename), 'w') as f:
                 json.dump({
                     'model': self.class_name,
                     'args': self.get_hyperparameters()
                 }, f, indent=4)
 
     def load_model(self, dirname, quiet=False):
-        if not dirname.endswith(self.scoped_name):
-            dirname = os.path.join(dirname, self.scoped_name)
+        # if not dirname.endswith(self.model_filename):
+        #     dirname = os.path.join(dirname, self.model_filename)
 
-        filename = os.path.join(dirname, f'{self.class_name.lower()}.h5')
+        filename = os.path.join(dirname, self.model_filename)
 
         # If the h5 model does not exist, try the TF snapshot
         if not os.path.isfile(filename):
@@ -178,8 +181,18 @@ class TFModel(object):
         if not quiet:
             logger.info(f'> {self.class_name} <-- {filename}')
 
+        if not self._model.built:
+            self._model.build(self.input_shape)
+
         self._model.load_weights(filename)
         self.reset_performance_stats()
+
+    @property
+    def input_shape(self):
+        if hasattr(self, 'x'):
+            return self.x.shape
+        else:
+            raise NotImplementedError('Input shape not available!')
 
     def migrate_model(self, dirname, mapping=None, verbose=False):
         """
@@ -195,8 +208,8 @@ class TFModel(object):
         :param mapping: dict {'new name' : 'old name'}
         :param verbose: self explanatory
         """
-        if not dirname.endswith(self.scoped_name):
-            dirname = os.path.join(dirname, self.scoped_name)
+        # if not dirname.endswith(self.model_filename):
+        #     dirname = os.path.join(dirname, self.model_filename)
 
         if verbose:
             logger.info('# Variables found in the checkpoint: {}'.format(dirname))
@@ -237,8 +250,8 @@ class TFModel(object):
         raise NotImplementedError()
 
     @property
-    def scoped_name(self):
-        return '{}'.format(type(self).__name__.lower())
+    def model_filename(self):
+        return f'{type(self).__name__.lower()}.h5'
 
     def get_hyperparameters(self):
         if hasattr(self, '_h'):

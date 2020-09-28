@@ -21,7 +21,7 @@ import imageio
 from collections import OrderedDict
 from pathlib import Path
 from string import Formatter
-from loguru import  logger
+from loguru import logger
 
 import numpy as np
 import pandas as pd
@@ -29,6 +29,20 @@ import pandas as pd
 from helpers import fsutil, utils
 
 ROOT_DIRNAME = './data/m/5-raw/cvpr2019'
+
+__EXISTING_RESULTS_ACTIONS = ['exception', 'warning', 'overwrite', 'backup']
+__EXISTING_RESULTS_ACTION = 'warning'
+
+
+def set_overwrite_mode(mode):
+    if mode not in __EXISTING_RESULTS_ACTIONS:
+        raise ValueError(f'Invalid value: {mode}. Supported modes: {__EXISTING_RESULTS_ACTIONS}')
+    global __EXISTING_RESULTS_ACTION
+    __EXISTING_RESULTS_ACTION = mode
+
+
+def get_overwrite_mode():
+    return __EXISTING_RESULTS_ACTION
 
 
 class DefaultFormatter(Formatter):
@@ -447,19 +461,27 @@ def render_tex(latex, format='fig', filename=None):
     """
     from latex import build_pdf
 
+    if 'tikzpicture' in latex:
+        mode = 'tikz'
+    else:
+        mode = 'preview'
+        latex = r'\begin{preview}\n[]\end{preview}'.replace('[]', latex)
+
     if 'documentclass' not in latex:
         latex = r"""
-        \documentclass[preview]{standalone}
+        \documentclass[crop,{mode}]{standalone}
         \usepackage{booktabs}
         \usepackage{diagbox}
         \usepackage{graphicx}
+        \usepackage{pgfplots,tikz}
         \usepackage{xcolor,colortbl}
+        \usepgfplotslibrary{groupplots,dateplot}
+        \usetikzlibrary{patterns,shapes.arrows}
+        \pgfplotsset{compat=newest}
         \begin{document}
-        \begin{preview}
         []
-        \end{preview}
         \end{document}
-        """.replace('[]', latex)
+        """.replace('{mode}', mode).replace('[]', latex)
 
     pdf = build_pdf(latex)
     
@@ -508,6 +530,26 @@ def save(results, *, filename=None, prefix=None):
 
     if prefix is not None:
         filename = os.path.join(prefix, filename)
+
+    if os.path.isfile(filename):
+
+        # 'exception', 'warning', 'overwrite', 'rotate'
+        if __EXISTING_RESULTS_ACTION == 'exception':
+            raise FileExistsError(f'File {filename} exists! To switch overwrite mode see `set_overwrite_mode`.')
+
+        if __EXISTING_RESULTS_ACTION == 'warning':
+            logger.warning(f'File {filename} exists - the current data is NOT saved!')
+            return
+
+        if __EXISTING_RESULTS_ACTION == 'backup':
+            # Find copies of this file with numeric suffixes
+            import shutil
+            from datetime import datetime
+            suffix = f'{datetime.now():%Y%m%d%H%M}'
+            sname = os.path.split(filename)[-1]
+            rname = os.path.split(f'{filename}.{suffix}')[-1]
+            logger.debug(f'Rotating results: {sname} -> {rname}')
+            shutil.copyfile(filename, f'{filename}.{suffix}')
 
     os.makedirs(os.path.split(filename)[0], exist_ok=True)
     extension = os.path.splitext(filename)[-1].lower()
@@ -567,7 +609,7 @@ class ResultCache(object):
     # Loading results
     cache.load(jpeg_qf=90)
     """
-    
+
     def __init__(self, pattern, prefix, **kwargs):
         """
         :param pattern: a string (key to dict in config/result_patterns.json) or iterable (with filename pattern definition)
@@ -596,22 +638,53 @@ class ResultCache(object):
             for f in fields:
                 del self.kwargs[f]
 
+    def exists(self, **kwargs):
+        try:
+            filename = self.filename(**kwargs)
+            return os.path.isfile(filename)
+        except ValueError:
+            return False
+
+    def can_write(self, **kwargs):
+        exists = self.exists(**kwargs)
+        mode = get_overwrite_mode()
+        if not exists:
+            return True
+        elif mode == 'overwrite' or mode == 'backup':
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def _sanitize_keys(args):
+        for k in list(args.keys()):
+            # drop keys with null values
+            if args[k] is None:
+                del args[k]
+                continue
+            if not isinstance(args[k], str):
+                args[k] = fsutil.sanitize(str(args[k]), '')
+
     def filename(self, **kwargs):
         """ Generate a unique filename for the current context. Raises exception if not unique. Add keyword args to narrow down. """ 
         args = {**self.kwargs}
         args.update(kwargs)
+        self._sanitize_keys(args)
         try:
             filename = os.path.join(self.prefix, *[x.format(**args) for x in self.pattern])
             if '*' in filename:
                 raise ValueError('Wildcards found - not a valid filename!')
             return filename
         except:
-            pattern = self._get_wildcard_pattern(args)
-            candidates = list(str(x) for x in Path('.').glob(pattern))
+            pattern = self._get_wildcard_pattern(**args)
+            candidates = list(str(x) for x in Path(self.prefix).glob(pattern))
             if len(candidates) == 1:
                 return candidates[0]
             else:
                 raise ValueError(f'Current search pattern [{pattern}] must match 1 file but matches {len(candidates)}')
+
+    def dirname(self, **kwargs):
+        return os.path.split(self.filename(**kwargs))[0]
 
     def load_all(self, **kwargs):
         """ Load all results matching the current search pattern and return a dict indexed by representative filename sections """
@@ -627,11 +700,9 @@ class ResultCache(object):
         filename = self.filename(**kwargs)
         return load(filename)
     
-    def save(self, results, overwrite=False, **kwargs):
+    def save(self, results, **kwargs):
         """ Save results for a given context (use extra keyword args to narrow down) """ 
         filename = self.filename(**kwargs)
-        if not overwrite and os.path.isfile(filename):
-            raise FileExistsError(f'File {filename} exists! Use overwrite=True if needed.')
         save(results, filename=filename)
 
     @staticmethod
@@ -645,19 +716,22 @@ class ResultCache(object):
         else:
             return os.path.join(*[x.format(**kwargs) for x in pattern])
 
-    def _get_wildcard_pattern(self, args=None):
+    def _get_wildcard_pattern(self, **kwargs):
         """ Generate a wildcard pattern for the given context """
+        args = {**self.kwargs}
+        args.update(kwargs)
         fmt = DefaultFormatter('*')
-        return os.path.join(self.prefix, *[fmt.format(x, **args) for x in self.pattern])
+        return os.path.join(*[fmt.format(x, **args) for x in self.pattern])
 
     def find(self, **kwargs):
         """ Find all files matching the current context """
         args = {**self.kwargs}
         args.update(kwargs)
+        self._sanitize_keys(args)
         fmt = DefaultFormatter('*')
-        pattern = os.path.join(self.prefix, *[fmt.format(x, **args) for x in self.pattern])
+        pattern = os.path.join(*[fmt.format(x, **args) for x in self.pattern])
         logger.info(f'*> {pattern}')
-        return list(str(x) for x in Path('.').glob(pattern))
+        return list(str(x) for x in Path(self.prefix).glob(pattern))
 
     def __str__(self):
         fmt = DefaultFormatter()
@@ -667,10 +741,10 @@ class ResultCache(object):
             )
         
     def __repr__(self):
-        return '{}("{}","{}",{})'.format(
+        return '{}({},"{}"{})'.format(
             self.__class__.__name__,
-            self._pattern,
+            f'"{self._pattern}"' if isinstance(self._pattern, str) else self.pattern,
             self.prefix,
-            utils.join_args(self.kwargs)
+            utils.join_args(self.kwargs, prefix=True)
         )
 

@@ -8,9 +8,10 @@ Helper functions for dealing with filenames:
 """
 import os
 import re
+import random
 
 
-def listdir(path, regex='.*\..*', dirs_only=False):
+def listdir(path, regex='.*', dirs_only=False):
     """
     Returns a list of filenames in a directory matching a given regex.
     Example: listdir('~/datasets/raise/', '.*\.NEF$')
@@ -55,4 +56,10 @@ def strip_prefix(names):
 
 
 def sanitize(name, sub='_'):
-    return re.sub('[ ~*!+#@":"!<>\[\]]+', sub, name).strip(sub)
+    return re.sub(r'[ ~*!+#@":"!<>\[\]]+', sub, name).strip(sub)
+
+
+def random_filename(k, ext):
+    letters = 'abcdefghijklmnopqrstuvwxyz'
+    prefix = ''.join(random.choices(letters, k=k))
+    return f'{prefix}.{ext}'

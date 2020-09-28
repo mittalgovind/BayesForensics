@@ -12,10 +12,13 @@ Example functionality:
 - recursively find a key in a dictionary
 
 """
+import os
 import re
 import subprocess
 import sys
 from functools import reduce
+
+from tqdm import tqdm
 
 import Levenshtein
 import numpy as np
@@ -27,7 +30,7 @@ _numeric_types = {int, float, bool, np.bool, np.float, np.float16, np.float32, n
                            np.uint, np.uint8, np.uint32, np.uint16, np.uint64}
 
 
-def setup_logging(filename=None, long_date=False):
+def setup_logging(filename=None, long_date=False, level='INFO'):
     """
     Configure the logger to a compact format.
     :param filename: add an additional sink to the given file
@@ -35,18 +38,21 @@ def setup_logging(filename=None, long_date=False):
     """
 
     if long_date:
-        log_format = '{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}'
+        # If needed, can add "<cyan>{name}</cyan>:" to show file which triggered the message
+        log_format = '<green>{time:YYYY-MM-DD HH:mm:ss}</> | <lvl>{level}</lvl> | <lvl>{message}</>'
     else:
-        log_format = '{time:HH:mm:ss} | {level} | {message}'
+        log_format = '<green>{time:HH:mm:ss}</> | <lvl>{level}</> | <lvl>{message}</lvl>'
 
     config = {
         "handlers": [
-            {"sink": sys.stderr, "format": log_format}
+            {"sink": sys.stderr, "format": log_format, "level": level, "colorize": True}
         ],
     }
 
     if filename is not None:
-        config['handlers'].append({"sink": "file.log", "serialize": True})
+        if '/' not in filename:
+            filename = os.path.join('logs', filename)
+        config['handlers'].append({"sink": filename, "serialize": False, "format": log_format, "level": level})
 
     logger.configure(**config)
 
@@ -73,10 +79,37 @@ def is_vector(data):
 
     if isinstance(data, list) and all(is_number(x) for x in data):
         return True
-    elif isinstance(data, np.ndarray) and data.ndim == 1:
+    elif isinstance(data, np.ndarray) and (data.ndim == 1 or (data.ndim == 2 and 1 in data.shape)):
         return True
     else:
         return False
+
+
+def format_sequence_rle(numbers, sep='-'):
+    """
+    Formats a sequence of numbers (int) using RLE, e.g., (32,32,32,64,64,1) -> '32x3-64x2-1'
+    :param numbers: list of numbers
+    :param sep: separator
+    :return: 
+    """
+
+    if len(numbers) == 0:
+        return ''
+    elif len(numbers) == 1:
+        return f'{numbers[0]}'
+
+    items = []
+    counter = 1
+    for i in range(1, len(numbers)):
+        if numbers[i - 1] != numbers[i]:
+            items.append(f'{numbers[i - 1]}x{counter}' if counter > 1 else f'{numbers[i - 1]}')
+            counter = 1
+        else:
+            counter += 1
+        if i == len(numbers) - 1:
+            items.append(f'{numbers[i]}x{counter}' if counter > 1 else f'{numbers[i]}')
+
+    return sep.join(items)
 
 
 def format_number_order(n):
@@ -188,27 +221,44 @@ def is_interactive():
 
 def get(data, key, default=None, sep='.'):
     try:
-        return reduce(lambda c, k: c.get(k, {}), key.split(sep), data)
+        return reduce(lambda c, k: c.get(k, default), key.split(sep), data)
     except KeyError:
         return default
 
 
-def join_args(args, sep=','):
-    return sep.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in args.items())
+def join_args(args, sep=',', prefix=False):
+    out = sep.join('{}={}'.format(k, '"{}"'.format(v) if isinstance(v, str) else v) for k, v in args.items())
+    if prefix and len(args) > 0:
+        return f'{sep}{out}'
+    else:
+        return out
 
 
-def printd(d, indent=2, level=1):
-    """ Prints a concise summary of a dict-like object (arrays/tensors are not displayed - only their shape) """
+def printd(d, filters=None, indent=2, level=1):
+    """
+    Prints a concise summary of a dict-like object (arrays/tensors are not displayed - only their shape)
+
+    :param d: input dictionary (or dict-like object)
+    :param filters: a collection of regexp filters (for each recursion level) to select keys for printing
+    :param indent: indentation size (#spaces)
+    :param level: current recursion level (should be 1 in all direct calls)
+    """
     if len(d) == 0:
         print('{}')
         return
 
     print('{')
 
+    if isinstance(filters, str):
+        raise ValueError('The filters should be a collection of strings (for each recursion level)')
+
     width = max([len(f'{k}') for k in d.keys()])
     has_dicts = any([isinstance(d[k], dict) for k in d.keys()])
 
     for k, v in d.items():
+
+        if filters is not None and level <= len(filters) and not re.match(filters[level-1], k):
+            continue
 
         # Print the key (align to the left if there are nested dicts, otherwise to the right)
         print((indent*level)*' ', end='')
@@ -219,24 +269,28 @@ def printd(d, indent=2, level=1):
 
         # Print the values, depending on their type
         if isinstance(v, dict):
-            printd(v, indent=indent, level=level + 1)
+            printd(v, filters, indent, level + 1)
 
         elif hasattr(v, 'shape'):
             if v.ndim == 0:
-                print(f'{v:.3f} (0-d array)')
+                print(f'{format_number(v.item())} (0-d array)')
             elif len(v) == 0:
                 print(f'empty array')
             else:
-                print(f'array {v.shape} ∈ [{v.min():.3f}, {v.max():.3f}]')
+                print(f'array {v.shape} ∈ [{format_number(v.min())}, {format_number(v.max())}]')
 
         elif isinstance(v, str):
             print('"{}"'.format(v))
 
         elif isinstance(v, list):
-            if len(v) < 5:
+            if len(v) == 0:
+                print('[]')
+            elif len(v) < 5 and is_number(v[0]):
                 print(v)
-            else:
+            elif len(v) > 5 and is_number(v[0]):
                 print(f'list of {len(v)} items: [{format_number(v[0])}, ..., {format_number(v[-1])}]')
+            else:
+                print(f'list of {len(v)} items of type <{type(v[0]).__name__}>')
 
         elif isinstance(v, tuple):
             if len(v) < 5:
@@ -295,3 +349,70 @@ def shell(command, log=None, verbosity=2):
 
     p.wait()
     return p.returncode
+
+
+def tqdm_width():
+    try:
+        return os.get_terminal_size()[0]
+    except OSError:
+        return 200
+
+
+def progress_bar(iter_total, desc=None):
+    disabled = os.environ.get('DISABLE_TQDM', False)
+    if is_number(iter_total):
+        return tqdm(desc=desc, total=int(iter_total), ncols=tqdm_width(), disable=disabled, position=0, leave=True)
+    else:
+        return tqdm(iter_total, desc=desc, ncols=tqdm_width(), disable=disabled, position=0, leave=True)
+
+
+def set_progressbar_status(status=False):
+    os.environ['DISABLE_TQDM'] = str(status)
+
+
+def factory(spec):
+    if spec is None:
+        return None
+
+    import models
+
+    if isinstance(spec, str):
+
+        if spec[0] == '(' and spec[-1] == ')':
+            instance = eval(spec)
+        elif spec.lower() == 'none':
+            return None
+        elif hasattr(models, spec):
+            instance = eval(f'models.{spec}')
+        elif re.match('^[0-9\\.]+$', spec):
+            instance = float(spec) if '.' in spec else int(spec)
+        else:
+            try:
+                instance = eval(spec)
+            except NameError:
+                instance = eval(f'models.{spec}')
+            except Exception as e:
+                raise ValueError(f'Unsupported string: "{spec}"')
+
+    elif isinstance(spec, dict):
+        cls = getattr(models, spec['class'])
+
+        if 'args' in spec:
+            args = get(spec, 'args', {})
+            for k in args.keys():
+                if isinstance(args[k], str) and args[k][0] == '(' and args[k][-1] == ')':
+                    args[k] = eval(args[k])
+            instance = cls(**args)
+
+        elif 'checkpoint' in spec:
+            instance = cls.restore(get(spec, 'checkpoint'))
+        else:
+            raise ValueError('Invalid model definition! Was expecting either "args" or "checkpoint" keys!')
+
+    elif isinstance(spec, int) or isinstance(spec, float):
+        return spec
+
+    else:
+        raise ValueError('Model definition not supported!')
+
+    return instance

@@ -3,8 +3,9 @@
 Common performance metrics & statistics (accuracy, tpr, auc) and helper functions (moving average).
 """
 import numpy as np
+import scipy as sp
 from scipy import stats
-
+from scipy import cluster
 
 def detection_accuracy(positive, negative, bins=100, return_index=False):
     """
@@ -26,10 +27,13 @@ def detection_accuracy(positive, negative, bins=100, return_index=False):
 
     accuracies = [0.5 * (np.mean(positive >= thresh) + np.mean(negative < thresh)) for thresh in bins]
 
+    max_accuracy = np.max(accuracies)
+    index = int(np.nonzero(accuracies == max_accuracy)[0].mean())
+
     if return_index:
-        return max(accuracies), np.argmax(accuracies)
+        return max_accuracy, index
     else:
-        return max(accuracies), bins[np.argmax(accuracies)]
+        return max_accuracy, bins[index]
 
 
 def true_positive_rate(positive, negative, fpr=0.01):
@@ -96,6 +100,29 @@ def corrcoeff(a, b):
     return np.mean(a * b)
 
 
+def batch_correlations(batch, flat=False):
+    """
+    Returns correlation coefficients between images in a batch.
+    :param batch: batch of images
+    :param flat: bool, return a plain list of correlations instead of a full array (skips diagonal + lower diagonal)
+    :return:
+    """
+    if flat:
+        c = []
+    else:
+        c = np.zeros((len(batch), len(batch)))
+
+    for i in range(len(batch)):
+        for j in range(i+1 if flat else i, len(batch)):
+            if flat:
+                c.append(corrcoeff(batch[i], batch[j]))
+            else:
+                c[i, j] = corrcoeff(batch[i], batch[j])
+                c[j, i] = c[i, j]
+
+    return c
+
+
 def rsquared(a, b):
     """ Returns the coefficient of determination (R^2) between two arrays (normalized) """
     from sklearn.metrics import r2_score
@@ -132,10 +159,26 @@ def entropy(samples, code_book=None):
 
 
 def bin_edges(code_book):
-    max_float = np.abs(code_book).max() * 2
+    max_float = np.max(code_book)
+    min_float = np.min(code_book)
     code_book_edges = np.convolve(code_book, [0.5, 0.5], mode='valid')
-    code_book_edges = np.concatenate((-np.array([max_float]), code_book_edges, np.array([max_float])), axis=0)
+    code_book_edges = np.concatenate((np.array([min_float]), code_book_edges, np.array([max_float])), axis=0)
     return code_book_edges
+
+
+def quantize(samples, code_book, return_indices=False):
+
+    if not isinstance(samples, np.ndarray):
+        np.array(samples)
+    if not isinstance(code_book, np.ndarray):
+        code_book = np.ndarray(code_book)
+
+    indices, distortion = cluster.vq.vq(samples.reshape((-1)), code_book)
+
+    if return_indices:
+        return indices
+    else:
+        return code_book[indices].reshape(samples.shape)
 
 
 def kld_discrete(samples_a, samples_b, bins=25):
@@ -195,3 +238,17 @@ def ma_exp(x, alpha=0.1):
         y[i] = alpha * x[i] + (1-alpha) * y[i-1]
 
     return y
+
+
+def interproot(x, y, offset):
+    f = sp.interpolate.interp1d(x, y, kind='cubic')
+    try:
+        return sp.optimize.root_scalar(lambda x: f(x) - offset, bracket=[x.min(), x.max()]).root
+    except:
+        return 0
+
+
+def interpmin(x, y):
+    f = sp.interpolate.interp1d(x, y, kind='cubic')
+    X = sp.optimize.minimize_scalar(f, method='bounded', bounds=[x.min(), x.max()]).x
+    return X, f(X)

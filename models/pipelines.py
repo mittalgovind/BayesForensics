@@ -44,6 +44,7 @@ class NIPModel(TFModel):
         self.in_channels = in_channels
         self.construct_model(**kwargs)
         self._has_attributes(['y', '_model'])
+        self._model.build((None, patch_size, patch_size, in_channels))
 
         # Configure loss and model optimization
         self.loss_metric = loss_metric
@@ -130,17 +131,19 @@ class NIPModel(TFModel):
     def summary(self):
         return '{:s} : {} -> {}'.format(super().summary(), self._input_description, self._output_description)
 
-    def load_model(self, dirname):
+    def load_model(self, dirname, quiet=False):
         if '/' not in dirname:
             dirname = os.path.join('data/models/nip', dirname)
-        super().load_model(dirname)
+        if not os.path.isdir(dirname):
+            dirname = os.path.join(dirname, self.class_name.lower())
+        super().load_model(dirname, quiet=quiet)
 
-    def save_model(self, dirname, epoch=0, quiet=False):
+    def save_model(self, dirname, epoch=0, save_args=False, quiet=False):
         if '/' not in dirname:
             dirname = os.path.join('data/models/nip', dirname)
-        super().save_model(dirname, epoch=epoch, quiet=quiet)
+        super().save_model(dirname, epoch=epoch, save_args=save_args, quiet=quiet)
 
-    def process_fingerprint(self, k0, demosaicing=True, cfa_pattern=None):
+    def process_fingerprint(self, k0, demosaicing=0, cfa_pattern=None):
         """ 
         Map a RAW-level camera fingerprint to RGB space either via (1) CFA-informed pixel mapping or (2) demosaicing.
         
@@ -160,10 +163,16 @@ class NIPModel(TFModel):
 
         k0m = helpers.raw.merge_bayer(k0, cfa_pattern)
         
-        if demosaicing:
+        if demosaicing == 0:
+            k = np.expand_dims(k0m.sum(-1, keepdims=True), axis=0)
+            return np.repeat(k, 3, axis=-1)
+        elif demosaicing == 1:
+            bk = helpers.kernels.bilin_kernel(3)
+            return tf.nn.conv2d(np.expand_dims(k0m, axis=0), bk, [1, 1, 1, 1], 'SAME').numpy()
+        elif demosaicing == 2:
             return self._model._demosaicing(np.expand_dims(k0m, axis=0), clip=False).numpy()
         else:
-            return k0m.sum(-1)
+            raise ValueError('Unsupported demosaicing!')
 
 
 class UNet(NIPModel):
@@ -188,38 +197,37 @@ class UNet(NIPModel):
 
         # Construct the encoder
         for n in range(1, self._h.n_steps + 1):
-            _layers['ec{}1'.format(n)] = tf.keras.layers.Conv2D(32 * 2**(n-1), [3, 3], activation=lrelu, padding='SAME')
-            _layers['ec{}2'.format(n)] = tf.keras.layers.Conv2D(32 * 2**(n-1), [3, 3], activation=lrelu, padding='SAME')
-            _tensors['ec{}1'.format(n)] = _layers['ec{}1'.format(n)](_tensors['ep{}'.format(n-1)])
-            _tensors['ec{}2'.format(n)] = _layers['ec{}2'.format(n)](_tensors['ec{}1'.format(n)])
+            _layers[f'ec{n}1'] = tf.keras.layers.Conv2D(32 * 2**(n-1), [3, 3], activation=lrelu, padding='SAME')
+            _layers[f'ec{n}2'] = tf.keras.layers.Conv2D(32 * 2**(n-1), [3, 3], activation=lrelu, padding='SAME')
+            _tensors[f'ec{n}1'] = _layers[f'ec{n}1'](_tensors[f'ep{n-1}'])
+            _tensors[f'ec{n}2'] = _layers[f'ec{n}2'](_tensors[f'ec{n}1'])
 
             if n < self._h.n_steps:
-                _layers['ep{}'.format(n)] = tf.keras.layers.MaxPool2D([2, 2], padding='SAME')
-                _tensors['ep{}'.format(n)]  = _layers['ep{}'.format(n)](_tensors['ec{}2'.format(n)])
+                _layers[f'ep{n}'] = tf.keras.layers.MaxPool2D([2, 2], padding='SAME')
+                _tensors[f'ep{n}'] = _layers[f'ep{n}'](_tensors[f'ec{n}2'])
             
         # Easy access to encoder output via a recursive relation
         _tensors['dc02'] = _tensors['ec{}2'.format(self._h.n_steps)]
 
         # Construct the decoder
         for n in range(1, self._h.n_steps):
-            _layers['dct{}'.format(n)] = tf.keras.layers.Conv2DTranspose(32 * 2**(self._h.n_steps - n - 1), [2, 2], [2, 2], padding='SAME')
-            _layers['dcat{}'.format(n)] = tf.keras.layers.Concatenate()
-            _layers['dc{}1'.format(n)] = tf.keras.layers.Conv2D(32 * 2**(self._h.n_steps - n - 1), [3, 3], activation=lrelu, padding='SAME')
-            _layers['dc{}2'.format(n)] = tf.keras.layers.Conv2D(32 * 2**(self._h.n_steps - n - 1), [3, 3], activation=lrelu, padding='SAME')
+            _layers[f'dct{n}'] = tf.keras.layers.Conv2DTranspose(32 * 2**(self._h.n_steps - n - 1), [2, 2], [2, 2], padding='SAME')
+            _layers[f'dcat{n}'] = tf.keras.layers.Concatenate()
+            _layers[f'dc{n}1'] = tf.keras.layers.Conv2D(32 * 2**(self._h.n_steps - n - 1), [3, 3], activation=lrelu, padding='SAME')
+            _layers[f'dc{n}2'] = tf.keras.layers.Conv2D(32 * 2**(self._h.n_steps - n - 1), [3, 3], activation=lrelu, padding='SAME')
 
-            _tensors['dct{}'.format(n)] = _layers['dct{}'.format(n)](_tensors['dc{}2'.format(n-1)])
-            _tensors['dcat{}'.format(n)] = _layers['dcat{}'.format(n)]([_tensors['dct{}'.format(n)], _tensors['ec{}2'.format(self._h.n_steps - n)]])
-            _tensors['dc{}1'.format(n)] = _layers['dc{}1'.format(n)](_tensors['dcat{}'.format(n)])
-            _tensors['dc{}2'.format(n)] = _layers['dc{}2'.format(n)](_tensors['dc{}1'.format(n)])
+            _tensors[f'dct{n}'] = _layers[f'dct{n}'](_tensors[f'dc{n-1}2'])
+            _tensors[f'dcat{n}'] = _layers[f'dcat{n}']([_tensors[f'dct{n}'], _tensors[f'ec{self._h.n_steps - n}2']])
+            _tensors[f'dc{n}1'] = _layers[f'dc{n}1'](_tensors[f'dcat{n}'])
+            _tensors[f'dc{n}2'] = _layers[f'dc{n}2'](_tensors[f'dc{n}1'])
 
         # Final step to render the RGB image
-        _layers['dc{}'.format(self._h.n_steps)] = tf.keras.layers.Conv2D(12, [3, 3], padding='SAME')
-        _tensors['dc{}'.format(self._h.n_steps)] =_layers['dc{}'.format(self._h.n_steps)](_tensors['dc{}2'.format(self._h.n_steps - 1)])
-        _tensors['dts'] = tf.nn.depth_to_space(_tensors['dc{}'.format(self._h.n_steps)], 2)
+        _layers[f'dc{self._h.n_steps}'] = tf.keras.layers.Conv2D(12, [3, 3], padding='SAME')
+        _tensors[f'dc{self._h.n_steps}'] = _layers[f'dc{self._h.n_steps}'](_tensors[f'dc{self._h.n_steps - 1}2'])
+        _tensors['dts'] = tf.nn.depth_to_space(_tensors[f'dc{self._h.n_steps}'], 2)
 
         # Add NIP outputs
         y = _tensors['dts']
-        # self.y = tf.clip_by_value(_tensors['dts'], 0, 1)
         self.y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
 
         # Construct the Keras model
@@ -285,7 +293,6 @@ class INet(NIPModel):
         rgb_g0 = tf.keras.layers.Conv2D(12, 1, kernel_initializer=tf.constant_initializer(gamma_d1k), bias_initializer=tf.constant_initializer(gamma_d1b), use_bias=True, activation=tf.keras.activations.tanh)(srgb)
         y = tf.keras.layers.Conv2D(3, 1, kernel_initializer=tf.constant_initializer(gamma_d2k), bias_initializer=tf.constant_initializer(gamma_d2b), use_bias=True, activation=None)(rgb_g0)
     
-        # self.y = tf.clip_by_value(self.yy, 0, 1, name='{}/y'.format(self.scoped_name))
         self.y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
         self._model = tf.keras.Model(inputs=[self.x], outputs=[self.y])
 
@@ -340,14 +347,13 @@ class DNet(NIPModel):
         pu = tf.pad(pu, tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]]), 'REFLECT')
 
         y = tf.keras.layers.Conv2D(3, 1, kernel_initializer=tf.ones_initializer, use_bias=False, activation=None, padding='VALID')(pu)
-        # self.y = tf.clip_by_value(self.yy, 0, 1, name='{}/y'.format(self.scoped_name))
+
         self.y = tf.stop_gradient(tf.clip_by_value(y, 0, 1) - y) + y
         self._model = tf.keras.Model(inputs=[self.x], outputs=[self.y])
 
     @property
     def model_code(self):
-        return '{c}_{k}x{k}_{l}x{f}f'.format(c=self.class_name, k=self._h.kernel, 
-            f=self._h.n_features, l=self._h.n_layers)
+        return '{c}_{k}x{k}_{l}x{f}f'.format(c=self.class_name, k=self._h.kernel, f=self._h.n_features, l=self._h.n_layers)
 
 
 class ONet(NIPModel):
@@ -440,6 +446,7 @@ class _ClassicISP(tf.keras.Model):
         # Brightness correction
         if self._brightness == 'percentile':
             percentile = 0.5
+            # TODO temporary fix: percentiles were removed from TF 2 and moved to TF probability
             rgb -= np.percentile(rgb, percentile)
             rgb /= np.percentile(rgb, 100 - percentile)
         elif self._brightness == 'shift':
@@ -467,11 +474,10 @@ class ClassicISP(NIPModel):
     See also: helpers.raw_api.unpack
     """
 
-    def construct_model(self, srgb_mat=None, kernel=5, c_filters=(), cfa_pattern='gbrg', residual=True, brightness=None):
-        
+    def construct_model(self, srgb_mat=None, kernel=3, c_filters=(32, 32, 32, 32), cfa_pattern='gbrg', residual=True, brightness=None):
         self._h = paramspec.ParamSpec({
-            'kernel': (5, int, (3, 11)),
-            'c_filters': ((), tuple, paramspec.numbers_in_range(int, 1, 1024)),
+            'kernel': (3, int, (3, 11)),
+            'c_filters': ((32, 32, 32, 32), tuple, paramspec.numbers_in_range(int, 1, 1024)),
             'cfa_pattern': ('gbrg', str, {'gbrg', 'rggb', 'bggr'}),
             'residual': (True, bool, None)
         })
@@ -502,7 +508,9 @@ class ClassicISP(NIPModel):
 
     @property
     def model_code(self):
-        return 'ClassicISP_{cfa}_{k}x{k}_{fs}-{of}{r}'.format(fs='-'.join(['{:d}'.format(x) for x in self._h.c_filters]), of=3, k=self._h.kernel, cfa=self._h.cfa_pattern, r='R' if self._h.residual else '')
+        return 'ClassicISP_{cfa}_{k}x{k}_{fs}-{of}{r}'.format(
+            fs=utils.format_sequence_rle(self._h.c_filters),
+            of=3, k=self._h.kernel, cfa=self._h.cfa_pattern, r='R' if self._h.residual else '')
 
     def set_camera(self, camera):
         """ Sets both CFA and sRGB based on camera presets from 'config/cameras.json' """
@@ -512,7 +520,8 @@ class ClassicISP(NIPModel):
         self.set_srgb_conversion(np.array(cameras[camera]['srgb']))
 
     @classmethod
-    def restore(cls, dir_name='data/models/isp/ClassicISP_auto_3x3_32-32-32-32-3R/', *, camera=None, cfa=None, srgb=None, patch_size=128):
+    def restore(cls, dir_name=None, *, camera=None, cfa=None, srgb=None, patch_size=128):
+        dir_name = dir_name or 'data/models/isp/ClassicISP_3x3_32-32-32-32-3R/'
         isp = super().restore(dir_name)
 
         if camera is not None:

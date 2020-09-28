@@ -178,7 +178,7 @@ def main():
         # Fill the table with results, if requested
         if args.fill is not None:
 
-            results_json = os.path.join(args.out_dir, dcn.model_code, dcn.scoped_name, 'progress.json')
+            results_json = os.path.join(args.out_dir, dcn.model_code, 'progress.json')
 
             if os.path.isfile(results_json):
 

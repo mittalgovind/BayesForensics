@@ -6,14 +6,10 @@ from collections import deque, OrderedDict
 
 import numpy as np
 import tensorflow as tf
-
 from matplotlib.figure import Figure
-from tqdm import tqdm
-from helpers import metrics, dataset, tf_helpers
 
+from helpers import metrics, dataset, tf_helpers, utils
 
-# Set progress bar width
-TQDM_WIDTH = 200
 
 # Disable unimportant logging and import TF
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -121,7 +117,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
         raise ValueError(f'Batch size ({batch_size}) exceeds dataset size ({data.count_training}/{data.count_validation})!')
 
     # Set up training output
-    out_directory = os.path.join(out_directory_root, camera_name, model.model_code, model.scoped_name)
+    out_directory = os.path.join(out_directory_root, camera_name, model.model_code)
 
     if os.path.exists(out_directory) and not resume:
         print('WARNING directory {} exists, skipping...'.format(out_directory))
@@ -183,15 +179,17 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
     print(f'Batches{n_batches}')
     print('', flush=True)
 
-    with tqdm(total=n_epochs, ncols=TQDM_WIDTH, desc='{} for {}'.format(model.model_code, camera_name)) as pbar:
+    with utils.progress_bar(n_epochs, f'{model.model_code} for {camera_name}') as pbar:
 
         pbar.update(start_epoch)
         learning_rate = 1e-4
 
         for epoch in range(start_epoch, n_epochs):
-            
+
             if epoch in lr_schedule:
-                learning_rate = min([learning_rate, lr_schedule[epoch]])
+                learning_rate = lr_schedule[epoch]
+
+            loss_local = []
 
             if epoch in lr_schedule:
                 learning_rate = lr_schedule[epoch]
@@ -246,7 +244,7 @@ def train_nip_model(model, camera_name, n_epochs=10000, lr_schedule=None, valida
                     'ssim': model.pop_metric('ssim', 'validation')
                 }
 
-            pbar.set_postfix(loss=model.pop_metric('loss', 'training'), **progress_dict) # , **progress_dict
+            pbar.set_postfix(loss=model.pop_metric('loss', 'training'), **progress_dict)
             pbar.update(1)
 
     training_summary['Epoch'] = epoch
