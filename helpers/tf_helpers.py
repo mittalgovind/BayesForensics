@@ -172,7 +172,8 @@ def manipulation_sharpen(x, strength=1, hsv=True):
 
 
 def residual(x, hsv=False):
-    # Prepare the sharpening filter
+
+    # Prepare the residual filter
     gk = np.array([[-0.0833, -0.1667, -0.0833], [-0.1667, 1, -0.1667], [-0.0833, -0.1667, -0.0833]])
 
     if gk is None or gk.ndim != 2 or gk.shape[0] != gk.shape[1]:
