@@ -26,7 +26,7 @@ utils.setup_logging()
 # TODO - native12k - coming straight from the cameras
 # TODO - add jpeg - resize - jpeg again
 
-data = dataset.Dataset('/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k',
+data = dataset.Dataset('/Users/govindmittal/PycharmProjects/neural-imaging-dev-2/native12k',
                        load='y', n_images=64, v_images=64)
 
 # %% Training loop
