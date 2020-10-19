@@ -5,15 +5,17 @@
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 
 # External libraries
 import tensorflow as tf
 import tensorflow_probability as tfp
+from loguru import logger
 
 # Internal libraries
 from models.tfmodel import TFModel
 from models import layers
+import helpers.tf_helpers as tfh
 
 
 class MCDropoutLayer(tf.keras.layers.Dropout):
@@ -27,66 +29,120 @@ class MCDropoutLayer(tf.keras.layers.Dropout):
         return self.dropout(inputs, training=True)
 
 
+class IdentityLayer(tf.keras.layers.Layer):
+    """Identity layer"""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def call(self, inputs, training=None):
+        return inputs
+
+
 class BayesBaseModel(TFModel):
     """Defines a Tensorflow model (keras or not)."""
 
-    def __init__(self, method):
+    def __init__(self, method: str, activation: str, drop_rate=0.5,
+                 mc_num_samples=50, bayesian=True):
         """
         method : str
-            Choice between 'mc-dropout', 'bootstrap', 'combined', 'ensemble', 'flipout'
+            Choice between 'mc-dropout', 'temp-scaling', 'flipout'
+        drop_rate : float
+
         """
         super().__init__()
-        self._model
-        self._deep_ensemble_model = create_ensemble_from_model()
-        self.
-        # TODO Things to have
-        # could group 1-5
-        # 1. classic model - only uncertainty is predictive entropy
-        # 2. temperature scaling - for softmax (need function for calibration)
-        # 3. MC-dropout
-        # 4. Flipout
-        # 5. Re-parameterization trick + Bayes-by-Backprop
+        # self._deep_ensemble_model = create_ensemble_from_model()
 
-        # abstract method with example and instructions.
-        # 6. Deep Ensemble
-        # 7. Energy-based model
-        # 8. Deep uncertainty Quantification
-        # put helper - calculating uncertainities, running inference.
+        self.mc_num_samples = mc_num_samples
+        self.drop_rate = min(max(drop_rate, 0.0), 1.0)
+        self.method = method.lower()
+        self.activation = tfh.activation_mapping[activation]
+        self.bayesian = bayesian
+        self.model_created = False
+        self.use_own_dropout = False
 
-        # TODO 2 - get quantified results with larger experiments.
-        # 1. scaling algorithms (interpolation methods)
-        # 2. image is post-processed or not (compressed or not, and how strongly).
-        # 3. scaling factor is in the training range.
-        # 4. different content of images (e.g., native vs resized).
-        #   ON drive : native = native, clic/kodak = resized, raw = native,
+        # TODO Add more layers below depending how the use-cases expand
+        if bayesian:
+            if 'mc' in method:
+                # captures temperature scaling too
+                self.conv2d = layers.PaddedConv2D
+                self.dropout = MCDropoutLayer
+                self.dense = tf.keras.layers.Dense
 
-        # Put all the layer instances used in the forward (call) pass
-        # Depending on your choice of method, Conv2D, Dense and Dropout are chosen accordingly.
-
-        # Remark : Check if dropout implementation is encapsulated for conv vs dense.
-        # sampling in conv is done for each channels.
-        # makes more sense to enable/disable for each channel.
-
-        method = method.lower()
-        if method == 'mc-dropout':
-            self.conv2d = layers.PaddedConv2D
-            self.dropout = MCDropoutLayer
-            self.dense = tf.keras.layers.Dense
-
-        elif method == 'flipout':
-            self.conv2d = tfp.layers.Convolution2DFlipout
-            self.dropout = tf.keras.layers.Dropout
-            self.dense = tfp.layers.DenseFlipout
+            elif method == 'flipout':
+                self.conv2d = tfp.layers.Convolution2DFlipout
+                self.dropout = tf.keras.layers.Dropout
+                self.dense = tfp.layers.DenseFlipout
 
         else:
             self.conv2d = layers.PaddedConv2D
             self.dropout = tf.keras.layers.Dropout
             self.dense = tf.keras.layers.Dense
 
-        self.create_model()
+    def mc_dropout(self, x):
+        """MC dropout forward pass"""
+        x_list = []
+        for i in range(self.mc_num_samples):
+            if self.use_own_dropout:
+                x_tmp = self.dropout(x)
+            else:
+                x_tmp = tf.identity(x)
+            x_tmp = self._model._fc(x_tmp)
+            x_list.append(x_tmp)
+
+        return tf.convert_to_tensor(x_list)
+
+    # TODO temperature scaling is slow. why?
+    def temp_scaling(self, x):
+        """temperature scaling forward pass"""
+        if self.bayesian:
+            fx = self.mc_dropout(x)
+        else:
+            fx = self._model._fc(x)
+        return fx / tf.keras.activations.relu(self._model.temperature)
 
     def create_model(self):
+        self._create_model()
+
+        # configuring model for MC inference
+        if 'mc' in self.method:
+            # make output layer as Identity and copy it to a variable
+            if 'dense' in self._model._layers[-1].name.lower():
+                self._model._fc = self._model._layers[-1]
+                self._model._layers[-1] = IdentityLayer()
+            else:
+                logger.error("Model not ending with a dense layer.")
+
+            # if second last layer is not dropout then attach MCDropoutLayer
+            if 'dropout' not in self._model._layers[-2].name.lower():
+                self.use_own_dropout = True
+        else:
+            self._model._fc = IdentityLayer()
+
+        if self.method == 'temp-scaling':
+            self._model.temperature = tf.Variable(1.0)
+
+    def __call__(self, inputs, training):
+        if not self.model_created:
+            self.create_model()
+            self.model_created = True
+            logger.info("Model created successfully.")
+
+        logits = self._call(inputs, training)
+
+        if self.method == 'mc-dropout':
+            return self.mc_dropout(logits)
+
+        elif self.method == 'mc-temp-scaling':
+            return self.temp_scaling(logits)
+
+        else:
+            return self._model._fc(logits, training)
+
+    @abstractmethod
+    def _create_model(self):
         """Construct the self._model variable with un-compiled keras model.
+        Note the forward self._model should return logits only, i.e., output before the
         Same definition works both for mc-dropout and flipout
         Example :
         self._model = tf.keras.models.Sequential([
@@ -115,30 +171,58 @@ class BayesBaseModel(TFModel):
         """
         raise NotImplementedError
 
-    # def evaluate_
-    # def get_uncertainties
+    def _call(self, inputs, training=None):
+        """Forward pass through model. Extend this and not the call method."""
+        return self._model(inputs, training=training)
 
-    def inference(self, data_batch, n_passes=50):
-        data_batch_multipass = tf.tile(data_batch, n_passes)
 
-    def bootstrap_model(self, num_heads=10):
-        """Model appended with n-output heads and
-        predictions are done simultaneously."""
-        # TODO - add paper references.
-        outputs = []
-        x = self._model.get_layer(-2)
-        for i in range(num_heads):
-            logits = tf.layers.dense(inputs=dropout3, units=10)
-            class_prob = tf.nn.softmax(logits, name="softmax_tensor")
-            outputs.append([logits, class_prob])
+class SFP(BayesBaseModel):
+    def __init__(self, c_filters, d_filters, kernel,
+                 trainable_residual, drop, append_rgb, **kwargs):
+        super().__init__(**kwargs)
 
-    def combined_model(self):
-        # Discuss addition of the 'combined' method and '
-        if not self._model:
-            raise ValueError('Model is not created.')
-        try:
-            # TODO update the uncertainty estimation layer.
-            self._uncertainty_layer = self.dense(inputs=self._model(), units=10)
-        except RuntimeError:
-            raise RuntimeError('Wrong parameters passed to uncertainty layer.')
+        self._layers = []
+        self.c_filters = c_filters
+        self.d_filters = d_filters
+        self.kernel = kernel
+        self.trainable_residual = trainable_residual
+        self.drop_rate = drop
+        self.append_rgb = append_rgb
+        self._residual = layers.ConstrainedConv2D(
+            trainable=self.trainable_residual)
 
+    def _create_model(self):
+        # Setup conv layers
+        for n_filters in self.c_filters:
+            self._layers.append(
+                self.conv2d(n_filters, self.kernel,
+                            activation=self.activation))
+
+        self._layers.append(tf.keras.layers.GlobalAvgPool2D())
+
+        # Setup dense layers
+        for n, n_filters in enumerate(self.d_filters):
+            act = None if n == len(self.d_filters) - 1 else self.activation
+            self._layers.append(self.dense(n_filters, activation=act))
+            if self.drop_rate > 0 and n < len(self.d_filters) - 1:
+                self._layers.append(self.dropout(self.drop_rate))
+
+        self._model = tf.keras.Sequential(self._layers)
+
+    def _call(self, inputs, training=False):
+        x = inputs
+        r = self._residual(x)
+
+        if self.append_rgb:
+            f = tf.keras.layers.concatenate([x, r])
+        else:
+            f = r
+
+        return self._model(f, training=training)
+
+
+# model = SFP(method='mc-temp-scaling', c_filters=(32, 32, 32, 32),
+#             d_filters=(32, 16, 31), kernel=5,
+#             activation='leaky_relu', trainable_residual=True,
+#             drop=0.1, append_rgb=False)
+pass
