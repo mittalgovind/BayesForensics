@@ -31,7 +31,7 @@ data = dataset.Dataset(
 
 # %% Training loop
 
-method = 'flipout' # 'mc-dropout'
+method = 'temp-scaling' # 'mc-dropout'
 scales = (0.25, 1)
 epochs = 1000
 batch_multip = 4
@@ -70,6 +70,8 @@ with utils.progress_bar(epochs, 'Traing') as pbar:
                                                  int(sf * patch_size)])
 
             class_id = stats.quantize(sf.numpy(), classes, True)
+            # TODO clarify if we need multiple passes during training too?
+            # probably ignore repetition
             if 'mc' in method:
                 batch_sf = np.repeat(class_id, batch_size * mc_samples).reshape(
                     (mc_samples, batch_size, 1))

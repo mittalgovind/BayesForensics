@@ -46,9 +46,15 @@ class BayesBaseModel(TFModel):
                  mc_num_samples=50, bayesian=True):
         """
         method : str
-            Choice between 'mc-dropout', 'temp-scaling', 'flipout'
+            Choice between 'mc-dropout', 'temp-scaling', 'flipout'.
+        activation : str
+            Name of the activation method to be used for model creation.
         drop_rate : float
-
+            Dropout rate used for MC-dropout.
+        mc_num_samples : int
+            Number of forward passes in MC-dropout.
+        bayesian : bool
+            Flag to keep the model bayesian. False makes it a vanilla model.
         """
         super().__init__()
         # self._deep_ensemble_model = create_ensemble_from_model()
@@ -61,6 +67,8 @@ class BayesBaseModel(TFModel):
         self.model_created = False
         self.use_own_dropout = False
 
+        # Put all the layer instances used in the forward (call) pass
+        # Depending on your choice of method, Conv2D, Dense and Dropout are chosen accordingly.
         # TODO Add more layers below depending how the use-cases expand
         if bayesian:
             if 'mc' in method:
@@ -73,7 +81,10 @@ class BayesBaseModel(TFModel):
                 self.conv2d = tfp.layers.Convolution2DFlipout
                 self.dropout = tf.keras.layers.Dropout
                 self.dense = tfp.layers.DenseFlipout
-
+            else:
+                self.conv2d = layers.PaddedConv2D
+                self.dropout = tf.keras.layers.Dropout
+                self.dense = tf.keras.layers.Dense
         else:
             self.conv2d = layers.PaddedConv2D
             self.dropout = tf.keras.layers.Dropout
