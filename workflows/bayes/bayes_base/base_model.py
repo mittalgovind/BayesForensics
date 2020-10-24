@@ -10,6 +10,7 @@ from abc import abstractmethod, ABC
 # External libraries
 import tensorflow as tf
 import tensorflow_probability as tfp
+import tensorflow_addons as tfa
 from loguru import logger
 
 # Internal libraries
@@ -37,6 +38,55 @@ class IdentityLayer(tf.keras.layers.Layer):
 
     def call(self, inputs, training=None):
         return inputs
+
+
+class TemperatureScaling(tf.keras.models):
+    """Decorator for wrapping a TensorFlow model with temperature scaling."""
+
+    def __init__(self, model, **kwargs):
+        super().__init__(**kwargs)
+        self.model = model
+        self.temperature = tf.Variable(1.0)
+
+    def forward(self, inputs, training):
+        logits = self.model(inputs, training=training)
+        return self.temperature_scale(logits)
+
+    def temperature_scale(self, logits):
+        """Perform temp scaling on logits"""
+        temperature = self.temperature.expand_as(logits)
+        return logits / temperature
+
+    @staticmethod
+    def nll_loss(logits, labels):
+        return tf.reduce_sum(
+            tf.nn.sigmoid_cross_entropy_with_logits(labels, logits))
+
+    def set_temp(self, loss_criterion, data):
+        """Use validation dataset to calibrate the model."""
+        logits_list = []
+        labels_list = []
+        # TODO remove hard coding
+        patch_size = 128
+        batch_size = 64
+        n_batches = 2
+
+        for batch_id in range(n_batches):
+            batch = data.next_training_batch(batch_id, batch_size,
+                                             patch_size)
+            labels = tf.zeros(len(batch))
+            logits_list.append(self.model(batch, ))
+            labels_list.append(labels)
+
+        logits = tf.convert_to_tensor(logits_list)
+        labels = tf.convert_to_tensor(labels_list)
+
+        optimizer_kernel = tfa.optimizers.AdamW(
+            learning_rate=0.01, betas=(0.9, 0.999))
+
+        # def evaluate():
+        #     loss = self.nll_loss(self.temperature_scale(logits), labels)
+        #     return loss
 
 
 class BayesBaseModel(TFModel):

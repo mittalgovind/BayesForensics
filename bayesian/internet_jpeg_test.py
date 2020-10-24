@@ -11,11 +11,12 @@ import tensorflow as tf
 
 from helpers import dataset, utils, plots, stats
 from helpers import tf_helpers as tfh
-from workflows.bayes.bayes_base.base_model import SFP
+from bayesian.sfp import SFP
 
 # tfh.disable_warnings()
-tfh.disable_gpu()
+# tfh.disable_gpu()
 utils.setup_logging()
+
 
 # %%
 
@@ -25,20 +26,18 @@ utils.setup_logging()
 # TODO - native12k - coming straight from the cameras
 # TODO - add jpeg - resize - jpeg again
 
-data = dataset.Dataset(
-    '/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k',
-    load='y', n_images=64, v_images=64)
+data = dataset.Dataset('/Users/govindmittal/PycharmProjects/neural-imaging-dev-2/native12k',
+                       load='y', n_images=64, v_images=64)
 
 # %% Training loop
 
-method = 'temp-scaling' # 'mc-dropout'
 scales = (0.25, 1)
-epochs = 1000
+epochs = 1
 batch_multip = 4
 batch_size = 64
 patch_size = 128
 n_classes = 30 + 1
-mc_samples = 50
+
 classes = np.linspace(*scales, num=n_classes)
 
 print(f'{n_classes}: {classes.tolist()}')
@@ -46,11 +45,10 @@ print(f'{n_classes}: {classes.tolist()}')
 # %%
 n_batches = data.count_training // batch_size
 # Model
-model = SFP(method=method, c_filters=(32, 32, 32, 32),
+model = SFP(c_filters=(32, 32, 32, 32),
             d_filters=(32, 16, n_classes), kernel=5,
             activation='leaky_relu', trainable_residual=True,
             drop=0.1, append_rgb=False)
-
 opt = tf.keras.optimizers.Adam(1e-3)
 loss_op = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
@@ -70,19 +68,13 @@ with utils.progress_bar(epochs, 'Traing') as pbar:
                                                  int(sf * patch_size)])
 
             class_id = stats.quantize(sf.numpy(), classes, True)
-            # TODO clarify if we need multiple passes during training too?
-            # probably ignore repetition
-            if 'mc' in method:
-                batch_sf = np.repeat(class_id, batch_size * mc_samples).reshape(
-                    (mc_samples, batch_size, 1))
-            else:
-                batch_sf = np.repeat(class_id, batch_size).reshape((-1, 1))
+            batch_sf = np.repeat(class_id, batch_size).reshape((-1, 1))
 
             with tf.GradientTape() as tape:
                 loss = loss_op(batch_sf, model(batch_yy, training=True))
 
-            grads = tape.gradient(loss, model._model.trainable_variables)
-            opt.apply_gradients(zip(grads, model._model.trainable_variables))
+            grads = tape.gradient(loss, model.trainable_variables)
+            opt.apply_gradients(zip(grads, model.trainable_variables))
 
             # Update loss counter
             losses += loss.numpy()
@@ -92,8 +84,7 @@ with utils.progress_bar(epochs, 'Traing') as pbar:
         pbar.set_postfix(loss=losses / n_batches)
         pbar.update(1)
 
-model.load_weights('bayesian_scaleFactor_multAlgo.h5')
-# model.load_weights('sf_bnn_run/bnn_7k.h5')
+model.load_weights('sf_bnn_run/bnn_7k.h5')
 """
 import pickle
 performance = pickle.load(open('sf_bnn_run/performance_7k.pkl', 'rb'))
@@ -210,7 +201,7 @@ from PIL import Image, ImageOps
 from numpy import asarray
 import matplotlib.pyplot as plt
 
-image = asarray(Image.open('./sf_bnn_run/d90_01925.png'))
+image = asarray(Image.open('./sf_bnn_run/d90_01925_90.png'))
 image_patch = image
 # image_patch = Image.fromarray(extract_patches_2d(image, (89, 89), max_patches=1)[0])
 
@@ -223,18 +214,16 @@ n_samples = 50
 n_classes = 31
 resizer = 'xnview'
 # sf = tf.random.uniform((1,), *scales)
-sf = 0.5
+sf = 0.90
 # image_patch = Image.fromarray((data.next_validation_batch(10, 1)[0]*255).astype(np.uint8))
-size = (int(sf * 128), int(sf * 128))
+# size = (int(sf * 128), int(sf * 128))
 logits = np.zeros((n_samples, n_classes))
 # batch_Y = asarray(image_patch.resize(size, resample=Image.BICUBIC))
-# batch_Y = asarray(image_patch)
+batch_Y = asarray(image_patch)
 
 for n in range(n_samples):
-    batch_Y = tf.image.resize(image_patch,
-                              [int(sf * patch_size), int(sf * patch_size)])
-    logits[n, :] = model(tf.expand_dims(batch_Y.astype(float), axis=0),
-                         training=False).numpy()
+    # batch_Y = tf.image.resize(image_patch, [int(sf * patch_size), int(sf * patch_size)])
+    logits[n, :] = model(tf.expand_dims(batch_Y.astype(float), axis=0), training=False).numpy()
     SFI = logits[n].argmax()
     SF = classes[SFI]
 
@@ -255,9 +244,6 @@ plots.hist([classes[logits.argmax(axis=1)].ravel()], classes,
 axes[3].plot([sf, sf], axes[3].get_ylim(), 'k:')
 axes[3].set_xlim(scales)
 axes[3].set_xlabel('Predicted sf')
-print(
-    f'Predicted sf (classes): {classes[logits.argmax(axis=1)].round(2).tolist()}')
-fig.savefig(
-    'sf_bnn_run/results/native12k_patch_1_{}_{:.2f}.png'.format(resizer,
-                                                                float(sf)))
+print(f'Predicted sf (classes): {classes[logits.argmax(axis=1)].round(2).tolist()}')
+fig.savefig('sf_bnn_run/results/native12k_patch_1_{}_{:.2f}.png'.format(resizer, float(sf)))
 fig.show()
