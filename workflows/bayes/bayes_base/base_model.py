@@ -40,11 +40,11 @@ class IdentityLayer(tf.keras.layers.Layer):
         return inputs
 
 
-class TemperatureScaling(tf.keras.models):
+class TemperatureScaling(tf.keras.Model):
     """Decorator for wrapping a TensorFlow model with temperature scaling."""
 
-    def __init__(self, model, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, model):
+        super().__init__()
         self.model = model
         self.temperature = tf.Variable(1.0)
 
@@ -62,7 +62,10 @@ class TemperatureScaling(tf.keras.models):
         return tf.reduce_sum(
             tf.nn.sigmoid_cross_entropy_with_logits(labels, logits))
 
-    def set_temp(self, loss_criterion, data):
+    @abstractmethod
+    def
+
+    def set_temp(self, data):
         """Use validation dataset to calibrate the model."""
         logits_list = []
         labels_list = []
@@ -72,10 +75,10 @@ class TemperatureScaling(tf.keras.models):
         n_batches = 2
 
         for batch_id in range(n_batches):
-            batch = data.next_training_batch(batch_id, batch_size,
-                                             patch_size)
+            batch = data.next_validation_batch(batch_id, batch_size,
+                                               patch_size)
             labels = tf.zeros(len(batch))
-            logits_list.append(self.model(batch, ))
+            logits_list.append(self.model(batch, training=False))
             labels_list.append(labels)
 
         logits = tf.convert_to_tensor(logits_list)
@@ -83,11 +86,30 @@ class TemperatureScaling(tf.keras.models):
 
         optimizer_kernel = tfa.optimizers.AdamW(
             learning_rate=0.01, betas=(0.9, 0.999))
+        nll_loss = self.nll_loss(self.temperature_scale(logits), labels)
+        ece_loss = self.ece_loss(logits, labels)
+        step_count = optimizer_kernel.minimize(loss, [self.temperature])
 
-        # def evaluate():
-        #     loss = self.nll_loss(self.temperature_scale(logits), labels)
-        #     return loss
+        return loss
 
+    def ece_loss(self, logits, labels, n_bins=15):
+        bin_boundaries = tf.linspace(0, 1, n_bins + 1)
+        bin_lowers = bin_boundaries[: -1]
+        bin_uppers = bin_boundaries[1:]
+        softmaxes = tf.nn.softmax(logits, axis=1)
+        confidences, predictions = tf.maximum(softmaxes, 1)
+        accuracies = predictions.eq(labels)
+
+        ece = tf.zeros(1)
+        for bin_lower, bin_upper in zip(bin_lowers, bin_uppers):
+            in_bin = confidences.gt(bin_lower) * confidences.le(bin_upper)
+            prop_in_bin = in_bin.mean()
+            if prop_in_bin > 0:
+                accuracy_in_bin = accuracies[in_bin].mean()
+                avg_confidence_in_bin = confidences[in_bin].mean()
+                ece += tf.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
+
+        return ece
 
 class BayesBaseModel(TFModel):
     """Defines a Tensorflow model (keras or not)."""

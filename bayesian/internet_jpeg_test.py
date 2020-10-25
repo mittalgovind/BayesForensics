@@ -12,6 +12,7 @@ import tensorflow as tf
 from helpers import dataset, utils, plots, stats
 from helpers import tf_helpers as tfh
 from bayesian.sfp import SFP
+from workflows.bayes.bayes_base.base_model import TemperatureScaling
 
 # tfh.disable_warnings()
 # tfh.disable_gpu()
@@ -85,6 +86,9 @@ with utils.progress_bar(epochs, 'Traing') as pbar:
         pbar.update(1)
 
 model.load_weights('sf_bnn_run/bnn_7k.h5')
+temp_model = TemperatureScaling(model)
+temp_model.set_temp(data)
+pass
 """
 import pickle
 performance = pickle.load(open('sf_bnn_run/performance_7k.pkl', 'rb'))
@@ -195,55 +199,55 @@ fig.show()
 """
 
 # %%
-from skimage.transform import rescale
-from sklearn.feature_extraction.image import extract_patches_2d
-from PIL import Image, ImageOps
-from numpy import asarray
-import matplotlib.pyplot as plt
-
-image = asarray(Image.open('./sf_bnn_run/d90_01925_90.png'))
-image_patch = image
-# image_patch = Image.fromarray(extract_patches_2d(image, (89, 89), max_patches=1)[0])
-
-# sf = 0.1
-# image_rescaled = rescale(image, sf, anti_aliasing=False)
-# turn off AA so that no need for extra smoothening
-
-batch_id = np.random.randint(data.count_validation)
-n_samples = 50
-n_classes = 31
-resizer = 'xnview'
-# sf = tf.random.uniform((1,), *scales)
-sf = 0.90
-# image_patch = Image.fromarray((data.next_validation_batch(10, 1)[0]*255).astype(np.uint8))
-# size = (int(sf * 128), int(sf * 128))
-logits = np.zeros((n_samples, n_classes))
-# batch_Y = asarray(image_patch.resize(size, resample=Image.BICUBIC))
-batch_Y = asarray(image_patch)
-
-for n in range(n_samples):
-    # batch_Y = tf.image.resize(image_patch, [int(sf * patch_size), int(sf * patch_size)])
-    logits[n, :] = model(tf.expand_dims(batch_Y.astype(float), axis=0), training=False).numpy()
-    SFI = logits[n].argmax()
-    SF = classes[SFI]
-
-plots.set_interactive(True)
-fig, axes = plots.sub(4, ncols=2)
-plots.image(asarray(image_patch), axes=axes[0])
-plots.image(batch_Y, axes=axes[1])
-
-# plots.image(batch_y.numpy(), axes=axes[0])
-# plots.image(batch_Y.numpy(), axes=axes[1])
-
-plots.intervals(classes, logits, axes=axes[2], xlabel='Predicted sf (class)',
-                ylabel='Logits')
-axes[2].plot([sf, sf], axes[2].get_ylim(), 'k:')
-
-plots.hist([classes[logits.argmax(axis=1)].ravel()], classes,
-           ['predicted sf (class)'], axes=axes[3])
-axes[3].plot([sf, sf], axes[3].get_ylim(), 'k:')
-axes[3].set_xlim(scales)
-axes[3].set_xlabel('Predicted sf')
-print(f'Predicted sf (classes): {classes[logits.argmax(axis=1)].round(2).tolist()}')
-fig.savefig('sf_bnn_run/results/native12k_patch_1_{}_{:.2f}.png'.format(resizer, float(sf)))
-fig.show()
+# from skimage.transform import rescale
+# from sklearn.feature_extraction.image import extract_patches_2d
+# from PIL import Image, ImageOps
+# from numpy import asarray
+# import matplotlib.pyplot as plt
+#
+# image = asarray(Image.open('./sf_bnn_run/d90_01925_90.png'))
+# image_patch = image
+# # image_patch = Image.fromarray(extract_patches_2d(image, (89, 89), max_patches=1)[0])
+#
+# # sf = 0.1
+# # image_rescaled = rescale(image, sf, anti_aliasing=False)
+# # turn off AA so that no need for extra smoothening
+#
+# batch_id = np.random.randint(data.count_validation)
+# n_samples = 50
+# n_classes = 31
+# resizer = 'xnview'
+# # sf = tf.random.uniform((1,), *scales)
+# sf = 0.90
+# # image_patch = Image.fromarray((data.next_validation_batch(10, 1)[0]*255).astype(np.uint8))
+# # size = (int(sf * 128), int(sf * 128))
+# logits = np.zeros((n_samples, n_classes))
+# # batch_Y = asarray(image_patch.resize(size, resample=Image.BICUBIC))
+# batch_Y = asarray(image_patch)
+#
+# for n in range(n_samples):
+#     # batch_Y = tf.image.resize(image_patch, [int(sf * patch_size), int(sf * patch_size)])
+#     logits[n, :] = model(tf.expand_dims(batch_Y.astype(float), axis=0), training=False).numpy()
+#     SFI = logits[n].argmax()
+#     SF = classes[SFI]
+#
+# plots.set_interactive(True)
+# fig, axes = plots.sub(4, ncols=2)
+# plots.image(asarray(image_patch), axes=axes[0])
+# plots.image(batch_Y, axes=axes[1])
+#
+# # plots.image(batch_y.numpy(), axes=axes[0])
+# # plots.image(batch_Y.numpy(), axes=axes[1])
+#
+# plots.intervals(classes, logits, axes=axes[2], xlabel='Predicted sf (class)',
+#                 ylabel='Logits')
+# axes[2].plot([sf, sf], axes[2].get_ylim(), 'k:')
+#
+# plots.hist([classes[logits.argmax(axis=1)].ravel()], classes,
+#            ['predicted sf (class)'], axes=axes[3])
+# axes[3].plot([sf, sf], axes[3].get_ylim(), 'k:')
+# axes[3].set_xlim(scales)
+# axes[3].set_xlabel('Predicted sf')
+# print(f'Predicted sf (classes): {classes[logits.argmax(axis=1)].round(2).tolist()}')
+# fig.savefig('sf_bnn_run/results/native12k_patch_1_{}_{:.2f}.png'.format(resizer, float(sf)))
+# fig.show()
