@@ -390,7 +390,7 @@ def progress(k, v, results=('training', 'validation'), log='auto', axes=None, st
             axes.set_title(title)
 
         ma = stats.ma_exp(v[r], alpha)
-        opacity = 0.1 + 0.9 * np.exp((1 - len(xr))/100)
+        opacity = 0.05 + 0.95 * np.exp((1 - len(xr))/100)
         axes.plot(xr, v[r], color or f'C{ri}{markers[ri]}', alpha=opacity)
         axes.plot(xr, ma, color or f'C{ri}-', label=f'{k}:{r} ({utils.format_number(ma[-1])})')
 
