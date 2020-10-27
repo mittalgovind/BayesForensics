@@ -11,11 +11,11 @@ import tensorflow as tf
 
 from helpers import dataset, utils, plots, stats
 from helpers import tf_helpers as tfh
-from bayesian.sfp import SFP
-from workflows.bayes.bayes_base.base_model import TemperatureScaling
+from workflows.bayes.bayes_base.base_model import SFP
+from workflows.bayes.bayes_scaling_factor.sfp_temp_scaling import SFP_temp
 
 # tfh.disable_warnings()
-# tfh.disable_gpu()
+tfh.disable_gpu()
 utils.setup_logging()
 
 
@@ -27,11 +27,13 @@ utils.setup_logging()
 # TODO - native12k - coming straight from the cameras
 # TODO - add jpeg - resize - jpeg again
 
-data = dataset.Dataset('/Users/govindmittal/PycharmProjects/neural-imaging-dev-2/native12k',
-                       load='y', n_images=64, v_images=64)
+data = dataset.Dataset(
+    '/Users/govindmittal/PycharmProjects/neural-imaging-dev-2/native12k',
+    load='y', n_images=64, v_images=1024)
 
 # %% Training loop
 
+method = 'temp-scaling' # 'mc-dropout'
 scales = (0.25, 1)
 epochs = 1
 batch_multip = 4
@@ -46,10 +48,11 @@ print(f'{n_classes}: {classes.tolist()}')
 # %%
 n_batches = data.count_training // batch_size
 # Model
-model = SFP(c_filters=(32, 32, 32, 32),
+model = SFP(method=method, c_filters=(32, 32, 32, 32),
             d_filters=(32, 16, n_classes), kernel=5,
             activation='leaky_relu', trainable_residual=True,
             drop=0.1, append_rgb=False)
+
 opt = tf.keras.optimizers.Adam(1e-3)
 loss_op = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
@@ -74,8 +77,8 @@ with utils.progress_bar(epochs, 'Traing') as pbar:
             with tf.GradientTape() as tape:
                 loss = loss_op(batch_sf, model(batch_yy, training=True))
 
-            grads = tape.gradient(loss, model.trainable_variables)
-            opt.apply_gradients(zip(grads, model.trainable_variables))
+            grads = tape.gradient(loss, model._model.trainable_variables)
+            opt.apply_gradients(zip(grads, model._model.trainable_variables))
 
             # Update loss counter
             losses += loss.numpy()
@@ -85,10 +88,9 @@ with utils.progress_bar(epochs, 'Traing') as pbar:
         pbar.set_postfix(loss=losses / n_batches)
         pbar.update(1)
 
-model.load_weights('sf_bnn_run/bnn_7k.h5')
-temp_model = TemperatureScaling(model)
-temp_model.set_temp(data)
-pass
+model._model.load_weights('/Users/govindmittal/PycharmProjects/neural-imaging-dev-2/weights_lanczos3.h5')
+model_temp = SFP_temp(model, batch_size)
+model_temp.set_temp(data)
 """
 import pickle
 performance = pickle.load(open('sf_bnn_run/performance_7k.pkl', 'rb'))
