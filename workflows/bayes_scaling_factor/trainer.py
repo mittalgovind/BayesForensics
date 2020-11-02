@@ -67,7 +67,8 @@ def train(model, epochs, data, batch_size, **kwargs):
                 pbar.set_postfix(loss=losses / n_batches)
                 pbar.update(1)
 
-    model.save_model(dirname=save_dir)
+            if (epoch + 1) % 100 == 0:
+                model.save_model(dirname=save_dir)
 
     with open(f'./output/performance_{sampling_method}.json',
               'w') as f:
