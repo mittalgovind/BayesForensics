@@ -18,8 +18,6 @@ from trainer import train, run_tests
 from model import SFP
 from helpers.dataset import Dataset
 
-disable_gpu()
-
 
 def main():
     parser = argparse.ArgumentParser(
