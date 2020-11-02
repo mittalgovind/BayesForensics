@@ -12,7 +12,6 @@ import tensorflow as tf
 import numpy as np
 
 # Internal libraries
-from helpers.tf_helpers import disable_gpu
 
 from trainer import train, run_tests
 from model import SFP
