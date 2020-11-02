@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# New York University 
-# By: Govind (mittal@nyu.edu)
+# Vidrovr Inc.
+# By: Govind Mittal
 
 # Standard libraries
 
@@ -10,3 +10,5 @@
 
 # Internal libraries
 
+from .trainer import train, run_tests
+from .model import SFP

@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Vidrovr Inc.
-# By: Govind Mittal
+# New York University 
+# By: Govind (mittal@nyu.edu)
 
 # Standard libraries
 
 # External libraries
 
 # Internal libraries
+
+from workflows.bayes_base.base_model import BayesBaseModel

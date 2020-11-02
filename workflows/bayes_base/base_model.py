@@ -5,7 +5,7 @@
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
-from abc import abstractmethod, ABC
+from abc import abstractmethod
 
 # External libraries
 import tensorflow as tf
@@ -141,14 +141,14 @@ class BayesBaseModel(TFModel):
 
         logits = self._call(inputs, training)
 
-        if self.method == 'mc-dropout':
-            return self.mc_dropout(logits)
-
-        elif self.method == 'mc-temp-scaling':
-            return self.temp_scaling(logits)
-
-        else:
-            return self._model._fc(logits, training)
+        # if self.method == 'mc-dropout':
+        #     return self.mc_dropout(logits)
+        #
+        # elif self.method == 'mc-temp-scaling':
+        #     return self.temp_scaling(logits)
+        #
+        # else:
+        return self._model._fc(logits, training=training)
 
     @abstractmethod
     def _create_model(self):
@@ -185,55 +185,3 @@ class BayesBaseModel(TFModel):
     def _call(self, inputs, training=None):
         """Forward pass through model. Extend this and not the call method."""
         return self._model(inputs, training=training)
-
-
-class SFP(BayesBaseModel):
-    def __init__(self, c_filters, d_filters, kernel,
-                 trainable_residual, drop, append_rgb, **kwargs):
-        super().__init__(**kwargs)
-
-        self._layers = []
-        self.c_filters = c_filters
-        self.d_filters = d_filters
-        self.kernel = kernel
-        self.trainable_residual = trainable_residual
-        self.drop_rate = drop
-        self.append_rgb = append_rgb
-        self._residual = layers.ConstrainedConv2D(
-            trainable=self.trainable_residual)
-
-    def _create_model(self):
-        # Setup conv layers
-        for n_filters in self.c_filters:
-            self._layers.append(
-                self.conv2d(n_filters, self.kernel,
-                            activation=self.activation))
-
-        self._layers.append(tf.keras.layers.GlobalAvgPool2D())
-
-        # Setup dense layers
-        for n, n_filters in enumerate(self.d_filters):
-            act = None if n == len(self.d_filters) - 1 else self.activation
-            self._layers.append(self.dense(n_filters, activation=act))
-            if self.drop_rate > 0 and n < len(self.d_filters) - 1:
-                self._layers.append(self.dropout(self.drop_rate))
-
-        self._model = tf.keras.Sequential(self._layers)
-
-    def _call(self, inputs, training=False):
-        x = inputs
-        r = self._residual(x)
-
-        if self.append_rgb:
-            f = tf.keras.layers.concatenate([x, r])
-        else:
-            f = r
-
-        return self._model(f, training=training)
-
-
-# model = SFP(method='mc-temp-scaling', c_filters=(32, 32, 32, 32),
-#             d_filters=(32, 16, 31), kernel=5,
-#             activation='leaky_relu', trainable_residual=True,
-#             drop=0.1, append_rgb=False)
-pass

@@ -11,7 +11,7 @@ import tensorflow as tf
 
 from helpers import dataset, utils, plots, stats
 from helpers import tf_helpers as tfh
-from workflows.bayes.bayes_base.base_model import SFP
+from workflows.bayes_scaling_factor import SFP
 
 # tfh.disable_warnings()
 tfh.disable_gpu()
@@ -91,6 +91,7 @@ with utils.progress_bar(epochs, 'Traing') as pbar:
 
         pbar.set_postfix(loss=losses / n_batches)
         pbar.update(1)
+
 
 model.load_weights('bayesian_scaleFactor_multAlgo.h5')
 # model.load_weights('sf_bnn_run/bnn_7k.h5')
@@ -204,11 +205,8 @@ fig.show()
 """
 
 # %%
-from skimage.transform import rescale
-from sklearn.feature_extraction.image import extract_patches_2d
-from PIL import Image, ImageOps
+from PIL import Image
 from numpy import asarray
-import matplotlib.pyplot as plt
 
 image = asarray(Image.open('./sf_bnn_run/d90_01925.png'))
 image_patch = image
