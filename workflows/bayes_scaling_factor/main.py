@@ -6,6 +6,8 @@
 
 # Standard libraries
 import argparse
+import sys
+sys.path.append('/scratch/gm2724/neural-imaging-dev/')
 
 # External libraries
 import numpy as np
@@ -80,9 +82,9 @@ def main():
                 drop=0.1, append_rgb=False)
 
     model = train(model, args.epochs, data, args.batch_size, cache, **flags)
-    for method in methods:
+    for method in ['random']:
         model._model.load_weights(
-            'output_fl_{}/sfp.h5'.format(method))
+            'flipout_models/output_fl_{}/sfp.h5'.format(method))
         run_tests(model, method, data, methods, classes,
                   args.n_val_images, patch_size, args.n_runs, cache)
 
