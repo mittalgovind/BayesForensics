@@ -169,7 +169,7 @@ def bin_edges(code_book):
 def quantize(samples, code_book, return_indices=False):
 
     if not isinstance(samples, np.ndarray):
-        np.array(samples)
+        samples = np.array(samples)
     if not isinstance(code_book, np.ndarray):
         code_book = np.ndarray(code_book)
 

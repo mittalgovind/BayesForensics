@@ -8,7 +8,6 @@
 import argparse
 
 # External libraries
-import tensorflow as tf
 import numpy as np
 
 # Internal libraries
@@ -16,7 +15,11 @@ import numpy as np
 from trainer import train, run_tests
 from model import SFP
 from helpers.dataset import Dataset
+from helpers.results_data import ResultCache
+from helpers.tf_helpers import disable_gpu
 
+
+# disable_gpu()
 
 def main():
     parser = argparse.ArgumentParser(
@@ -55,30 +58,33 @@ def main():
                         help='Data directory for getting images from.')
     args = parser.parse_args()
 
-    # Make argument for directory to store results
     # Change json to npz
 
-    scales = (float(args.scales.split(',')[0]), float(args.scales.split(',')[1]))
+    scales = (
+        float(args.scales.split(',')[0]), float(args.scales.split(',')[1]))
     patch_size = 128
     methods = ['nearest', 'bilinear', 'bicubic', 'lanczos3']
+    cache = ResultCache(['{step}_{sampling_method}.npz'], prefix=args.save_dir)
+    classes = np.linspace(*scales, num=args.n_classes)
+    flags = {'lr': 1e-3, 'patch_size': patch_size, 'scales': scales,
+             'sampling_method': args.sampling_method, 'classes': classes,
+             'save_dir': args.save_dir}
 
     data = Dataset(data_directory=args.data_dir, load='y',
                    n_images=args.n_train_images, v_images=args.n_val_images,
                    randomize=69)
-    classes = np.linspace(*scales, num=args.n_classes)
 
     model = SFP(args.uncertainty_method, c_filters=(32, 32, 32, 32),
                 d_filters=(32, 16, args.n_classes), kernel=5,
                 activation='leaky_relu', trainable_residual=True,
                 drop=0.1, append_rgb=False)
 
-    flags = {'lr': 1e-3, 'patch_size': patch_size, 'scales': scales,
-             'sampling_method': args.sampling_method, 'classes': classes,
-             'save_dir': args.save_dir}
-    model = train(model, args.epochs, data, args.batch_size, **flags)
-
-    # run_tests(model, args.sampling_method, data, methods, classes,
-    #           args.n_val_images, patch_size, num_runs=args.n_runs)
+    model = train(model, args.epochs, data, args.batch_size, cache, **flags)
+    for method in methods:
+        model._model.load_weights(
+            'output_fl_{}/sfp.h5'.format(method))
+        run_tests(model, method, data, methods, classes,
+                  args.n_val_images, patch_size, args.n_runs, cache)
 
 
 if __name__ == '__main__':
