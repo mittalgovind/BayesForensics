@@ -7,6 +7,7 @@
 # Standard libraries
 import argparse
 import sys
+
 sys.path.append('/scratch/gm2724/neural-imaging-dev/')
 
 # External libraries
@@ -42,10 +43,10 @@ def main():
                         default=31, type=int,
                         help="Number of classes in the range defined by scales argument")
     parser.add_argument('-nt', '--train-images', dest='n_train_images',
-                        action='store', default=1000, type=int,
+                        action='store', default=1024, type=int,
                         help="Number of images for training set")
     parser.add_argument('-nv', '--validation-images', dest='n_val_images',
-                        action='store', default=250, type=int,
+                        action='store', default=256, type=int,
                         help="Number of images for validation set")
     parser.add_argument('-nr', '--num-runs', dest='n_runs', action='store',
                         default=50, type=int,
@@ -65,7 +66,7 @@ def main():
     scales = (
         float(args.scales.split(',')[0]), float(args.scales.split(',')[1]))
     patch_size = 128
-    methods = ['nearest', 'bilinear', 'bicubic', 'lanczos3']
+    methods = ['nearest', 'bilinear', 'bicubic', 'lanczos3', 'random']
     cache = ResultCache(['{step}_{sampling_method}.npz'], prefix=args.save_dir)
     classes = np.linspace(*scales, num=args.n_classes)
     flags = {'lr': 1e-3, 'patch_size': patch_size, 'scales': scales,
@@ -82,7 +83,7 @@ def main():
                 drop=0.1, append_rgb=False)
 
     model = train(model, args.epochs, data, args.batch_size, cache, **flags)
-    for method in ['random']:
+    for method in methods:
         model._model.load_weights(
             'flipout_models/output_fl_{}/sfp.h5'.format(method))
         run_tests(model, method, data, methods, classes,

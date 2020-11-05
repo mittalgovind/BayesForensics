@@ -17,6 +17,21 @@ from helpers.stats import quantize
 
 
 def train(model, epochs, data, batch_size, cache, **kwargs):
+    """
+
+    Parameters
+    ----------
+    model
+    epochs
+    data
+    batch_size
+    cache
+    kwargs
+
+    Returns
+    -------
+
+    """
     patch_size = kwargs['patch_size']
     scales = kwargs['scales']
     classes = kwargs['classes']
@@ -81,6 +96,26 @@ def train(model, epochs, data, batch_size, cache, **kwargs):
 
 def run_tests(model, sampling_method, data, methods, classes, batch_size,
               patch_size, num_runs, cache):
+    """
+
+    Parameters
+    ----------
+    model : BayesModel()
+        Bayes model for running tests
+    sampling_method : str
+
+    data
+    methods
+    classes
+    batch_size
+    patch_size
+    num_runs
+    cache
+
+    Returns
+    -------
+
+    """
     tests_summary = {'runs': []}
 
     n_val_batches = data.count_validation // batch_size
