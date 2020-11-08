@@ -94,6 +94,7 @@ with utils.progress_bar(epochs, 'Traing') as pbar:
 
 
 model.load_weights('bayesian_scaleFactor_multAlgo.h5')
+# model.train_deep_ensemble()
 # model.load_weights('sf_bnn_run/bnn_7k.h5')
 """
 import pickle
