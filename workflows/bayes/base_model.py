@@ -57,7 +57,6 @@ class BayesBaseModel(TFModel):
             Flag to keep the model bayesian. False makes it a vanilla model.
         """
         super().__init__()
-        # self._deep_ensemble_model = create_ensemble_from_model()
 
         self.mc_num_samples = mc_num_samples
         self.drop_rate = min(max(drop_rate, 0.0), 1.0)
@@ -69,7 +68,6 @@ class BayesBaseModel(TFModel):
 
         # Put all the layer instances used in the forward (call) pass
         # Depending on your choice of method, Conv2D, Dense and Dropout are chosen accordingly.
-        # TODO Add more layers below depending how the use-cases expand
         if bayesian:
             if 'mc' in method:
                 # captures temperature scaling too
@@ -103,15 +101,6 @@ class BayesBaseModel(TFModel):
 
         return tf.convert_to_tensor(x_list)
 
-    # TODO temperature scaling is slow. why?
-    def temp_scaling(self, x):
-        """temperature scaling forward pass"""
-        if self.bayesian:
-            fx = self.mc_dropout(x)
-        else:
-            fx = self._model._fc(x)
-        return fx / tf.keras.activations.relu(self._model.temperature)
-
     def create_model(self):
         self._create_model()
 
@@ -141,13 +130,6 @@ class BayesBaseModel(TFModel):
 
         logits = self._call(inputs, training)
 
-        # if self.method == 'mc-dropout':
-        #     return self.mc_dropout(logits)
-        #
-        # elif self.method == 'mc-temp-scaling':
-        #     return self.temp_scaling(logits)
-        #
-        # else:
         return self._model._fc(logits, training=training)
 
     @abstractmethod
