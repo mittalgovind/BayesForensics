@@ -30,6 +30,7 @@ class SFP(BayesBaseModel):
         self._residual = ConstrainedConv2D(trainable=self.trainable_residual)
 
     def _create_model(self):
+        """Need to override to specify model architecture."""
         # Setup conv layers
         for n_filters in self.c_filters:
             self._layers.append(
@@ -48,6 +49,7 @@ class SFP(BayesBaseModel):
         self._model = tf.keras.Sequential(self._layers)
 
     def _call(self, inputs, training=False):
+        """Vanilla part of the forward pass for the model."""
         x = inputs
         r = self._residual(x)
 

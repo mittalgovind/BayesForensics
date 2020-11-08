@@ -7,8 +7,10 @@
 # Standard libraries
 import argparse
 import sys
+import os
 
-sys.path.append('/scratch/gm2724/neural-imaging-dev/')
+# necessary here, as slurm executes a copy
+sys.path.append(os.path.abspath('../../'))
 
 # External libraries
 import numpy as np
@@ -19,10 +21,7 @@ from trainer import train, run_tests
 from model import SFP
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
-from helpers.tf_helpers import disable_gpu
 
-
-# disable_gpu()
 
 def main():
     parser = argparse.ArgumentParser(

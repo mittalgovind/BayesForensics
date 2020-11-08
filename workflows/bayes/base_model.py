@@ -123,6 +123,7 @@ class BayesBaseModel(TFModel):
             self._model.temperature = tf.Variable(1.0)
 
     def __call__(self, inputs, training):
+        """Internal call method for model forward pass"""
         if not self.model_created:
             self.create_model()
             self.model_created = True

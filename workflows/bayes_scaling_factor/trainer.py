@@ -17,8 +17,7 @@ from helpers.stats import quantize
 
 
 def train(model, epochs, data, batch_size, cache, **kwargs):
-    """
-
+    """Scaling factor training
     Parameters
     ----------
     model
