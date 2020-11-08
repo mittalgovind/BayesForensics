@@ -71,7 +71,7 @@ def main():
     classes = np.linspace(*scales, num=args.n_classes)
     flags = {'lr': 1e-3, 'patch_size': patch_size, 'scales': scales,
              'sampling_method': args.sampling_method, 'classes': classes,
-             'save_dir': args.save_dir}
+             'save_dir': args.save_dir, 'methods': methods}
 
     data = Dataset(data_directory=args.data_dir, load='y',
                    n_images=args.n_train_images, v_images=args.n_val_images,
@@ -82,7 +82,7 @@ def main():
                 activation='leaky_relu', trainable_residual=True,
                 drop=0.1, append_rgb=False)
 
-    model = train(model, args.epochs, data, args.batch_size, cache, methods, **flags)
+    model = train(model, args.epochs, data, args.batch_size, cache, **flags)
     for method in methods:
         model._model.load_weights(
             'flipout_models/output_fl_{}/sfp.h5'.format(method))
