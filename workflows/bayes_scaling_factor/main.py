@@ -82,7 +82,7 @@ def main():
                 activation='leaky_relu', trainable_residual=True,
                 drop=0.1, append_rgb=False)
 
-    model = train(model, args.epochs, data, args.batch_size, cache, **flags)
+    model = train(model, args.epochs, data, args.batch_size, cache, methods, **flags)
     for method in methods:
         model._model.load_weights(
             'flipout_models/output_fl_{}/sfp.h5'.format(method))

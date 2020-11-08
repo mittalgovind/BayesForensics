@@ -58,8 +58,8 @@ def train(model, epochs, data, batch_size, cache, **kwargs):
                 resized_size = int(sf * patch_size)
 
                 if random_method:
-                    m = tf.random.choice(
-                        ['nearest', 'bilinear', 'bicubic', 'lanczos3'])
+                    method_idx = tf.random.shuffle([0, 1, 2, 3])
+                    m = methods[rand_idx]
                 else:
                     m = sampling_method
 
