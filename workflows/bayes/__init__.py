@@ -9,3 +9,5 @@
 # External libraries
 
 # Internal libraries
+
+from workflows.bayes.base_model import BayesBaseModel

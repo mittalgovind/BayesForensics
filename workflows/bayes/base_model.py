@@ -43,10 +43,10 @@ class BayesBaseModel(TFModel):
     """Defines a Tensorflow model (keras or not)."""
 
     def __init__(self, method: str, activation: str, drop_rate=0.5,
-                 mc_num_samples=50, bayesian=True):
+                 mc_num_samples=50, temperature=False, bayesian=True):
         """
         method : str
-            Choice between 'mc-dropout', 'temp-scaling', 'flipout'.
+            Choice between 'mc-dropout', 'flipout'.
         activation : str
             Name of the activation method to be used for model creation.
         drop_rate : float
