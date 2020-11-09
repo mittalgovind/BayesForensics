@@ -38,7 +38,7 @@ def train(model, epochs, data, batch_size, cache, **kwargs):
     save_dir = kwargs['save_dir']
     lr = kwargs['lr']
     random_method = sampling_method == 'random'
-    methods = kwargs['methods'] 
+    methods = kwargs['methods']
 
     n_batches = data.count_training // batch_size
 
