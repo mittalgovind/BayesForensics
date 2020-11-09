@@ -23,6 +23,7 @@ from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
 
 
+
 def main():
     parser = argparse.ArgumentParser(
         description='Train a bayesian NN on different methods for downsampling')
@@ -65,6 +66,7 @@ def main():
     scales = (
         float(args.scales.split(',')[0]), float(args.scales.split(',')[1]))
     patch_size = 128
+    model_name = 'sfp.h5'
     methods = ['nearest', 'bilinear', 'bicubic', 'lanczos3', 'random']
     cache = ResultCache(['{step}_{sampling_method}.npz'], prefix=args.save_dir)
     classes = np.linspace(*scales, num=args.n_classes)
@@ -83,8 +85,7 @@ def main():
 
     model = train(model, args.epochs, data, args.batch_size, cache, **flags)
     for method in methods:
-        model._model.load_weights(
-            'flipout_models/output_fl_{}/sfp.h5'.format(method))
+        model._model.load_weights(os.path.join(args.save_dir, model_name))
         run_tests(model, method, data, methods, classes,
                   args.n_val_images, patch_size, args.n_runs, cache)
 

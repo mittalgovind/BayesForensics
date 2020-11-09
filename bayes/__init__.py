@@ -10,4 +10,6 @@
 
 # Internal libraries
 
-from workflows.bayes.base_model import BayesBaseModel
+from bayes.base_model import BayesBaseModel
+from bayes.temp_scaling import TemperatureScaling
+#from bayes.deep_ensemble import ModelEnsemble

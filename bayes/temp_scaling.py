@@ -10,8 +10,6 @@ from abc import abstractmethod, ABC
 # External libraries
 import tensorflow as tf
 import numpy as np
-import tensorflow_probability as tfp
-import tensorflow_addons as tfa
 from loguru import logger
 
 
