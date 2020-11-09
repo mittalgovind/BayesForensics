@@ -126,7 +126,7 @@ def run_tests(model, sampling_method, data, methods, classes, batch_size,
         for batch_id in range(n_val_batches):
             test_batch = data.next_validation_batch(batch_id, batch_size)
 
-            for m, method in enumerate(methods):
+            for m, method in enumerate(methods[:-1]):
                 for s, sf in enumerate(sfs):
                     rescaled = tf.image.resize(test_batch, [sf, sf],
                                                method=method)
