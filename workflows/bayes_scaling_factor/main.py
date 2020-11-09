@@ -17,7 +17,7 @@ import numpy as np
 
 # Internal libraries
 
-from trainer import train, run_tests
+from train_eval import train, run_tests
 from model import SFP
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache

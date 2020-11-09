@@ -11,10 +11,11 @@ import tensorflow as tf
 
 from helpers import dataset, utils, plots, stats
 from helpers import tf_helpers as tfh
-from workflows.bayes_scaling_factor import SFP
+from sfp import SFP
+from bayes.temp_scaling import TemperatureScaling
 
 # tfh.disable_warnings()
-tfh.disable_gpu()
+# tfh.disable_gpu()
 utils.setup_logging()
 
 # %%
@@ -27,13 +28,13 @@ utils.setup_logging()
 
 data = dataset.Dataset(
     '/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k',
-    load='y', n_images=64, v_images=64)
+    load='y', n_images=256, v_images=256)
 
 # %% Training loop
 
-method = 'temp-scaling' # 'mc-dropout'
+method = 'temp-scaling'  # 'mc-dropout'
 scales = (0.25, 1)
-epochs = 1000
+epochs = 1
 batch_multip = 4
 batch_size = 64
 patch_size = 128
@@ -46,7 +47,7 @@ print(f'{n_classes}: {classes.tolist()}')
 # %%
 n_batches = data.count_training // batch_size
 # Model
-model = SFP(method=method, c_filters=(32, 32, 32, 32),
+model = SFP(c_filters=(32, 32, 32, 32),
             d_filters=(32, 16, n_classes), kernel=5,
             activation='leaky_relu', trainable_residual=True,
             drop=0.1, append_rgb=False)
@@ -73,7 +74,8 @@ with utils.progress_bar(epochs, 'Traing') as pbar:
             # TODO clarify if we need multiple passes during training too?
             # probably ignore repetition
             if 'mc' in method:
-                batch_sf = np.repeat(class_id, batch_size * mc_samples).reshape(
+                batch_sf = np.repeat(class_id,
+                                     batch_size * mc_samples).reshape(
                     (mc_samples, batch_size, 1))
             else:
                 batch_sf = np.repeat(class_id, batch_size).reshape((-1, 1))
@@ -81,8 +83,8 @@ with utils.progress_bar(epochs, 'Traing') as pbar:
             with tf.GradientTape() as tape:
                 loss = loss_op(batch_sf, model(batch_yy, training=True))
 
-            grads = tape.gradient(loss, model._model.trainable_variables)
-            opt.apply_gradients(zip(grads, model._model.trainable_variables))
+            grads = tape.gradient(loss, model.trainable_variables)
+            opt.apply_gradients(zip(grads, model.trainable_variables))
 
             # Update loss counter
             losses += loss.numpy()
@@ -93,9 +95,32 @@ with utils.progress_bar(epochs, 'Traing') as pbar:
         pbar.update(1)
 
 
-model.load_weights('bayesian_scaleFactor_multAlgo.h5')
+class SFPTempScaling(TemperatureScaling):
+    def __init__(self, model, batch_size):
+        super().__init__(model, batch_size)
+        self.sf = tf.random.uniform((1,), *scales)
+        print('=====Scaling-factor=====', self.sf.numpy())
+
+    def preprocess(self, batch, return_labels=False):
+        resized_size = int(sf * patch_size)
+
+        batch_yy = tf.image.resize(batch_y,
+                                   [resized_size, resized_size])
+        class_id = stats.quantize(sf.numpy(), classes, return_indices=True)
+        batch_sf = np.repeat(class_id, batch_size).reshape((-1, 1))
+
+        return batch_yy, batch_sf
+
+
+# model.load_weights('')
 # model.train_deep_ensemble()
-# model.load_weights('sf_bnn_run/bnn_7k.h5')
+model.load_weights('sf_bnn_run/sfp.h5')
+
+new_model = SFPTempScaling(model, batch_size)
+new_model.set_temp(data)
+pass
+
+
 """
 import pickle
 performance = pickle.load(open('sf_bnn_run/performance_7k.pkl', 'rb'))
@@ -205,58 +230,58 @@ print(f'Predicted sf (classes): {classes[logits.argmax(axis=1)].round(2).tolist(
 fig.show()
 """
 
-# %%
-from PIL import Image
-from numpy import asarray
-
-image = asarray(Image.open('./sf_bnn_run/d90_01925.png'))
-image_patch = image
-# image_patch = Image.fromarray(extract_patches_2d(image, (89, 89), max_patches=1)[0])
-
-# sf = 0.1
-# image_rescaled = rescale(image, sf, anti_aliasing=False)
-# turn off AA so that no need for extra smoothening
-
-batch_id = np.random.randint(data.count_validation)
-n_samples = 50
-n_classes = 31
-resizer = 'xnview'
-# sf = tf.random.uniform((1,), *scales)
-sf = 0.5
-# image_patch = Image.fromarray((data.next_validation_batch(10, 1)[0]*255).astype(np.uint8))
-size = (int(sf * 128), int(sf * 128))
-logits = np.zeros((n_samples, n_classes))
-# batch_Y = asarray(image_patch.resize(size, resample=Image.BICUBIC))
-# batch_Y = asarray(image_patch)
-
-for n in range(n_samples):
-    batch_Y = tf.image.resize(image_patch,
-                              [int(sf * patch_size), int(sf * patch_size)])
-    logits[n, :] = model(tf.expand_dims(batch_Y.astype(float), axis=0),
-                         training=False).numpy()
-    SFI = logits[n].argmax()
-    SF = classes[SFI]
-
-plots.set_interactive(True)
-fig, axes = plots.sub(4, ncols=2)
-plots.image(asarray(image_patch), axes=axes[0])
-plots.image(batch_Y, axes=axes[1])
-
-# plots.image(batch_y.numpy(), axes=axes[0])
-# plots.image(batch_Y.numpy(), axes=axes[1])
-
-plots.intervals(classes, logits, axes=axes[2], xlabel='Predicted sf (class)',
-                ylabel='Logits')
-axes[2].plot([sf, sf], axes[2].get_ylim(), 'k:')
-
-plots.hist([classes[logits.argmax(axis=1)].ravel()], classes,
-           ['predicted sf (class)'], axes=axes[3])
-axes[3].plot([sf, sf], axes[3].get_ylim(), 'k:')
-axes[3].set_xlim(scales)
-axes[3].set_xlabel('Predicted sf')
-print(
-    f'Predicted sf (classes): {classes[logits.argmax(axis=1)].round(2).tolist()}')
-fig.savefig(
-    'sf_bnn_run/results/native12k_patch_1_{}_{:.2f}.png'.format(resizer,
-                                                                float(sf)))
-fig.show()
+# # %%
+# from PIL import Image
+# from numpy import asarray
+#
+# image = asarray(Image.open('./sf_bnn_run/d90_01925.png'))
+# image_patch = image
+# # image_patch = Image.fromarray(extract_patches_2d(image, (89, 89), max_patches=1)[0])
+#
+# # sf = 0.1
+# # image_rescaled = rescale(image, sf, anti_aliasing=False)
+# # turn off AA so that no need for extra smoothening
+#
+# batch_id = np.random.randint(data.count_validation)
+# n_samples = 50
+# n_classes = 31
+# resizer = 'xnview'
+# # sf = tf.random.uniform((1,), *scales)
+# sf = 0.5
+# # image_patch = Image.fromarray((data.next_validation_batch(10, 1)[0]*255).astype(np.uint8))
+# size = (int(sf * 128), int(sf * 128))
+# logits = np.zeros((n_samples, n_classes))
+# # batch_Y = asarray(image_patch.resize(size, resample=Image.BICUBIC))
+# # batch_Y = asarray(image_patch)
+#
+# for n in range(n_samples):
+#     batch_Y = tf.image.resize(image_patch,
+#                               [int(sf * patch_size), int(sf * patch_size)])
+#     logits[n, :] = model(tf.expand_dims(batch_Y.astype(float), axis=0),
+#                          training=False).numpy()
+#     SFI = logits[n].argmax()
+#     SF = classes[SFI]
+#
+# plots.set_interactive(True)
+# fig, axes = plots.sub(4, ncols=2)
+# plots.image(asarray(image_patch), axes=axes[0])
+# plots.image(batch_Y, axes=axes[1])
+#
+# # plots.image(batch_y.numpy(), axes=axes[0])
+# # plots.image(batch_Y.numpy(), axes=axes[1])
+#
+# plots.intervals(classes, logits, axes=axes[2], xlabel='Predicted sf (class)',
+#                 ylabel='Logits')
+# axes[2].plot([sf, sf], axes[2].get_ylim(), 'k:')
+#
+# plots.hist([classes[logits.argmax(axis=1)].ravel()], classes,
+#            ['predicted sf (class)'], axes=axes[3])
+# axes[3].plot([sf, sf], axes[3].get_ylim(), 'k:')
+# axes[3].set_xlim(scales)
+# axes[3].set_xlabel('Predicted sf')
+# print(
+#     f'Predicted sf (classes): {classes[logits.argmax(axis=1)].round(2).tolist()}')
+# fig.savefig(
+#     'sf_bnn_run/results/native12k_patch_1_{}_{:.2f}.png'.format(resizer,
+#                                                                 float(sf)))
+# fig.show()

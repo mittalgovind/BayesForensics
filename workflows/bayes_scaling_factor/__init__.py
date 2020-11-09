@@ -10,5 +10,5 @@
 
 # Internal libraries
 
-from .trainer import train, run_tests
+from .train_eval import train, run_tests
 from .model import SFP
