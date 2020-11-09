@@ -21,7 +21,10 @@ from trainer import train, run_tests
 from model import SFP
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
+from bayes import TemperatureScaling
+from helpers.tf_helpers import disable_gpu
 
+disable_gpu()
 
 
 def main():
@@ -84,8 +87,8 @@ def main():
                 drop=0.1, append_rgb=False)
 
     model = train(model, args.epochs, data, args.batch_size, cache, **flags)
-    for method in methods:
-        model._model.load_weights(os.path.join(args.save_dir, model_name))
+    model._model.load_weights(os.path.join(args.save_dir, model_name))
+    for method in ['random']:
         run_tests(model, method, data, methods, classes,
                   args.n_val_images, patch_size, args.n_runs, cache)
 
