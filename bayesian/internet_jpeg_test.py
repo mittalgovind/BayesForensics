@@ -12,11 +12,13 @@ import tensorflow as tf
 from helpers import dataset, utils, plots, stats
 from helpers import tf_helpers as tfh
 from sfp import SFP
-from bayes.temp_scaling import TemperatureScaling
+
+from bayes import TemperatureScaling
+from bayes import DeepEnsemble
 
 # tfh.disable_warnings()
-# tfh.disable_gpu()
-utils.setup_logging()
+tfh.disable_gpu()
+utils.setup_loggiong()
 
 # %%
 

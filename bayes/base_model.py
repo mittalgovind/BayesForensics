@@ -65,6 +65,7 @@ class BayesBaseModel(TFModel):
         self.bayesian = bayesian
         self.model_created = False
         self.use_own_dropout = False
+        # self.ensemble_model = Ensemble()
 
         # Put all the layer instances used in the forward (call) pass
         # Depending on your choice of method, Conv2D, Dense and Dropout are chosen accordingly.
