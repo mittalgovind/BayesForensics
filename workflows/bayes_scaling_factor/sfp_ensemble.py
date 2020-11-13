@@ -26,8 +26,13 @@ class SFPDeepEnsemble(DeepEnsemble):
     
     def preprocess(self, batch, scales, patch_size, sampling_method, random_method):
         """
+        Resize a batch with the desired scaling factor and sampling method.
+        Returns the resized batch and their corresponding labels.
+        
         Parameters
         ----------
+        batch : list of np.array
+            Batch to be preprocessed.
         scales : tuple
             Range of values for scaling factor.
         patch_size : int
@@ -35,6 +40,15 @@ class SFPDeepEnsemble(DeepEnsemble):
         sampling_method : str
             Method to be used for sampling.
             Can be one of 'nearest', 'bilinear', 'bicubic', 'lanczos3', or 'random'.
+        random_method : bool
+            Whether sampling_method is 'random' or not.
+            
+        Returns
+        -------
+        batch_processed : tf.Tensor
+            Tensor containing the resized batch.
+        batch_sf : tf.Tensor
+            Tensor containing the target labels.
         """
         # Random scaling factor.
         sf = tf.random.uniform((1,), *scales)
@@ -58,15 +72,19 @@ class SFPDeepEnsemble(DeepEnsemble):
         
     def train(self, epochs, data, batch_size, **kwargs):
         """
+        Trains models inside the Deep Ensemble.
 
         Parameters
         ----------
         epochs : int
-        data : Dataset object
+            Number of epochs to train for.
+        data : helpers.dataset.Dataset
+            Dataset that will be used to load training images.
         batch_size : int
-        cache : ResultCache object
+            Size of batch at every training step.
+        cache : helpers.results_data.ResultCache
+            Structure for naming performance files.
         kwargs
-
         """
         
         patch_size = kwargs['patch_size']
