@@ -6,10 +6,14 @@
 
 # Standard libraries
 import json
+import sys
 
 # External libraries
 import tensorflow as tf
 import numpy as np
+
+# Hacky fix
+sys.path.append('/scratch/jms1595/neural-imaging-dev/')
 
 # Internal libraries
 from helpers.utils import progress_bar

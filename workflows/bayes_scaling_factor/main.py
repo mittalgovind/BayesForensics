@@ -24,7 +24,9 @@ from helpers.results_data import ResultCache
 from bayes import TemperatureScaling
 from helpers.tf_helpers import disable_gpu
 
-disable_gpu()
+from sfp_ensemble import SFPDeepEnsemble
+
+# disable_gpu()
 
 
 def main():
@@ -76,21 +78,31 @@ def main():
     flags = {'lr': 1e-3, 'patch_size': patch_size, 'scales': scales,
              'sampling_method': args.sampling_method, 'classes': classes,
              'save_dir': args.save_dir, 'methods': methods}
+    n_runs = args.n_runs
 
     data = Dataset(data_directory=args.data_dir, load='y',
                    n_images=args.n_train_images, v_images=args.n_val_images,
                    randomize=69)
-
-    model = SFP(args.uncertainty_method, c_filters=(32, 32, 32, 32),
-                d_filters=(32, 16, args.n_classes), kernel=5,
-                activation='leaky_relu', trainable_residual=True,
-                drop=0.1, append_rgb=False)
-
-    model = train(model, args.epochs, data, args.batch_size, cache, **flags)
-    model._model.load_weights(os.path.join(args.save_dir, model_name))
-    for method in ['random']:
+    
+    if args.uncertainty_method == 'ensemble':
+        model = SFPDeepEnsemble(SFP(args.uncertainty_method, c_filters=(32, 32, 32, 32),
+                                d_filters=(32, 16, args.n_classes), kernel=5,
+                                activation='leaky_relu', trainable_residual=True,
+                                drop=0.1, append_rgb=False), 5)
+        model.train(args.epochs, data, args.batch_size, cache, **flags)
+        n_runs = 1
+    
+    else:
+        model = SFP(args.uncertainty_method, c_filters=(32, 32, 32, 32),
+                    d_filters=(32, 16, args.n_classes), kernel=5,
+                    activation='leaky_relu', trainable_residual=True,
+                    drop=0.1, append_rgb=False)
+        model = train(model, args.epochs, data, args.batch_size, cache, **flags)
+        model._model.load_weights(os.path.join(args.save_dir, model_name))
+    
+    for method in methods:
         run_tests(model, method, data, methods, classes,
-                  args.n_val_images, patch_size, args.n_runs, cache)
+                  args.n_val_images, patch_size, n_runs, cache)
 
 
 if __name__ == '__main__':
