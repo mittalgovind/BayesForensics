@@ -135,9 +135,7 @@ def run_tests(model, sampling_method, data, methods, classes, batch_size,
                     rescaled = tf.image.resize(test_batch, [sf, sf],
                                                method=method)
 
-                    logits = tf.convert_to_tensor(
-                        [model(rescaled, training=False)
-                         for _ in range(num_runs)])
+                    logits = model(rescaled, training=False)
 
                     tests_summary['runs'].append({'sf': sf,
                                                   'method': method,
