@@ -15,7 +15,7 @@ import numpy as np
 sys.path.append('/scratch/jms1595/neural-imaging-dev/')
 
 # Internal libraries
-from workflows.bayes_base import DeepEnsemble
+from bayes import DeepEnsemble
 from helpers.utils import progress_bar
 from helpers.stats import quantize
 
@@ -24,10 +24,15 @@ class SFPDeepEnsemble(DeepEnsemble):
     def __init__(self, base_model, n_models):
         super().__init__(base_model, n_models)
     
-    def preprocess(self, batch, scales, patch_size, sampling_method, random_method):
+    def preprocess(self, batch, scales, patch_size, sampling_method, random_method, methods, classes):
         """
+        Resize a batch with the desired scaling factor and sampling method.
+        Returns the resized batch and their corresponding labels.
+        
         Parameters
         ----------
+        batch : list of np.array
+            Batch to be preprocessed.
         scales : tuple
             Range of values for scaling factor.
         patch_size : int
@@ -35,6 +40,15 @@ class SFPDeepEnsemble(DeepEnsemble):
         sampling_method : str
             Method to be used for sampling.
             Can be one of 'nearest', 'bilinear', 'bicubic', 'lanczos3', or 'random'.
+        random_method : bool
+            Whether sampling_method is 'random' or not.
+            
+        Returns
+        -------
+        batch_processed : tf.Tensor
+            Tensor containing the resized batch.
+        batch_sf : tf.Tensor
+            Tensor containing the target labels.
         """
         # Random scaling factor.
         sf = tf.random.uniform((1,), *scales)
@@ -52,21 +66,25 @@ class SFPDeepEnsemble(DeepEnsemble):
                                           [resized_size, resized_size],
                                           method=m)
         class_id = quantize(sf.numpy(), classes, return_indices=True)
-        batch_sf = tf.repeat(class_id, batch.shape[0]).reshape((-1, 1))
+        batch_sf = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
         
         return batch_processed, batch_sf
         
-    def train(self, epochs, data, batch_size, **kwargs):
+    def train(self, epochs, data, batch_size, cache, **kwargs):
         """
+        Trains models inside the Deep Ensemble.
 
         Parameters
         ----------
         epochs : int
-        data : Dataset object
+            Number of epochs to train for.
+        data : helpers.dataset.Dataset
+            Dataset that will be used to load training images.
         batch_size : int
-        cache : ResultCache object
+            Size of batch at every training step.
+        cache : helpers.results_data.ResultCache
+            Structure for naming performance files.
         kwargs
-
         """
         
         patch_size = kwargs['patch_size']
@@ -76,6 +94,7 @@ class SFPDeepEnsemble(DeepEnsemble):
         save_dir = kwargs['save_dir']
         lr = kwargs['lr']
         random_method = sampling_method == 'random'
+        methods = kwargs['methods']
         
         n_batches = data.count_training // batch_size
         
@@ -95,7 +114,8 @@ class SFPDeepEnsemble(DeepEnsemble):
                                                        patch_size)
                     
                     batch_yy, batch_sf = self.preprocess(batch_y, scales, patch_size,
-                                                         sampling_method, random_method)
+                                                         sampling_method, random_method,
+                                                         methods, classes)
 
                     for i in range(self.n_models):
                         with tf.GradientTape() as tape:
