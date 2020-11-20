@@ -11,7 +11,7 @@ import tensorflow as tf
 
 # Internal libraries
 from models.layers import ConstrainedConv2D
-from bayes import BayesBaseModel
+from models.bayes import BayesBaseModel
 
 
 class SFP(BayesBaseModel):

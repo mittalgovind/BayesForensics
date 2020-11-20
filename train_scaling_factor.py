@@ -10,7 +10,7 @@ import sys
 import os
 
 # necessary here, as slurm executes a copy
-sys.path.append(os.path.abspath('../../'))
+sys.path.append(os.path.abspath('/'))
 
 # External libraries
 import numpy as np
@@ -21,8 +21,6 @@ from train_eval import train, run_tests
 from model import SFP
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
-from bayes import TemperatureScaling
-from helpers.tf_helpers import disable_gpu
 
 from sfp_ensemble import SFPDeepEnsemble
 
