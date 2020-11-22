@@ -10,6 +10,6 @@
 
 # Internal libraries
 
-from bayes.base_model import BayesBaseModel
-from bayes.temp_scaling import TemperatureScaling
-from bayes.deep_ensemble import DeepEnsemble
+from models.bayes.base import BayesBaseModel
+from models.bayes.deep_ensemble import DeepEnsemble
+from models.bayes.temp_scaling import TemperatureScaling

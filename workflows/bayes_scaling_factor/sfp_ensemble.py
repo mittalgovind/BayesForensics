@@ -15,7 +15,7 @@ import numpy as np
 sys.path.append('/scratch/jms1595/neural-imaging-dev/')
 
 # Internal libraries
-from bayes import DeepEnsemble
+from models.bayes import DeepEnsemble
 from helpers.utils import progress_bar
 from helpers.stats import quantize
 
