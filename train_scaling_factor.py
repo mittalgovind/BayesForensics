@@ -17,14 +17,13 @@ import numpy as np
 
 # Internal libraries
 
-from train_eval import train, run_tests
-from model import SFP
+from workflows.bayes_scaling_factor import train, run_tests, SFP, BayarStammSFP
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
+from helpers.tf_helpers  import disable_gpu
+from workflows.bayes_scaling_factor import SFPDeepEnsemble
 
-from sfp_ensemble import SFPDeepEnsemble
-
-# disable_gpu()
+disable_gpu()
 
 
 def main():
@@ -81,7 +80,7 @@ def main():
     data = Dataset(data_directory=args.data_dir, load='y',
                    n_images=args.n_train_images, v_images=args.n_val_images,
                    randomize=69)
-    
+
     if args.uncertainty_method == 'ensemble':
         model = SFPDeepEnsemble(SFP(args.uncertainty_method, c_filters=(32, 32, 32, 32),
                                 d_filters=(32, 16, args.n_classes), kernel=5,
@@ -89,15 +88,17 @@ def main():
                                 drop=0.1, append_rgb=False), 5)
         model.train(args.epochs, data, args.batch_size, cache, **flags)
         n_runs = 1
-    
+
     else:
-        model = SFP(args.uncertainty_method, c_filters=(32, 32, 32, 32),
-                    d_filters=(32, 16, args.n_classes), kernel=5,
-                    activation='leaky_relu', trainable_residual=True,
-                    drop=0.1, append_rgb=False)
+        # model = SFP(args.uncertainty_method, c_filters=(32, 32, 32, 32),
+        #             d_filters=(32, 16, args.n_classes), kernel=5,
+        #             activation='leaky_relu', trainable_residual=True,
+        #             drop=0.1, append_rgb=False)
+        model = BayarStammSFP(method=args.uncertainty_method,
+                              n_classes=args.n_classes, patch_size=128)
         model = train(model, args.epochs, data, args.batch_size, cache, **flags)
         model._model.load_weights(os.path.join(args.save_dir, model_name))
-    
+
     for method in methods:
         run_tests(model, method, data, methods, classes,
                   args.n_val_images, patch_size, n_runs, cache)
