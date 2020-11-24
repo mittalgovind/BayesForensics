@@ -67,6 +67,10 @@ def main():
     parser.add_argument('-lr', '--lr',
                         action='store', default=1e-3, type=float,
                         help="Learning_rate")
+    parser.add_argument('--only-eval', default=False,
+                        action='store_true', help='Only evaluate passed model')
+    parser.add_argument('--cont-model-path', type=str,
+                        help='Path to a partially trained model', default=None)
 
     args = parser.parse_args()
 
@@ -106,7 +110,14 @@ def main():
                               n_classes=args.n_classes, patch_size=128)
         model = train(model, args.epochs, data, args.batch_size, cache,
                       **flags)
-        model._model.load_weights(os.path.join(args.save_dir, model_name))
+        if args.cont_model_path:
+            # train for an epoch so that model is built
+            model = train(model, 1, data, args.batch_size, cache=None, **flags)
+            model.load_model(os.path.abspath(args.cont_model_path))
+
+        if not args.only_eval:
+            model = train(model, args.epochs, data, args.batch_size, cache,
+                          **flags)
 
     for method in methods:
         run_tests(model, method, data, methods, classes,
