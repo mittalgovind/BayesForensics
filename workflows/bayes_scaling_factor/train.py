@@ -87,9 +87,11 @@ def train(model, epochs, data, batch_size, cache, patch_size, scales, classes,
                 model.save_model(dirname=save_dir)
                 fig = perf(performance, results="training")
                 fig.savefig(
-                    os.path.join(save_dir, 'train_epoch_{}'.format(epochs)))
+                    os.path.join(save_dir,
+                                 'train_epoch_{}'.format(epochs + 1)))
 
-        cache.save(performance, step='performance',
-                   sampling_method=sampling_method)
+        if cache:
+            cache.save(performance, step='performance',
+                       sampling_method=sampling_method)
 
     return model

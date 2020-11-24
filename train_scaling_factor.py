@@ -17,11 +17,11 @@ import numpy as np
 
 # Internal libraries
 
-from workflows.bayes_scaling_factor import train, run_tests, SFP, BayarStammSFP
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
 from helpers.tf_helpers import disable_gpu
 from workflows.bayes_scaling_factor import SFPDeepEnsemble
+from workflows.bayes_scaling_factor import train, run_tests, SFP, BayarStammSFP
 
 
 def main():
@@ -106,8 +106,6 @@ def main():
         #             drop=0.1, append_rgb=False)
         model = BayarStammSFP(method='vanilla', bayesian=False,
                               n_classes=args.n_classes, patch_size=128)
-        model = train(model, args.epochs, data, args.batch_size, cache,
-                      **flags)
         if args.cont_model_path:
             # train for an epoch so that model is built
             model = train(model, 1, data, args.batch_size, cache=None, **flags)
