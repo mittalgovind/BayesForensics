@@ -15,6 +15,10 @@ from helpers.tf_helpers import activation_mapping
 from models.layers import ConstrainedConv2D
 from models.bayes import BayesBaseModel
 
+from models.bayes import DeepEnsemble
+from helpers.utils import progress_bar
+from helpers.stats import quantize
+
 
 class SFP(BayesBaseModel):
     def __init__(self, method, c_filters, d_filters, kernel,

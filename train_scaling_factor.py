@@ -20,7 +20,7 @@ import numpy as np
 from workflows.bayes_scaling_factor import train, run_tests, SFP, BayarStammSFP
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
-from helpers.tf_helpers  import disable_gpu
+from helpers.tf_helpers import disable_gpu
 from workflows.bayes_scaling_factor import SFPDeepEnsemble
 
 disable_gpu()
@@ -61,10 +61,13 @@ def main():
     parser.add_argument('--data-dir', type=str,
                         default='/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k',
                         help='Data directory for getting images from.')
+    parser.add_argument('-se', '--save_every',
+                        action='store', default=100, type=int,
+                        help="Number of epochs to log after.")
+
     args = parser.parse_args()
 
     # Change json to npz
-
     scales = (
         float(args.scales.split(',')[0]), float(args.scales.split(',')[1]))
     patch_size = 128
@@ -74,7 +77,8 @@ def main():
     classes = np.linspace(*scales, num=args.n_classes)
     flags = {'lr': 1e-3, 'patch_size': patch_size, 'scales': scales,
              'sampling_method': args.sampling_method, 'classes': classes,
-             'save_dir': args.save_dir, 'methods': methods}
+             'save_dir': args.save_dir, 'methods': methods,
+             'save_every': args.save_every}
     n_runs = args.n_runs
 
     data = Dataset(data_directory=args.data_dir, load='y',
@@ -82,10 +86,11 @@ def main():
                    randomize=69)
 
     if args.uncertainty_method == 'ensemble':
-        model = SFPDeepEnsemble(SFP(args.uncertainty_method, c_filters=(32, 32, 32, 32),
-                                d_filters=(32, 16, args.n_classes), kernel=5,
-                                activation='leaky_relu', trainable_residual=True,
-                                drop=0.1, append_rgb=False), 5)
+        model = SFPDeepEnsemble(
+            SFP(args.uncertainty_method, c_filters=(32, 32, 32, 32),
+                d_filters=(32, 16, args.n_classes), kernel=5,
+                activation='leaky_relu', trainable_residual=True,
+                drop=0.1, append_rgb=False), 5)
         model.train(args.epochs, data, args.batch_size, cache, **flags)
         n_runs = 1
 
@@ -96,7 +101,8 @@ def main():
         #             drop=0.1, append_rgb=False)
         model = BayarStammSFP(method=args.uncertainty_method,
                               n_classes=args.n_classes, patch_size=128)
-        model = train(model, args.epochs, data, args.batch_size, cache, **flags)
+        model = train(model, args.epochs, data, args.batch_size, cache,
+                      **flags)
         model._model.load_weights(os.path.join(args.save_dir, model_name))
 
     for method in methods:

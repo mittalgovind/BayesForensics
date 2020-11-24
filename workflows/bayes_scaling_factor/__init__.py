@@ -10,7 +10,8 @@
 
 # Internal libraries
 
-from .train_eval import train, run_tests
-from .model import SFP, BayarStammSFP
+from .train import train
+from .validate import run_tests
+from .flow import SFP, BayarStammSFP
 from .sfp_ensemble import SFPDeepEnsemble
 

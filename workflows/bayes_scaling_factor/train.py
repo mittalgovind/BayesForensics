@@ -5,8 +5,8 @@
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
-import json
 import sys
+import os
 
 # External libraries
 import tensorflow as tf
@@ -18,9 +18,11 @@ sys.path.append('/scratch/jms1595/neural-imaging-dev/')
 # Internal libraries
 from helpers.utils import progress_bar
 from helpers.stats import quantize
+from helpers.plots import perf
 
 
-def train(model, epochs, data, batch_size, cache, **kwargs):
+def train(model, epochs, data, batch_size, cache, patch_size, scales, classes,
+          sampling_method, save_dir, lr, methods, save_every):
     """Scaling factor training
     Parameters
     ----------
@@ -35,15 +37,7 @@ def train(model, epochs, data, batch_size, cache, **kwargs):
     -------
 
     """
-    patch_size = kwargs['patch_size']
-    scales = kwargs['scales']
-    classes = kwargs['classes']
-    sampling_method = kwargs['sampling_method']
-    save_dir = kwargs['save_dir']
-    lr = kwargs['lr']
     random_method = sampling_method == 'random'
-    methods = kwargs['methods']
-
     n_batches = data.count_training // batch_size
 
     performance = {'loss': {'training': []}}
@@ -89,57 +83,13 @@ def train(model, epochs, data, batch_size, cache, **kwargs):
             pbar.set_postfix(loss=losses / n_batches)
             pbar.update(1)
 
-            if (epoch + 1) % 100 == 0:
+            if (epoch + 1) % save_every == 0:
                 model.save_model(dirname=save_dir)
+                fig = perf(performance, results="training")
+                fig.savefig(
+                    os.path.join(save_dir, 'train_epoch_{}'.format(epochs)))
 
         cache.save(performance, step='performance',
                    sampling_method=sampling_method)
 
     return model
-
-
-def run_tests(model, sampling_method, data, methods, classes, batch_size,
-              patch_size, num_runs, cache):
-    """
-
-    Parameters
-    ----------
-    model : BayesModel()
-        Bayes model for running tests
-    sampling_method : str
-
-    data
-    methods
-    classes
-    batch_size
-    patch_size
-    num_runs
-    cache
-
-    Returns
-    -------
-
-    """
-    tests_summary = {'runs': []}
-
-    n_val_batches = data.count_validation // batch_size
-    num_eval = n_val_batches * len(classes) * len(methods)
-    sfs = tf.convert_to_tensor((classes * patch_size).astype(int))
-
-    with progress_bar(num_eval, 'Evaluation') as pbar:
-        for batch_id in range(n_val_batches):
-            test_batch = data.next_validation_batch(batch_id, batch_size)
-
-            for m, method in enumerate(methods[:-1]):
-                for s, sf in enumerate(sfs):
-                    rescaled = tf.image.resize(test_batch, [sf, sf],
-                                               method=method)
-
-                    logits = model(rescaled, training=False)
-
-                    tests_summary['runs'].append({'sf': sf,
-                                                  'method': method,
-                                                  'logits': logits})
-                    pbar.update(1)
-
-    cache.save(tests_summary, step='tests', sampling_method=sampling_method)
