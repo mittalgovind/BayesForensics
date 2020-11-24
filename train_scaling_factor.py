@@ -23,8 +23,6 @@ from helpers.results_data import ResultCache
 from helpers.tf_helpers import disable_gpu
 from workflows.bayes_scaling_factor import SFPDeepEnsemble
 
-disable_gpu()
-
 
 def main():
     parser = argparse.ArgumentParser(
