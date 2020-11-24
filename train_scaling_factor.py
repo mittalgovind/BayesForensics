@@ -64,6 +64,9 @@ def main():
     parser.add_argument('-se', '--save_every',
                         action='store', default=100, type=int,
                         help="Number of epochs to log after.")
+    parser.add_argument('-lr', '--lr',
+                        action='store', default=1e-3, type=float,
+                        help="Learning_rate")
 
     args = parser.parse_args()
 
@@ -75,7 +78,7 @@ def main():
     methods = ['nearest', 'bilinear', 'bicubic', 'lanczos3', 'random']
     cache = ResultCache(['{step}_{sampling_method}.npz'], prefix=args.save_dir)
     classes = np.linspace(*scales, num=args.n_classes)
-    flags = {'lr': 1e-3, 'patch_size': patch_size, 'scales': scales,
+    flags = {'lr': args.lr, 'patch_size': patch_size, 'scales': scales,
              'sampling_method': args.sampling_method, 'classes': classes,
              'save_dir': args.save_dir, 'methods': methods,
              'save_every': args.save_every}
@@ -99,7 +102,7 @@ def main():
         #             d_filters=(32, 16, args.n_classes), kernel=5,
         #             activation='leaky_relu', trainable_residual=True,
         #             drop=0.1, append_rgb=False)
-        model = BayarStammSFP(method=args.uncertainty_method,
+        model = BayarStammSFP(method='vanilla', bayesian=False,
                               n_classes=args.n_classes, patch_size=128)
         model = train(model, args.epochs, data, args.batch_size, cache,
                       **flags)
