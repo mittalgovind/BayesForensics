@@ -129,7 +129,7 @@ class BayesBaseModel(TFModel):
             self.create_model()
             self.model_created = True
             logger.info("Model created successfully.")
-
+            logger.info('{}'.format(self._model._layers))
         logits = self._call(inputs, training)
 
         return self._model._fc(logits, training=training)
