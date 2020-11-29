@@ -58,6 +58,12 @@ def main():
     parser.add_argument('--data-dir', type=str,
                         default='/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k',
                         help='Data directory for getting images from.')
+    parser.add_argument('-a', '--adversarial', dest='adversarial', action='store_true')
+    parser.add_argument('--no-adversarial', dest='adversarial', action='store_false')
+    parser.set_defaults(adversarial=False)
+    parser.add_argument('-eps', '--epsilon', dest='epsilon', action='store', default=0.01,
+                       help="Epsilon value used when generating adversarial training examples.")
+    
     args = parser.parse_args()
 
     # Change json to npz
@@ -71,7 +77,8 @@ def main():
     classes = np.linspace(*scales, num=args.n_classes)
     flags = {'lr': 1e-3, 'patch_size': patch_size, 'scales': scales,
              'sampling_method': args.sampling_method, 'classes': classes,
-             'save_dir': args.save_dir, 'methods': methods}
+             'save_dir': args.save_dir, 'methods': methods,
+             'adversarial': args.adversarial, 'epsilon': args.epsilon}
     n_runs = args.n_runs
 
     data = Dataset(data_directory=args.data_dir, load='y',
@@ -94,7 +101,7 @@ def main():
         model = train(model, args.epochs, data, args.batch_size, cache, **flags)
         model._model.load_weights(os.path.join(args.save_dir, model_name))
     
-    run_tests(model, args.sampling_method, data, methods[:-1], classes,
+    run_tests(model, args.sampling_method, data, methods, classes,
               args.n_val_images, patch_size, n_runs, cache)
 
 
