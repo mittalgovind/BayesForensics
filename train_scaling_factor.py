@@ -16,13 +16,9 @@ sys.path.append(os.path.abspath('/'))
 import numpy as np
 
 # Internal libraries
-
-from train_eval import train, run_tests
-from model import SFP
+from workflows.bayes_scaling_factor import SFP, SFPDeepEnsemble, train, run_tests
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
-
-from sfp_ensemble import SFPDeepEnsemble
 
 # disable_gpu()
 
@@ -98,9 +94,8 @@ def main():
         model = train(model, args.epochs, data, args.batch_size, cache, **flags)
         model._model.load_weights(os.path.join(args.save_dir, model_name))
     
-    for method in methods:
-        run_tests(model, method, data, methods, classes,
-                  args.n_val_images, patch_size, n_runs, cache)
+    run_tests(model, args.sampling_method, data, methods[:-1], classes,
+              args.n_val_images, patch_size, n_runs, cache)
 
 
 if __name__ == '__main__':

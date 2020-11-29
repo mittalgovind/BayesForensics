@@ -12,3 +12,4 @@
 
 from .train_eval import train, run_tests
 from .model import SFP
+from .sfp_ensemble import SFPDeepEnsemble

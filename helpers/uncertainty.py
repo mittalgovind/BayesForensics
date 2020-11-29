@@ -8,6 +8,8 @@
 
 # External libraries
 from scipy.stats import mode, entropy
+from scipy.special import softmax
+import numpy as np
 
 # Internal libraries
 
@@ -36,7 +38,7 @@ def get_probs_passes_logits(logits):
 
 
 def variation_ratio(logits):
-    set_trace()
+    # set_trace()
     probs, n_passes, _ = get_probs_passes_logits(logits)
     means = np.array([[np.sum(c) / n_passes for c in run.T] for run in probs])
     var_ratio = 1 - means[np.argmax(means, axis=-1)]
