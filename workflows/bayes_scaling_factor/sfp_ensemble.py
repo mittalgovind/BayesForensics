@@ -95,6 +95,9 @@ class SFPDeepEnsemble(DeepEnsemble):
         lr = kwargs['lr']
         random_method = sampling_method == 'random'
         methods = kwargs['methods']
+        adversarial = kwargs['adversarial']
+        if adversarial:
+            epsilon = kwargs['epsilon']
         
         n_batches = data.count_training // batch_size
         
@@ -127,6 +130,24 @@ class SFPDeepEnsemble(DeepEnsemble):
 
                         # Update loss counter.
                         losses[i] += loss.numpy()
+                        
+                        # Adversarial training.
+                        if adversarial:
+                            with tf.GradientTape() as tape:
+                                tape.watch(batch_yy)
+                                loss = loss_criterion(batch_sf,
+                                                      self.models[i](batch_yy, training=True))
+                            
+                            grad_adv = tape.gradient(loss, batch_yy)
+                            sign_grads = tf.sign(grad_adv)
+                            batch_adv = tf.clip_by_value(batch_yy + sign_grads * epsilon, -1, 1)
+                            
+                            with tf.GradientTape() as tape:
+                                loss_adv = loss_criterion(batch_sf,
+                                                          self.models[i](batch_adv, training=True))
+                            
+                            grads_adv = tape.gradient(loss_adv, self.models[i].variables)
+                            opt.apply_gradients(zip(grads_adv, self.models[i].variables))
 
                 # Save losses.
                 for i in range(self.n_models):
