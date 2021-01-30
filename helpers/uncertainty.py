@@ -49,7 +49,7 @@ def predictive_entropy(logits):
     probs, n_passes, _ = get_probs_passes_logits(logits)
     means = np.array([[np.sum(c) / n_passes for c in run.T] for run in probs])
 
-    pred_ent = -np.sum(np.multiply(means, np.log(np.clip(means, 1e-12, None))),
+    pred_ent = -np.sum(np.multiply(means, np.log2(np.clip(means, 1e-12, None))),
                        axis=-1)
     return pred_ent
 

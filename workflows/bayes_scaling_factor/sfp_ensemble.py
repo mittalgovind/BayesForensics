@@ -121,33 +121,37 @@ class SFPDeepEnsemble(DeepEnsemble):
                                                          methods, classes)
 
                     for i in range(self.n_models):
+                        # Create adversarial batch.
+                        if adversarial:
+                            ### Look into using a single Gradient Tape.
+                            ### Check with a single model.
+                            ### Check if the adv example actually works.
+                            ### Implement being able to stop and resume training.
+                            ### Schedule for adversarial training.
+                            
+                            with tf.GradientTape() as tape:
+                                tape.watch(batch_yy)
+                                loss = loss_criterion(batch_sf,
+                                                      self.models[i](batch_yy, training=False))
+                            
+                            grad_adv = tape.gradient(loss, batch_yy)
+                            sign_grads = tf.sign(grad_adv)
+                            batch_adv = tf.clip_by_value(batch_yy + sign_grads * epsilon, 0, 1)
+                        
                         with tf.GradientTape() as tape:
                             loss = loss_criterion(batch_sf,
                                                   self.models[i](batch_yy, training=True))
+                            
+                            # Loss becomes the sum of both adversarial loss and regular training loss.
+                            if adversarial:
+                                loss += loss_criterion(batch_sf,
+                                                       self.models[i](batch_adv, training=True))
 
                         grads = tape.gradient(loss, self.models[i].variables)
                         opt.apply_gradients(zip(grads, self.models[i].variables))
 
                         # Update loss counter.
                         losses[i] += loss.numpy()
-                        
-                        # Adversarial training.
-                        if adversarial:
-                            with tf.GradientTape() as tape:
-                                tape.watch(batch_yy)
-                                loss = loss_criterion(batch_sf,
-                                                      self.models[i](batch_yy, training=True))
-                            
-                            grad_adv = tape.gradient(loss, batch_yy)
-                            sign_grads = tf.sign(grad_adv)
-                            batch_adv = tf.clip_by_value(batch_yy + sign_grads * epsilon, -1, 1)
-                            
-                            with tf.GradientTape() as tape:
-                                loss_adv = loss_criterion(batch_sf,
-                                                          self.models[i](batch_adv, training=True))
-                            
-                            grads_adv = tape.gradient(loss_adv, self.models[i].variables)
-                            opt.apply_gradients(zip(grads_adv, self.models[i].variables))
 
                 # Save losses.
                 for i in range(self.n_models):
