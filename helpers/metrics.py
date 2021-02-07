@@ -23,7 +23,9 @@ def ssim(a, b):
         return out
 
     else:
-        raise ValueError('Incompatible tensor shapes! {} and {}'.format(a.shape, b.shape))
+        raise ValueError(
+            "Incompatible tensor shapes! {} and {}".format(a.shape, b.shape)
+        )
 
 
 def psnr(a, b):
@@ -43,7 +45,9 @@ def psnr(a, b):
         return out
 
     else:
-        raise ValueError('Incompatible tensor shapes! {} and {}'.format(a.shape, b.shape))
+        raise ValueError(
+            "Incompatible tensor shapes! {} and {}".format(a.shape, b.shape)
+        )
 
 
 def mse(a, b):
@@ -63,7 +67,9 @@ def mse(a, b):
         return out
 
     else:
-        raise ValueError('Incompatible tensor shapes! {} and {}'.format(a.shape, b.shape))
+        raise ValueError(
+            "Incompatible tensor shapes! {} and {}".format(a.shape, b.shape)
+        )
 
     return metrics.mean_squared_error(a.squeeze(), b.squeeze())
 
@@ -85,21 +91,24 @@ def mae(a, b):
         return out
 
     else:
-        raise ValueError('Incompatible tensor shapes! {} and {}'.format(a.shape, b.shape))
+        raise ValueError(
+            "Incompatible tensor shapes! {} and {}".format(a.shape, b.shape)
+        )
 
 
 def batch(a, b, metric=ssim):
-    assert a.ndim == 4 and b.ndim == 4, 'Input arrays need to be 4-dim: batch, height, width, channels'
-    assert len(a) == len(b), 'Image batches must be of the same length'
+    assert (
+        a.ndim == 4 and b.ndim == 4
+    ), "Input arrays need to be 4-dim: batch, height, width, channels"
+    assert len(a) == len(b), "Image batches must be of the same length"
     return np.mean([metric(a[r], b[r]) for r in range(len(a))])
-
 
 
 # Brier score as loss. (Lakshminarayanan et al. 2017)
 def brier_loss(y_true, y_pred, from_logits=False):
     """
     Function for calculating Brier score loss for classification problems.
-    
+
     Parameters
     ----------
     y_true : tf.Tensor
@@ -108,7 +117,7 @@ def brier_loss(y_true, y_pred, from_logits=False):
         Output from the model.
     from_logits : bool, optional
         Whether y_pred contains logits or probabilities (default: False).
-        
+
     Returns
     -------
     brier : tf.Tensor
@@ -116,13 +125,9 @@ def brier_loss(y_true, y_pred, from_logits=False):
     """
     if from_logits:
         y_pred = tf.nn.softmax(y_pred)
-    
+
     brier = tf.reduce_mean(
-        tf.reduce_sum(
-            (y_pred - tf.cast(y_true, tf.float32))**2, axis=1
-        )
+        tf.reduce_sum((y_pred - tf.cast(y_true, tf.float32)) ** 2, axis=1)
     )
-    
+
     return brier
-
-

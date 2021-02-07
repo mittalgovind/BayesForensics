@@ -7,6 +7,7 @@ import scipy as sp
 from scipy import stats
 from scipy import cluster
 
+
 def detection_accuracy(positive, negative, bins=100, return_index=False):
     """
     Estimate binary detection accuracy from response distributions for matching and missing samples. Uses a simple
@@ -25,7 +26,10 @@ def detection_accuracy(positive, negative, bins=100, return_index=False):
     if isinstance(bins, int):
         bins = span(negative, positive, bins)
 
-    accuracies = [0.5 * (np.mean(positive >= thresh) + np.mean(negative < thresh)) for thresh in bins]
+    accuracies = [
+        0.5 * (np.mean(positive >= thresh) + np.mean(negative < thresh))
+        for thresh in bins
+    ]
 
     max_accuracy = np.max(accuracies)
     index = int(np.nonzero(accuracies == max_accuracy)[0].mean())
@@ -74,10 +78,14 @@ def auc(positive, negative, bins=100):
     tpr, fpr = roc(positive, negative, bins)
 
     if tpr[0] != 0 or fpr[0] != 0:
-        raise ValueError('The ROC should start at (0, 0) - double check the detection threshold sweep')
+        raise ValueError(
+            "The ROC should start at (0, 0) - double check the detection threshold sweep"
+        )
 
     if tpr[-1] != 1 or fpr[-1] != 1:
-        raise ValueError('The ROC should end at (1, 1) - double check the detection threshold sweep')
+        raise ValueError(
+            "The ROC should end at (1, 1) - double check the detection threshold sweep"
+        )
 
     return np.trapz(tpr, fpr)
 
@@ -90,7 +98,10 @@ def inlier_rate(candidates, reference, perc=0.05):
     :param perc: percentile (0-1)
     :return: fraction of candidate points (float in 0-1)
     """
-    return np.mean((candidates > np.percentile(reference, 100 * perc)) * (candidates < np.percentile(reference, 100 * (1 - perc))))
+    return np.mean(
+        (candidates > np.percentile(reference, 100 * perc))
+        * (candidates < np.percentile(reference, 100 * (1 - perc)))
+    )
 
 
 def corrcoeff(a, b):
@@ -113,7 +124,7 @@ def batch_correlations(batch, flat=False):
         c = np.zeros((len(batch), len(batch)))
 
     for i in range(len(batch)):
-        for j in range(i+1 if flat else i, len(batch)):
+        for j in range(i + 1 if flat else i, len(batch)):
             if flat:
                 c.append(corrcoeff(batch[i], batch[j]))
             else:
@@ -126,6 +137,7 @@ def batch_correlations(batch, flat=False):
 def rsquared(a, b):
     """ Returns the coefficient of determination (R^2) between two arrays (normalized) """
     from sklearn.metrics import r2_score
+
     a = (a - np.mean(a)) / (1e-9 + np.std(a))
     b = (b - np.mean(b)) / (1e-9 + np.std(b))
     return r2_score(a, b)
@@ -155,14 +167,16 @@ def entropy(samples, code_book=None):
     counts = hist(samples, code_book)
     counts = counts.clip(min=1)
     probs = counts / counts.sum()
-    return - np.sum(probs * np.log2(probs))
+    return -np.sum(probs * np.log2(probs))
 
 
 def bin_edges(code_book):
     max_float = np.max(code_book)
     min_float = np.min(code_book)
-    code_book_edges = np.convolve(code_book, [0.5, 0.5], mode='valid')
-    code_book_edges = np.concatenate((np.array([min_float]), code_book_edges, np.array([max_float])), axis=0)
+    code_book_edges = np.convolve(code_book, [0.5, 0.5], mode="valid")
+    code_book_edges = np.concatenate(
+        (np.array([min_float]), code_book_edges, np.array([max_float])), axis=0
+    )
     return code_book_edges
 
 
@@ -171,7 +185,8 @@ def quantize(samples, code_book, return_indices=False):
     if not isinstance(samples, np.ndarray):
         samples = np.array(samples)
     if not isinstance(code_book, np.ndarray):
-        code_book = np.ndarray(code_book)
+        # TODO (Pawel) New bug. Changed np.ndarray -> nd.array.
+        code_book = np.array(code_book)
 
     indices, distortion = cluster.vq.vq(samples.reshape((-1)), code_book)
 
@@ -191,19 +206,24 @@ def kld_discrete(samples_a, samples_b, bins=25):
 
 
 def span(negative, positive, bins=100):
-    bins = np.linspace(np.min([positive.min(), negative.min()]) - 1e-6,
-                       np.max([positive.max(), negative.max()]) + 1e-6, bins)
+    bins = np.linspace(
+        np.min([positive.min(), negative.min()]) - 1e-6,
+        np.max([positive.max(), negative.max()]) + 1e-6,
+        bins,
+    )
     return bins
 
 
 def ma_gaussian(x, y, step_size=0.05, width=10):
     """Moving average with Gaussian averaging"""
-    bin_centers = np.arange(np.min(x), np.max(x) - 0.5*step_size, step_size) + 0.5*step_size
+    bin_centers = (
+        np.arange(np.min(x), np.max(x) - 0.5 * step_size, step_size) + 0.5 * step_size
+    )
     bin_avg = np.zeros(len(bin_centers))
 
     # We're going to weight with a Gaussian function
     def gaussian(x, amp=1, mean=0, sigma=1):
-        return amp*np.exp(-(x-mean)**2/(2*sigma**2))
+        return amp * np.exp(-((x - mean) ** 2) / (2 * sigma ** 2))
 
     for index in range(0, len(bin_centers)):
         bin_center = bin_centers[index]
@@ -220,11 +240,11 @@ def ma_conv(x, n=10):
         return np.array([])
 
     if n == 0:
-        n = (len(x) // 10)
+        n = len(x) // 10
 
-    fn = 2*n + 1
+    fn = 2 * n + 1
 
-    return np.convolve(np.pad(x, n, 'edge'), np.ones((fn,))/fn, mode='valid')
+    return np.convolve(np.pad(x, n, "edge"), np.ones((fn,)) / fn, mode="valid")
 
 
 def ma_exp(x, alpha=0.1):
@@ -235,20 +255,22 @@ def ma_exp(x, alpha=0.1):
     y = np.zeros_like(x)
     y[0] = x[0]
     for i in range(1, x.shape[0]):
-        y[i] = alpha * x[i] + (1-alpha) * y[i-1]
+        y[i] = alpha * x[i] + (1 - alpha) * y[i - 1]
 
     return y
 
 
 def interproot(x, y, offset):
-    f = sp.interpolate.interp1d(x, y, kind='cubic')
+    f = sp.interpolate.interp1d(x, y, kind="cubic")
     try:
-        return sp.optimize.root_scalar(lambda x: f(x) - offset, bracket=[x.min(), x.max()]).root
+        return sp.optimize.root_scalar(
+            lambda x: f(x) - offset, bracket=[x.min(), x.max()]
+        ).root
     except:
         return 0
 
 
 def interpmin(x, y):
-    f = sp.interpolate.interp1d(x, y, kind='cubic')
-    X = sp.optimize.minimize_scalar(f, method='bounded', bounds=[x.min(), x.max()]).x
+    f = sp.interpolate.interp1d(x, y, kind="cubic")
+    X = sp.optimize.minimize_scalar(f, method="bounded", bounds=[x.min(), x.max()]).x
     return X, f(X)

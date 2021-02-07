@@ -22,13 +22,13 @@ from IPython.display import display, HTML
 from loguru import logger
 
 activation_mapping = {
-    'none': None,
-    'leaky_relu': tf.keras.layers.LeakyReLU(alpha=0.2),
-    'relu': tf.keras.activations.relu,
-    'selu': tf.keras.activations.selu,
-    'tanh': tf.keras.activations.tanh,
-    'sigmoid': tf.keras.activations.sigmoid,
-    'softsign': tf.keras.activations.softsign
+    "none": None,
+    "leaky_relu": tf.keras.layers.LeakyReLU(alpha=0.2),
+    "relu": tf.keras.activations.relu,
+    "selu": tf.keras.activations.selu,
+    "tanh": tf.keras.activations.tanh,
+    "sigmoid": tf.keras.activations.sigmoid,
+    "softsign": tf.keras.activations.softsign,
 }
 
 
@@ -53,8 +53,12 @@ def ssim(a, b):
 
 
 def corr(a, b):
-    a = (a - tf.reduce_mean(a, axis=[1, 2, 3], keepdims=True)) / (1e-9 + tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True))
-    b = (b - tf.reduce_mean(b, axis=[1, 2, 3], keepdims=True)) / (1e-9 + tf.math.reduce_std(b, axis=[1, 2, 3], keepdims=True))
+    a = (a - tf.reduce_mean(a, axis=[1, 2, 3], keepdims=True)) / (
+        1e-9 + tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True)
+    )
+    b = (b - tf.reduce_mean(b, axis=[1, 2, 3], keepdims=True)) / (
+        1e-9 + tf.math.reduce_std(b, axis=[1, 2, 3], keepdims=True)
+    )
     c = tf.reduce_mean(a * b, axis=[1, 2, 3])
     return c
 
@@ -67,7 +71,8 @@ def corrcoeff(a, b):
 
 
 def rsquared(a, b):
-    from sklearn.metrics import r2_score 
+    from sklearn.metrics import r2_score
+
     a = (a - tf.reduce_mean(a)) / (1e-9 + tf.math.reduce_std(a))
     b = (b - tf.reduce_mean(b)) / (1e-9 + tf.math.reduce_std(b))
     return r2_score(a, b)
@@ -85,12 +90,15 @@ def instance_normalization(x):
     return (x - batch_means(x)) / (1e-9 + batch_stds(x))
 
 
-def manipulation_resample(x, factor=50, method='bilinear'):
+def manipulation_resample(x, factor=50, method="bilinear"):
 
     if 0 < factor <= 1:
         factor = 100 * factor
 
-    output_shape = [tf.shape(x)[1] * int(factor) // 100, tf.shape(x)[1] * int(factor) // 100]
+    output_shape = [
+        tf.shape(x)[1] * int(factor) // 100,
+        tf.shape(x)[1] * int(factor) // 100,
+    ]
 
     im_res = tf.image.resize(x, output_shape, method=method)
     return tf.image.resize(im_res, [tf.shape(x)[1], tf.shape(x)[1]], method)
@@ -105,18 +113,29 @@ def manipulation_awgn(x, strength=0.025):
 def manipulation_gamma(x, strength=2.0):
     im_gamma = tf.pow(x, strength)
     im_gamma = soft_quantization(im_gamma)
-    return tf.pow(tf.clip_by_value(im_gamma, 1.0/255, 1), 1/strength)
+    return tf.pow(tf.clip_by_value(im_gamma, 1.0 / 255, 1), 1 / strength)
 
 
-def manipulation_median(x, kernel=3):    
+def manipulation_median(x, kernel=3):
     kernel = int(kernel)
     if kernel % 2 == 0:
         kernel += 1
     kernel = max(kernel, 1)
 
-    xp = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
-    patches = tf.image.extract_patches(xp, [1, kernel, kernel, 1], [1, 1, 1, 1], 4*[1], 'VALID')
-    patches = tf.reshape(patches, [tf.shape(patches)[0], tf.shape(patches)[1], tf.shape(patches)[2], tf.shape(patches)[3]//3, 3])
+    xp = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], "REFLECT")
+    patches = tf.image.extract_patches(
+        xp, [1, kernel, kernel, 1], [1, 1, 1, 1], 4 * [1], "VALID"
+    )
+    patches = tf.reshape(
+        patches,
+        [
+            tf.shape(patches)[0],
+            tf.shape(patches)[1],
+            tf.shape(patches)[2],
+            tf.shape(patches)[3] // 3,
+            3,
+        ],
+    )
     patches = tf.transpose(patches, [0, 1, 2, 4, 3])
 
     area = kernel ** 2
@@ -137,21 +156,28 @@ def manipulation_gaussian(x, kernel, std, skip_clip=False):
     for r in range(x.shape[-1]):
         gfilter[:, :, r, r] = gk
     gkk = tf.constant(gfilter, tf.float32)
-    xp = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
-    y = tf.nn.conv2d(xp, gkk, [1, 1, 1, 1], 'VALID')
+    xp = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], "REFLECT")
+    y = tf.nn.conv2d(xp, gkk, [1, 1, 1, 1], "VALID")
     if skip_clip:
         return y
     else:
         return tf.clip_by_value(y, 0, 1)
 
+
 def residual(x, hsv=False):
-    with tf.name_scope('residual_filter'):
+    with tf.name_scope("residual_filter"):
 
         # Prepare the sharpening filter
-        gk = np.array([[-0.0833, -0.1667, -0.0833], [-0.1667, 1, -0.1667], [-0.0833, -0.1667, -0.0833]])
+        gk = np.array(
+            [
+                [-0.0833, -0.1667, -0.0833],
+                [-0.1667, 1, -0.1667],
+                [-0.0833, -0.1667, -0.0833],
+            ]
+        )
 
         if gk is None or gk.ndim != 2 or gk.shape[0] != gk.shape[1]:
-            raise ValueError('Invalid filter! {}'.format(gk))
+            raise ValueError("Invalid filter! {}".format(gk))
 
         kernel = gk.shape[0]
         gfilter = repeat_2dfilter(gk, 3)
@@ -161,26 +187,33 @@ def residual(x, hsv=False):
 
         gkk = tf.constant(gfilter, tf.float32)
 
-        y = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
+        y = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], "REFLECT")
 
         if hsv:
             y = tf.image.rgb_to_hsv(y)
 
-        y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], 'VALID')
+        y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], "VALID")
 
         if hsv:
             y = tf.image.hsv_to_rgb(y)
 
         return y
 
+
 def manipulation_sharpen(x, strength=1, hsv=True):
     # Prepare the sharpening filter
-    gk = np.array([[-0.0833, -0.1667, -0.0833], [-0.1667, 0, -0.1667], [-0.0833, -0.1667, -0.0833]])
+    gk = np.array(
+        [
+            [-0.0833, -0.1667, -0.0833],
+            [-0.1667, 0, -0.1667],
+            [-0.0833, -0.1667, -0.0833],
+        ]
+    )
     gk = strength * gk / np.abs(gk.sum())
     gk[1, 1] = strength + 1
 
     if gk is None or gk.ndim != 2 or gk.shape[0] != gk.shape[1]:
-        raise ValueError('Invalid filter! {}'.format(gk))
+        raise ValueError("Invalid filter! {}".format(gk))
 
     gfilter = repeat_2dfilter(gk, 3)
 
@@ -190,25 +223,39 @@ def manipulation_sharpen(x, strength=1, hsv=True):
 
     gkk = tf.constant(gfilter, tf.float32)
     pad = gk.shape[0] // 2
-    y = tf.pad(x, [[0, 0], [pad, pad], [pad, pad], [0, 0]], 'SYMMETRIC')
+    y = tf.pad(x, [[0, 0], [pad, pad], [pad, pad], [0, 0]], "SYMMETRIC")
 
     y = tf.image.rgb_to_hsv(y) if hsv else y
-    y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], 'VALID')
+    y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], "VALID")
     y = tf.image.hsv_to_rgb(y) if hsv else y
 
     return tf.clip_by_value(y, 0, 1)
 
+
 def residual(x, hsv=False):
     # Prepare the sharpening filter
-    gk = np.array([[-0.0833, -0.1667, -0.0833], [-0.1667, 1, -0.1667], [-0.0833, -0.1667, -0.0833]])
+    gk = np.array(
+        [
+            [-0.0833, -0.1667, -0.0833],
+            [-0.1667, 1, -0.1667],
+            [-0.0833, -0.1667, -0.0833],
+        ]
+    )
+
 
 def residual(x, hsv=False):
 
     # Prepare the residual filter
-    gk = np.array([[-0.0833, -0.1667, -0.0833], [-0.1667, 1, -0.1667], [-0.0833, -0.1667, -0.0833]])
+    gk = np.array(
+        [
+            [-0.0833, -0.1667, -0.0833],
+            [-0.1667, 1, -0.1667],
+            [-0.0833, -0.1667, -0.0833],
+        ]
+    )
 
     if gk is None or gk.ndim != 2 or gk.shape[0] != gk.shape[1]:
-        raise ValueError('Invalid filter! {}'.format(gk))
+        raise ValueError("Invalid filter! {}".format(gk))
 
     kernel = gk.shape[0]
     gfilter = repeat_2dfilter(gk, 3)
@@ -219,10 +266,10 @@ def residual(x, hsv=False):
 
     gkk = tf.constant(gfilter, tf.float32)
 
-    y = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
+    y = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], "REFLECT")
 
     y = tf.image.rgb_to_hsv(y) if hsv else y
-    y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], 'VALID')
+    y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], "VALID")
     y = tf.image.hsv_to_rgb(y) if hsv else y
 
     return y
@@ -234,7 +281,7 @@ def residual_norm(rgb_src, src_batch=0, shuffle=True):
         rgb_src = tf.random.shuffle(rgb_src)
     if src_batch > 0:
         rgb_src = rgb_src[:src_batch]
-    res_src = residual(rgb_src) 
+    res_src = residual(rgb_src)
     res_src = tf.reduce_mean(res_src, axis=0, keepdims=True)
     res_src = (res_src - tf.reduce_mean(res_src)) / (1e-9 + tf.math.reduce_std(res_src))
     return res_src
@@ -252,20 +299,24 @@ def _strip_consts(graph_def, max_const_size=32):
     for n0 in graph_def.node:
         n = strip_def.node.add()
         n.MergeFrom(n0)
-        if n.op == 'Const':
-            tensor = n.attr['value'].tensor
+        if n.op == "Const":
+            tensor = n.attr["value"].tensor
             size = len(tensor.tensor_content)
             if size > max_const_size:
-                tensor.tensor_content = bytes("<stripped %d bytes>"%size, 'ascii')
+                tensor.tensor_content = bytes("<stripped %d bytes>" % size, "ascii")
     return strip_def
 
 
 def show_model(model, show_shapes=True, expand_nested=False):
     """ Generate a static diagram of a tf.keras.Model. """
-    return tf.keras.utils.plot_model(model, show_shapes=show_shapes, expand_nested=expand_nested, dpi=72)
+    return tf.keras.utils.plot_model(
+        model, show_shapes=show_shapes, expand_nested=expand_nested, dpi=72
+    )
 
 
-def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungroup_gradients=False):
+def show_graph(
+    graph_def=None, width=1200, height=800, max_const_size=32, ungroup_gradients=False
+):
     """ Generate a dynamic visualization of a tf.keras.Model using Tensorboard. """
 
     if isinstance(graph_def, tf.keras.Model):
@@ -275,7 +326,7 @@ def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungrou
         graph_def = tf.compat.v1.get_default_graph().as_graph_def()
 
     """Visualize TensorFlow graph."""
-    if hasattr(graph_def, 'as_graph_def'):
+    if hasattr(graph_def, "as_graph_def"):
         graph_def = graph_def.as_graph_def()
 
     strip_def = _strip_consts(graph_def, max_const_size=max_const_size)
@@ -294,17 +345,21 @@ def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungrou
         <div style="height:{height}px">
           <tf-graph-basic id="{id}"></tf-graph-basic>
         </div>
-    """.format(data=repr(data), height=height, id='graph'+str(np.random.rand()))
+    """.format(
+        data=repr(data), height=height, id="graph" + str(np.random.rand())
+    )
 
     iframe = """
         <iframe seamless style="width:{}px;height:{}px;border:0" srcdoc="{}"></iframe>
-    """.format(width, height, code.replace('"', '&quot;'))
+    """.format(
+        width, height, code.replace('"', "&quot;")
+    )
     display(HTML(iframe))
 
 
 def soft_quantization(x, alpha=255):
     """
-     Quantizes a float image with values in [0,1] to simulate uint8 representation.
+    Quantizes a float image with values in [0,1] to simulate uint8 representation.
     """
     x = alpha * x
     x_ = tf.subtract(x, tf.sin(2 * np.pi * x) / (2 * np.pi))
@@ -340,8 +395,8 @@ def entropy(values, codebook, v=50, gamma=25):
     eps = 1e-72
     prec_dtype = tf.float64
 
-    assert (codebook.shape[0] == 1)
-    assert (codebook.shape[1] > 1)
+    assert codebook.shape[0] == 1
+    assert codebook.shape[1] > 1
 
     values = tf.reshape(values, (-1, 1))
 
@@ -356,37 +411,39 @@ def entropy(values, codebook, v=50, gamma=25):
         weights = tf.pow((1 + tf.pow(dff, 2) / v), -(v + 1) / 2)
 
     weights = (weights + eps) / (tf.reduce_sum(weights + eps, axis=1, keepdims=True))
-    assert (weights.shape[1] == np.prod(codebook.shape))
+    assert weights.shape[1] == np.prod(codebook.shape)
 
     # Compute soft histogram
     histogram = tf.reduce_mean(weights, axis=0)
     histogram = tf.clip_by_value(histogram, 1e-9, tf.float32.max)
     histogram = histogram / tf.reduce_sum(histogram)
-    entropy = - tf.reduce_sum(histogram * tf.math.log(histogram)) / 0.6931  # 0.6931 - log(2)
+    entropy = (
+        -tf.reduce_sum(histogram * tf.math.log(histogram)) / 0.6931
+    )  # 0.6931 - log(2)
     entropy = tf.cast(entropy, tf.float32)
 
     return entropy, histogram, weights
 
 
 def print_versions():
-    print(f'Tensorflow: {tf.__version__}')
+    print(f"Tensorflow: {tf.__version__}")
     print(f'GPUs: {tf.config.list_physical_devices("GPU")}')
 
 
 def disable_warnings():
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 
 def disable_gpu():
-    tf.config.set_visible_devices([], 'GPU')
+    tf.config.set_visible_devices([], "GPU")
 
 
 def log_status():
-    devices = tf.config.list_physical_devices('GPU')
+    devices = tf.config.list_physical_devices("GPU")
     if not len(devices):
-        logger.warning(f'Tensorflow: {tf.__version__} is NOT using any GPUs')
+        logger.warning(f"Tensorflow: {tf.__version__} is NOT using any GPUs")
     else:
-        logger.info(f'Tensorflow: {tf.__version__} found GPUs: {devices}')
+        logger.info(f"Tensorflow: {tf.__version__} found GPUs: {devices}")
 
 
 def reset_layer(layer, alpha=0):
@@ -407,15 +464,15 @@ def reset_layer(layer, alpha=0):
     updates = 0
 
     if layer.kernel is not None:
-        print(f'setting: {layer}')
+        print(f"setting: {layer}")
         w[0] = (1 - alpha) * k_init(layer.kernel.shape) + alpha * w[0]
         updates += 1
     if layer.bias is not None:
-        print(f'setting: {layer}')
+        print(f"setting: {layer}")
         w[1] = (1 - alpha) * b_init(layer.bias.shape) + alpha * w[1]
         updates += 1
 
     if not updates:
-        logger.warning(f'No weights were updated for layer: {layer}')
+        logger.warning(f"No weights were updated for layer: {layer}")
 
     layer.set_weights(w)

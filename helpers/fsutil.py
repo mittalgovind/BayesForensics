@@ -11,17 +11,19 @@ import re
 import random
 
 
-def listdir(path, regex='.*', dirs_only=False):
+def listdir(path, regex=".*", dirs_only=False):
     """
     Returns a list of filenames in a directory matching a given regex.
     Example: listdir('~/datasets/raise/', '.*\.NEF$')
     """
     path = os.path.expanduser(path)
-    candidates = sorted([f for f in os.listdir(path) if re.match(regex, f, re.IGNORECASE)])
+    candidates = sorted(
+        [f for f in os.listdir(path) if re.match(regex, f, re.IGNORECASE)]
+    )
     if not dirs_only:
         return candidates
     else:
-        return [f for f in candidates if os.path.isdir( os.path.join(path, f))]
+        return [f for f in candidates if os.path.isdir(os.path.join(path, f))]
 
 
 def split(path):
@@ -32,7 +34,7 @@ def split(path):
         if parts[0] == path:  # sentinel for absolute paths
             allparts.insert(0, parts[0])
             break
-        elif parts[1] == path: # sentinel for relative paths
+        elif parts[1] == path:  # sentinel for relative paths
             allparts.insert(0, parts[1])
             break
         else:
@@ -46,20 +48,20 @@ def strip_prefix(names):
     prefix = os.path.commonprefix(names)
     postfix = os.path.commonprefix([x[::-1] for x in names])[::-1]
 
-    if not prefix.endswith('/'):
-        prefix = prefix[:prefix.rfind('/')+1]
+    if not prefix.endswith("/"):
+        prefix = prefix[: prefix.rfind("/") + 1]
 
-    if not postfix.startswith('/'):
-        postfix = postfix[postfix.find('/')+1:]
+    if not postfix.startswith("/"):
+        postfix = postfix[postfix.find("/") + 1 :]
 
-    return [x.replace(prefix, '').replace(postfix, '') for x in names]
+    return [x.replace(prefix, "").replace(postfix, "") for x in names]
 
 
-def sanitize(name, sub='_'):
+def sanitize(name, sub="_"):
     return re.sub(r'[ ~*!+#@":"!<>\[\]]+', sub, name).strip(sub)
 
 
 def random_filename(k, ext):
-    letters = 'abcdefghijklmnopqrstuvwxyz'
-    prefix = ''.join(random.choices(letters, k=k))
-    return f'{prefix}.{ext}'
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    prefix = "".join(random.choices(letters, k=k))
+    return f"{prefix}.{ext}"
