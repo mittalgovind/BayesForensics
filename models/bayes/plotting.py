@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# New York University 
+# New York University
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
@@ -16,10 +16,11 @@ import numpy as np
 
 # Internal libraries
 
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 IMAGE_SHAPE = [28, 28, 1]
 
 # TODO (Govind) change this file and make generic
+
 
 def plot_weight_posteriors(names, qm_vals, qs_vals, fname):
     """Save a PNG plot with histograms of weight means and stddevs.
@@ -39,24 +40,22 @@ def plot_weight_posteriors(names, qm_vals, qs_vals, fname):
     colors = sns.color_palette(n_colors=len(qs_vals))
     for i, (n, qm, qs) in enumerate(zip(names, qm_vals, qs_vals)):
         ax = fig.add_subplot(6, 2, 2 * i + 1)
-        sns.distplot(tf.reshape(qm, shape=[-1]), ax=ax, label=n,
-                     color=colors[i])
-        ax.set_title('weight means')
+        sns.distplot(tf.reshape(qm, shape=[-1]), ax=ax, label=n, color=colors[i])
+        ax.set_title("weight means")
         ax.set_xlim([-1.5, 1.5])
         ax.legend()
 
         ax = fig.add_subplot(6, 2, 2 * i + 2)
         sns.distplot(tf.reshape(qs, shape=[-1]), ax=ax, color=colors[i])
-        ax.set_title('weight stddevs')
-        ax.set_xlim([0, 1.])
+        ax.set_title("weight stddevs")
+        ax.set_xlim([0, 1.0])
 
     fig.tight_layout()
-    canvas.print_figure(fname, format='png')
-    print('saved {}'.format(fname))
+    canvas.print_figure(fname, format="png")
+    print("saved {}".format(fname))
 
 
-def plot_heldout_prediction(input_vals, probs,
-                            fname, n=10, title=''):
+def plot_heldout_prediction(input_vals, probs, fname, n=10, title=""):
     """Save a PNG plot visualizing posterior uncertainty on heldout data.
 
     Args:
@@ -73,22 +72,20 @@ def plot_heldout_prediction(input_vals, probs,
     canvas = backend_agg.FigureCanvasAgg(fig)
     for i in range(n):
         ax = fig.add_subplot(n, 3, 3 * i + 1)
-        ax.imshow(input_vals[i, :].reshape(IMAGE_SHAPE[:-1]),
-                  interpolation='None')
+        ax.imshow(input_vals[i, :].reshape(IMAGE_SHAPE[:-1]), interpolation="None")
 
         ax = fig.add_subplot(n, 3, 3 * i + 2)
         for prob_sample in probs:
             sns.barplot(np.arange(10), prob_sample[i, :], alpha=0.1, ax=ax)
             ax.set_ylim([0, 1])
-        ax.set_title('posterior samples')
+        ax.set_title("posterior samples")
 
         ax = fig.add_subplot(n, 3, 3 * i + 3)
-        sns.barplot(np.arange(10), tf.reduce_mean(probs[:, i, :], axis=0),
-                    ax=ax)
+        sns.barplot(np.arange(10), tf.reduce_mean(probs[:, i, :], axis=0), ax=ax)
         ax.set_ylim([0, 1])
-        ax.set_title('predictive probs')
+        ax.set_title("predictive probs")
     fig.suptitle(title)
     fig.tight_layout()
 
-    canvas.print_figure(fname, format='png')
-    print('saved {}'.format(fname))
+    canvas.print_figure(fname, format="png")
+    print("saved {}".format(fname))

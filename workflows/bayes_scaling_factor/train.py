@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# New York University 
+# New York University
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
@@ -13,7 +13,7 @@ import tensorflow as tf
 import numpy as np
 
 # Hacky fix
-sys.path.append('/scratch/jms1595/neural-imaging-dev/')
+sys.path.append("/scratch/jms1595/neural-imaging-dev/")
 
 # Internal libraries
 from helpers.utils import progress_bar
@@ -21,8 +21,21 @@ from helpers.stats import quantize
 from helpers.plots import perf
 
 
-def train(model, epochs, data, batch_size, cache, patch_size, scales, classes,
-          sampling_method, save_dir, lr, methods, save_every):
+def train(
+    model,
+    epochs,
+    data,
+    batch_size,
+    cache,
+    patch_size,
+    scales,
+    classes,
+    sampling_method,
+    save_dir,
+    lr,
+    methods,
+    save_every,
+):
     """Scaling factor training
     Parameters
     ----------
@@ -37,21 +50,19 @@ def train(model, epochs, data, batch_size, cache, patch_size, scales, classes,
     -------
 
     """
-    random_method = sampling_method == 'random'
+    random_method = sampling_method == "random"
     n_batches = data.count_training // batch_size
 
-    performance = {'loss': {'training': []}}
-    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-        from_logits=True)
+    performance = {"loss": {"training": []}}
+    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     opt = tf.keras.optimizers.Adam(lr)
 
-    with progress_bar(epochs, 'Training') as pbar:
+    with progress_bar(epochs, "Training") as pbar:
         for epoch in range(epochs):
             losses = 0
 
             for batch_id in range(n_batches):
-                batch_y = data.next_training_batch(batch_id, batch_size,
-                                                   patch_size)
+                batch_y = data.next_training_batch(batch_id, batch_size, patch_size)
                 sf = tf.random.uniform((1,), *scales)
                 resized_size = int(sf * patch_size)
 
@@ -61,24 +72,22 @@ def train(model, epochs, data, batch_size, cache, patch_size, scales, classes,
                 else:
                     m = sampling_method
 
-                batch_yy = tf.image.resize(batch_y,
-                                           [resized_size, resized_size],
-                                           method=m)
+                batch_yy = tf.image.resize(
+                    batch_y, [resized_size, resized_size], method=m
+                )
                 class_id = quantize(sf.numpy(), classes, return_indices=True)
                 batch_sf = np.repeat(class_id, batch_size).reshape((-1, 1))
 
                 with tf.GradientTape() as tape:
-                    loss = loss_criterion(batch_sf,
-                                          model(batch_yy, training=True))
+                    loss = loss_criterion(batch_sf, model(batch_yy, training=True))
 
                 grads = tape.gradient(loss, model._model.trainable_variables)
-                opt.apply_gradients(zip(grads,
-                                        model._model.trainable_variables))
+                opt.apply_gradients(zip(grads, model._model.trainable_variables))
 
                 # Update loss counter
                 losses += loss.numpy()
 
-            performance['loss']['training'].append(losses / n_batches)
+            performance["loss"]["training"].append(losses / n_batches)
 
             pbar.set_postfix(loss=losses / n_batches)
             pbar.update(1)
@@ -86,11 +95,9 @@ def train(model, epochs, data, batch_size, cache, patch_size, scales, classes,
             if (epoch + 1) % save_every == 0:
                 model.save_model(dirname=save_dir)
                 fig = perf(performance, results="training")
-                fig.savefig(
-                    os.path.join(save_dir, 'train_epoch_{}'.format(epochs)))
+                fig.savefig(os.path.join(save_dir, "train_epoch_{}".format(epochs)))
 
         if cache:
-            cache.save(performance, step='performance',
-                       sampling_method=sampling_method)
+            cache.save(performance, step="performance", sampling_method=sampling_method)
 
     return model
