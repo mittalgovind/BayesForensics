@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# New York University 
+# New York University
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
 
 # External libraries
-from scipy.stats import mode, entropy
+from scipy.stats import mode
 from scipy.special import softmax
 import numpy as np
 
@@ -18,7 +18,7 @@ def get_pred(logits):
     # logits.shape = (num_runs, batch_size, num_classes)
     # make it batch_first
     # (batch_size, num_runs, num_classes)
-    logits = logits.numpy().transpose((1, 0, 2))
+    logits = logits.transpose((1, 0, 2))
     # (batch_size, num_runs)
     pred_per_run = np.argmax(logits, axis=-1)
     # (batch_size, )
@@ -30,7 +30,7 @@ def get_probs_passes_logits(logits):
     # logits.shape = (num_runs, batch_size, num_classes)
     # make it batch_first
     # (batch_size, num_runs, num_classes)
-    batch_logits = logits.numpy().transpose((1, 0, 2))
+    batch_logits = logits.transpose((1, 0, 2))
     probs = np.array(
         [[softmax(run) for run in logits] for logits in batch_logits])
     n_passes = probs.shape[1]
@@ -41,7 +41,7 @@ def variation_ratio(logits):
     # set_trace()
     probs, n_passes, _ = get_probs_passes_logits(logits)
     means = np.array([[np.sum(c) / n_passes for c in run.T] for run in probs])
-    var_ratio = 1 - means[np.argmax(means, axis=-1)]
+    var_ratio = 1 - means[np.arange(means.shape[0]), np.argmax(means, axis=-1)]
     return var_ratio
 
 
@@ -49,7 +49,7 @@ def predictive_entropy(logits):
     probs, n_passes, _ = get_probs_passes_logits(logits)
     means = np.array([[np.sum(c) / n_passes for c in run.T] for run in probs])
 
-    pred_ent = -np.sum(np.multiply(means, np.log2(np.clip(means, 1e-12, None))),
+    pred_ent = -np.sum(np.multiply(means, np.log2(np.clip(means, 1e-16, None))),
                        axis=-1)
     return pred_ent
 
@@ -57,9 +57,9 @@ def predictive_entropy(logits):
 def mutual_information(logits):
     probs, n_passes, logits = get_probs_passes_logits(logits)
     pred_ent = predictive_entropy(logits)
-    clipped_pred = np.clip(probs, 1e-12, None)
+    clipped_pred = np.clip(probs, 1e-16, None)
     exp_value = np.array(
-        [np.divide(np.sum(np.multiply([prob], np.log(prob))), n_passes) for
+        [np.divide(np.sum(np.multiply([prob], np.log2(prob))), n_passes) for
          prob in clipped_pred])
 
     return pred_ent + exp_value
