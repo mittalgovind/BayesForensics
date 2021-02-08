@@ -117,9 +117,8 @@ def parse_args():
     )
     parser.add_argument(
         "--calibrate",
-        action="store",
-        default=True,
-        type=bool,
+        action="store_true",
+        default=False,
         help="Calibrate model using temperature scaling.",
     )
     parser.add_argument(
@@ -154,6 +153,12 @@ def parse_args():
         help="Path to a partially trained model",
         default=None,
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        default=False,
+        help="Overwrite the output folder, if exists.",
+    )
 
     return parser.parse_args()
 
@@ -162,9 +167,13 @@ def main():
     args = parse_args()
 
     # Change json to npz
+    if os.path.isdir(os.path.abspath(args.save_dir)) and not args.overwrite:
+        raise IsADirectoryError(
+            "Output directory exists! Use --overwrite or provide another directory name."
+        )
+
     scales = (float(args.scales.split(",")[0]), float(args.scales.split(",")[1]))
     patch_size = 128
-    model_name = "sfp.h5"
     methods = ["nearest", "bilinear", "bicubic", "lanczos3", "random"]
     cache = ResultCache(["{step}_{sampling_method}.npz"], prefix=args.save_dir)
     classes = np.linspace(*scales, num=args.n_classes)
@@ -232,8 +241,11 @@ def main():
         model = train(model, args.epochs, data, args.batch_size, cache, **flags)
 
     if args.calibrate:
-        model = BayarStammCalibrated(model, batch_size=args.batch_size)
-        model.set_temp(data)
+        temp_model = BayarStammCalibrated(model, batch_size=args.batch_size)
+        temp_model.set_temp(data)
+        temperature = temp_model.temperature
+    else:
+        temperature = 1.0
 
     for method in methods:
         run_tests(
@@ -246,6 +258,7 @@ def main():
             patch_size,
             n_runs,
             cache,
+            temperature,
         )
 
 

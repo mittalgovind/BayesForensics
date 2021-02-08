@@ -23,6 +23,7 @@ def run_tests(
     patch_size,
     num_runs,
     cache,
+    temperature,
 ):
     """
 
@@ -39,6 +40,7 @@ def run_tests(
     patch_size
     num_runs
     cache
+    temperature
 
     Returns
     -------
@@ -58,7 +60,7 @@ def run_tests(
                 for s, sf in enumerate(sfs):
                     rescaled = tf.image.resize(test_batch, [sf, sf], method=method)
 
-                    logits = model(rescaled, training=False)
+                    logits = model(rescaled, training=False) / temperature
 
                     tests_summary["runs"].append(
                         {"sf": sf, "method": method, "logits": logits}

@@ -260,3 +260,6 @@ class BayarStammCalibrated(TemperatureScaling, BayarStammSFP, ABC):
         labels = np.repeat(class_id, len(batch)).reshape((-1, 1))
         labels = tf.convert_to_tensor(labels)
         return batch_resized, labels
+
+    def __call__(self, batch, training, *args, **kwargs):
+        super(BayarStammCalibrated, self)._call(batch, training)
