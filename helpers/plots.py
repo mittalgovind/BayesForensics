@@ -27,12 +27,17 @@ import os
 import imageio
 import numpy as np
 import scipy.stats as sps
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
 
 from skimage.transform import resize
 
 from loguru import logger
 
-from helpers import stats, utils, fsutil
+from helpers import stats, utils, fsutil, uncertainty
+
+
 
 __INTERACTIVE = False
 
@@ -838,3 +843,52 @@ def to_tikz(fig, filename=None):
         return rd.render_tex(tex)
         
 
+def uncertainty_matrix(df, uncertainty_metric, n_models, n_classes,
+                       axes=None, title=None, xlabel=None, ylabel=None):
+    if axes is None:
+        fig = get_figure()
+        axes = fig.gca()
+        return_fig = True
+    else:
+        return_fig = False
+    
+    lim = uncertainty.get_limits(n_models, n_classes)[uncertainty_metric]
+
+    sns.heatmap(df, annot=True, fmt=".2f", cmap='Blues', vmin=0, vmax=lim, ax=axes)
+    
+    if title is not None:
+        axes.set_title(title)
+    
+    if xlabel is not None:
+        axes.set_xlabel(xlabel)
+    
+    if ylabel is not None:
+        axes.set_ylabel(ylabel)
+        
+    if return_fig:
+        return fig
+
+    
+def confusion_matrix(conf_matrix, classes, axes=None, title=None, xlabel=None, ylabel=None):
+    if axes is None:
+        fig = get_figure()
+        axes = fig.gca()
+        return_fig = True
+    else:
+        return_fig = False
+    
+    df_cm = pd.DataFrame(conf_matrix, index=classes, columns=classes)
+    
+    sns.heatmap(df_cm, ax=axes)
+    
+    if title is not None:
+        axes.set_title(title)
+    
+    if xlabel is not None:
+        axes.set_xlabel(xlabel)
+    
+    if ylabel is not None:
+        axes.set_ylabel(ylabel)
+        
+    if return_fig:
+        return fig

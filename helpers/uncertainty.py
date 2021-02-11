@@ -10,15 +10,20 @@
 from scipy.stats import mode
 from scipy.special import softmax
 import numpy as np
+import tensorflow as tf
 
 # Internal libraries
+
+
+MAX = int(2e16)
+MIN = -int(2e16)
 
 
 def get_pred(logits):
     # logits.shape = (num_runs, batch_size, num_classes)
     # make it batch_first
     # (batch_size, num_runs, num_classes)
-    logits = logits.transpose((1, 0, 2))
+    logits = logits.numpy().transpose((1, 0, 2))
     # (batch_size, num_runs)
     pred_per_run = np.argmax(logits, axis=-1)
     # (batch_size, )
@@ -30,7 +35,7 @@ def get_probs_passes_logits(logits):
     # logits.shape = (num_runs, batch_size, num_classes)
     # make it batch_first
     # (batch_size, num_runs, num_classes)
-    batch_logits = logits.transpose((1, 0, 2))
+    batch_logits = logits.numpy().transpose((1, 0, 2))
     probs = np.array(
         [[softmax(run) for run in logits] for logits in batch_logits])
     n_passes = probs.shape[1]
@@ -63,3 +68,19 @@ def mutual_information(logits):
          prob in clipped_pred])
 
     return pred_ent + exp_value
+
+
+def get_limits(n_models, n_classes):
+    logits = []
+    for i in range(n_models):
+        model = [[MIN] * n_classes]
+        model[0][i % n_classes] = MAX
+        logits.append(model)
+
+    logits = tf.convert_to_tensor(logits)
+
+    uncertainty_limits = {'variation_ratio': variation_ratio(logits)[0],
+                          'predictive_entropy': predictive_entropy(logits)[0],
+                          'mutual_information': mutual_information(logits)[0]}
+
+    return uncertainty_limits
