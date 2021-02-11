@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# New York University 
+# New York University
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
@@ -15,8 +15,17 @@ from models.bayes import BayesBaseModel
 
 
 class SFP(BayesBaseModel):
-    def __init__(self, method, c_filters, d_filters, kernel,
-                 trainable_residual, drop, append_rgb, **kwargs):
+    def __init__(
+        self,
+        method,
+        c_filters,
+        d_filters,
+        kernel,
+        trainable_residual,
+        drop,
+        append_rgb,
+        **kwargs
+    ):
 
         super().__init__(method=method, **kwargs)
 
@@ -34,8 +43,8 @@ class SFP(BayesBaseModel):
         # Setup conv layers
         for n_filters in self.c_filters:
             self._layers.append(
-                self.conv2d(n_filters, self.kernel,
-                            activation=self.activation))
+                self.conv2d(n_filters, self.kernel, activation=self.activation)
+            )
 
         self._layers.append(tf.keras.layers.GlobalAvgPool2D())
 

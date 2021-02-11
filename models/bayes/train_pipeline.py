@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# New York University 
+# New York University
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
@@ -16,8 +16,18 @@ class BayesBaseTrainer(ABC):
     """Base class for Bayesian training and inference pipeline.
     This pipeline is developed for Bayesian forensics on image data."""
 
-    def __init__(self, model, dataloader, optimizer, output_path, batch_size=1,
-                 patch_size=128, print_interval=100, training=False, **kwargs):
+    def __init__(
+        self,
+        model,
+        dataloader,
+        optimizer,
+        output_path,
+        batch_size=1,
+        patch_size=128,
+        print_interval=100,
+        training=False,
+        **kwargs,
+    ):
 
         # required
         super().__init__(**kwargs)
@@ -61,9 +71,13 @@ class BayesBaseTrainer(ABC):
     @property
     def training_batch_iterator(self):
         """Construct progress bar validation batch iterator."""
-        batch_iterator = tqdm(self.num_train_batches,
-                              total=len(self.num_train_batches),
-                              desc='Training', smoothing=0, leave=False)
+        batch_iterator = tqdm(
+            self.num_train_batches,
+            total=len(self.num_train_batches),
+            desc="Training",
+            smoothing=0,
+            leave=False,
+        )
 
         return batch_iterator
 
@@ -71,8 +85,7 @@ class BayesBaseTrainer(ABC):
         """Print message for training batch."""
         if self.batch_counter % self.print_interval == 0:
             recent_history = self.training_loss_history[-100:]
-            print(
-                f"{self.batch_counter} training: {np.mean(recent_history):.4f}")
+            print(f"{self.batch_counter} training: {np.mean(recent_history):.4f}")
 
         return None
 
@@ -80,9 +93,9 @@ class BayesBaseTrainer(ABC):
         """Runs through a complete epoch"""
         self.training = True
         for batch_idx in self.training_batch_iterator:
-            batch = self.dataloader.next_training_batch(batch_idx,
-                                                        self.batch_size,
-                                                        self.patch_size)
+            batch = self.dataloader.next_training_batch(
+                batch_idx, self.batch_size, self.patch_size
+            )
             loss = self.training_step(batch)
             self.training_loss_history.append(loss)
             self.training_print()
@@ -118,9 +131,13 @@ class BayesBaseTrainer(ABC):
     @property
     def validation_batch_iterator(self):
         """Construct progress bar validation batch iterator."""
-        batch_iterator = tqdm(self.num_val_batches,
-                              total=len(self.num_val_batches),
-                              desc='Validating', smoothing=0, leave=False)
+        batch_iterator = tqdm(
+            self.num_val_batches,
+            total=len(self.num_val_batches),
+            desc="Validating",
+            smoothing=0,
+            leave=False,
+        )
 
         return batch_iterator
 
@@ -129,9 +146,9 @@ class BayesBaseTrainer(ABC):
         loss_history = []
         self.training = False
         for batch_idx in self.num_val_batches:
-            batch = self.dataloader.next_validation_batch(batch_idx,
-                                                          self.batch_size,
-                                                          self.patch_size)
+            batch = self.dataloader.next_validation_batch(
+                batch_idx, self.batch_size, self.patch_size
+            )
             loss_value = self.validation_step(batch)
             loss_history.append(loss_value.item())
 
@@ -144,8 +161,9 @@ class BayesBaseTrainer(ABC):
         return None
 
     def run(self, num_epochs):
-        epoch_iterator = tqdm(range(num_epochs), total=num_epochs,
-                              desc='Epochs', smoothing=0, leave=True)
+        epoch_iterator = tqdm(
+            range(num_epochs), total=num_epochs, desc="Epochs", smoothing=0, leave=True
+        )
 
         for _ in epoch_iterator:
             self.training_pass()

@@ -15,12 +15,16 @@ def test_1():
     All class probabilities become [1 0] after softmax.
     High confidence, therefore, all uncertainty measures are 0.
     """
-    test = np.array([[[MAX, MIN]],
-                     [[MAX, MIN]],
-                     [[MAX, MIN]],
-                     [[MAX, MIN]],
-                     [[MAX, MIN]],
-                     [[MAX, MIN]]])
+    test = np.array(
+        [
+            [[MAX, MIN]],
+            [[MAX, MIN]],
+            [[MAX, MIN]],
+            [[MAX, MIN]],
+            [[MAX, MIN]],
+            [[MAX, MIN]],
+        ]
+    )
 
     np.testing.assert_allclose(un.variation_ratio(test), [0], atol=1e-7)
     np.testing.assert_allclose(un.predictive_entropy(test), [0], atol=1e-7)
@@ -36,12 +40,16 @@ def test_2():
     Mutual information captures model confidence in its output,
     so its uncertainty is 0.
     """
-    test = np.array([[[0.5, 0.5]],
-                     [[0.5, 0.5]],
-                     [[0.5, 0.5]],
-                     [[0.5, 0.5]],
-                     [[0.5, 0.5]],
-                     [[0.5, 0.5]]])
+    test = np.array(
+        [
+            [[0.5, 0.5]],
+            [[0.5, 0.5]],
+            [[0.5, 0.5]],
+            [[0.5, 0.5]],
+            [[0.5, 0.5]],
+            [[0.5, 0.5]],
+        ]
+    )
 
     np.testing.assert_allclose(un.variation_ratio(test), [0.5], atol=1e-7)
     np.testing.assert_allclose(un.predictive_entropy(test), [1], atol=1e-7)
@@ -54,9 +62,16 @@ def test_3():
     Equal number of [1 0] and [0 1] class probabilities after softmax.
     All uncertainty measures attain their highest value (0.5, 1, and 1 in binary classification).
     """
-    test = np.array([[[MAX, MIN]], [[MIN, MAX]],
-                    [[MAX, MIN]], [[MIN, MAX]],
-                    [[MAX, MIN]], [[MIN, MAX]]])
+    test = np.array(
+        [
+            [[MAX, MIN]],
+            [[MIN, MAX]],
+            [[MAX, MIN]],
+            [[MIN, MAX]],
+            [[MAX, MIN]],
+            [[MIN, MAX]],
+        ]
+    )
 
     np.testing.assert_allclose(un.variation_ratio(test), [0.5], atol=1e-7)
     np.testing.assert_allclose(un.predictive_entropy(test), [1], atol=1e-7)

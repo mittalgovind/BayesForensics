@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# New York University 
+# New York University
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
@@ -42,8 +42,15 @@ class IdentityLayer(tf.keras.layers.Layer):
 class BayesBaseModel(TFModel):
     """Defines a Tensorflow model (keras or not)."""
 
-    def __init__(self, method: str, activation: str, drop_rate=0.5,
-                 mc_num_samples=50, temperature=False, bayesian=True):
+    def __init__(
+        self,
+        method: str,
+        activation: str,
+        drop_rate=0.5,
+        mc_num_samples=50,
+        temperature=False,
+        bayesian=True,
+    ):
         """
         method : str
             Choice between 'mc-dropout', 'flipout'.
@@ -70,13 +77,13 @@ class BayesBaseModel(TFModel):
         # Put all the layer instances used in the forward (call) pass
         # Depending on your choice of method, Conv2D, Dense and Dropout are chosen accordingly.
         if bayesian:
-            if 'mc' in method:
+            if "mc" in method:
                 # captures temperature scaling too
                 self.conv2d = layers.PaddedConv2D
                 self.dropout = MCDropoutLayer
                 self.dense = tf.keras.layers.Dense
 
-            elif method == 'flipout':
+            elif method == "flipout":
                 self.conv2d = tfp.layers.Convolution2DFlipout
                 self.dropout = tf.keras.layers.Dropout
                 self.dense = tfp.layers.DenseFlipout
@@ -106,21 +113,21 @@ class BayesBaseModel(TFModel):
         self._create_model()
 
         # configuring model for MC inference
-        if 'mc' in self.method:
+        if "mc" in self.method:
             # make output layer as Identity and copy it to a variable
-            if 'dense' in self._model._layers[-1].name.lower():
+            if "dense" in self._model._layers[-1].name.lower():
                 self._model._fc = self._model._layers[-1]
                 self._model._layers[-1] = IdentityLayer()
             else:
                 logger.error("Model not ending with a dense layer.")
 
             # if second last layer is not dropout then attach MCDropoutLayer
-            if 'dropout' not in self._model._layers[-2].name.lower():
+            if "dropout" not in self._model._layers[-2].name.lower():
                 self.use_own_dropout = True
         else:
             self._model._fc = IdentityLayer()
 
-        if self.method == 'temp-scaling':
+        if self.method == "temp-scaling":
             self._model.temperature = tf.Variable(1.0)
 
     def __call__(self, inputs, training):

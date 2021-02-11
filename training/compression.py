@@ -17,7 +17,7 @@ from helpers import plots, summaries, utils, metrics
 
 def visualize_distribution(dcn, data, ax=None, title=None):
 
-    title = '' if title is None else title+' '
+    title = "" if title is None else title + " "
 
     if type(data) is not np.ndarray:
         sample_batch_size = np.min((100, data.count_validation))
@@ -33,7 +33,7 @@ def visualize_distribution(dcn, data, ax=None, title=None):
     codebook = dcn.get_codebook().tolist()
 
     # Find x limits for plotting
-    if dcn._h.rounding == 'identity':
+    if dcn._h.rounding == "identity":
         qmax = np.ceil(np.max(np.abs(batch_z)))
         qmin = -qmax
     else:
@@ -41,7 +41,7 @@ def visualize_distribution(dcn, data, ax=None, title=None):
         qmax = np.ceil(codebook[-1])
 
     feed_dict = {dcn.x: batch_x}
-    if hasattr(dcn, 'is_training'):
+    if hasattr(dcn, "is_training"):
         feed_dict[dcn.is_training] = True
 
     # Get approximation of the soft quantization structures used for entropy estimation
@@ -51,7 +51,7 @@ def visualize_distribution(dcn, data, ax=None, title=None):
 
     # Create a dense version of the quantization bins
     bin_centers = np.arange(qmin - 1, qmax + 1, 0.1)
-    bin_boundaries = np.convolve(bin_centers, [0.5, 0.5], mode='valid')
+    bin_boundaries = np.convolve(bin_centers, [0.5, 0.5], mode="valid")
     bin_centers = bin_centers[1:-1]
 
     # Compute empirical histogram based on latent representation
@@ -68,17 +68,21 @@ def visualize_distribution(dcn, data, ax=None, title=None):
 
     ax.set_xlim([qmin - 1, qmax + 1])
     ax.set_xticks(ticks)
-    ax.stem(bin_centers, hist, linefmt='r:', markerfmt='r.')  # width=bin_centers[1] - bin_centers[0]
-    ax.bar(codebook, histogram, width=(codebook[1] - codebook[0]) / 2, color='b', alpha=0.5)
-    ax.set_title('{}QLR histogram (H={:.1f})'.format(title, entropy))
-    ax.legend(['Quantized values', 'Soft estimate'], loc='upper right')
+    ax.stem(
+        bin_centers, hist, linefmt="r:", markerfmt="r."
+    )  # width=bin_centers[1] - bin_centers[0]
+    ax.bar(
+        codebook, histogram, width=(codebook[1] - codebook[0]) / 2, color="b", alpha=0.5
+    )
+    ax.set_title("{}QLR histogram (H={:.1f})".format(title, entropy))
+    ax.legend(["Quantized values", "Soft estimate"], loc="upper right")
 
     # Render the plot as a PNG image and return a bitmap array
     return ax.figure
 
 
 def visualize_codebook(dcn):
-    qmin = -2 ** (dcn.latent_bpf - 1) + 1
+    qmin = -(2 ** (dcn.latent_bpf - 1)) + 1
     qmax = 2 ** (dcn.latent_bpf - 1)
 
     uniform_cbook = np.arange(qmin, qmax + 1)
@@ -87,10 +91,10 @@ def visualize_codebook(dcn):
     fig = Figure(figsize=(10, 1))
 
     for x1, x2 in zip(codebook, uniform_cbook):
-        fig.gca().plot([x1, x2], [0, 1], 'k:')
+        fig.gca().plot([x1, x2], [0, 1], "k:")
 
-    fig.gca().plot(codebook, np.zeros_like(codebook), 'x')
-    fig.gca().plot(uniform_cbook, np.ones_like(uniform_cbook), 'ro')
+    fig.gca().plot(codebook, np.zeros_like(codebook), "x")
+    fig.gca().plot(uniform_cbook, np.ones_like(uniform_cbook), "ro")
     fig.gca().set_ylim([-1, 2])
     fig.gca().set_xlim([qmin - 1, qmax + 1])
     fig.gca().set_yticks([])
@@ -101,25 +105,32 @@ def visualize_codebook(dcn):
 
 
 def save_progress(dcn, data, training, out_dir):
-    filename = os.path.join(out_dir, 'progress.json')
+    filename = os.path.join(out_dir, "progress.json")
 
     output_stats = {
-        'training_spec': training,
-        'data': data.summary(),
-        'codec': {
-            'model': dcn.class_name,
-            'init': repr(dcn),
-            'args': dcn.get_hyperparameters(),
-            'codebook': dcn.get_codebook().tolist(),
-            'performance': dcn.performance,
+        "training_spec": training,
+        "data": data.summary(),
+        "codec": {
+            "model": dcn.class_name,
+            "init": repr(dcn),
+            "args": dcn.get_hyperparameters(),
+            "codebook": dcn.get_codebook().tolist(),
+            "performance": dcn.performance,
         },
     }
 
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         json.dump(output_stats, f, indent=4)
 
 
-def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', overwrite=False, tensorboard=False):
+def train_dcn(
+    dcn,
+    training,
+    data,
+    directory="./data/models/dcn/playground/",
+    overwrite=False,
+    tensorboard=False,
+):
     """
     training {
 
@@ -132,78 +143,112 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
 
     """
     # Compute the number of available batches
-    n_batches = data['training']['y'].shape[0] // training['batch_size']
-    v_batches = data['validation']['y'].shape[0] // training['batch_size']
+    n_batches = data["training"]["y"].shape[0] // training["batch_size"]
+    v_batches = data["validation"]["y"].shape[0] // training["batch_size"]
 
     # Structures for storing performance stats
     perf = dcn.performance
 
     caches = {
-        'loss': {'training': deque(maxlen=n_batches), 'validation': deque(maxlen=v_batches)},
-        'entropy': {'training': deque(maxlen=n_batches), 'validation': deque(maxlen=v_batches)},
-        'ssim': {'training': deque(maxlen=n_batches), 'validation': deque(maxlen=v_batches)}
+        "loss": {
+            "training": deque(maxlen=n_batches),
+            "validation": deque(maxlen=v_batches),
+        },
+        "entropy": {
+            "training": deque(maxlen=n_batches),
+            "validation": deque(maxlen=v_batches),
+        },
+        "ssim": {
+            "training": deque(maxlen=n_batches),
+            "validation": deque(maxlen=v_batches),
+        },
     }
 
     n_tail = 5
-    learning_rate = training['learning_rate']
+    learning_rate = training["learning_rate"]
     model_output_dirname = os.path.join(directory, dcn.model_code)
-    
+
     if os.path.isdir(model_output_dirname) and not overwrite:
-        print('WARNING Directory {} exists, skipping... (use overwrite=True)'.format(model_output_dirname))
+        print(
+            "WARNING Directory {} exists, skipping... (use overwrite=True)".format(
+                model_output_dirname
+            )
+        )
         return
 
     if not os.path.exists(model_output_dirname):
         os.makedirs(model_output_dirname)
 
-    print('Output directory: {}'.format(model_output_dirname), flush=True)
+    print("Output directory: {}".format(model_output_dirname), flush=True)
 
     # Create a summary writer and create the necessary directories
     if tensorboard:
         summary_writer = tf.summary.create_file_writer(model_output_dirname)
 
-    with utils.progress_bar(training['n_epochs'], dcn.model_code.split('/')[-1]) as pbar:
+    with utils.progress_bar(
+        training["n_epochs"], dcn.model_code.split("/")[-1]
+    ) as pbar:
 
-        for epoch in range(0, training['n_epochs']):
+        for epoch in range(0, training["n_epochs"]):
 
-            training['current_epoch'] = epoch
+            training["current_epoch"] = epoch
 
-            if epoch > 0 and epoch % training['learning_rate_reduction_schedule'] == 0:
-                learning_rate *= training['learning_rate_reduction_factor']
+            if epoch > 0 and epoch % training["learning_rate_reduction_schedule"] == 0:
+                learning_rate *= training["learning_rate_reduction_factor"]
 
             # Iterate through batches of the training data
             for batch_id in range(n_batches):
 
                 # Pick random patch size - will be resized later for augmentation
-                current_patch = np.random.choice(np.arange(training['patch_size'], 2 * training['patch_size']),
-                                                 1) if np.random.uniform() < training['augmentation_probs'][
-                    'resize'] else training['patch_size']
+                current_patch = (
+                    np.random.choice(
+                        np.arange(training["patch_size"], 2 * training["patch_size"]), 1
+                    )
+                    if np.random.uniform() < training["augmentation_probs"]["resize"]
+                    else training["patch_size"]
+                )
 
                 # Sample next batch
-                batch_x = data.next_training_batch(batch_id, training['batch_size'], current_patch)
+                batch_x = data.next_training_batch(
+                    batch_id, training["batch_size"], current_patch
+                )
 
                 # If rescaling needed, apply
-                if training['patch_size'] != current_patch:
-                    batch_t = np.zeros((batch_x.shape[0], training['patch_size'], training['patch_size'], 3),
-                                       dtype=np.float32)
+                if training["patch_size"] != current_patch:
+                    batch_t = np.zeros(
+                        (
+                            batch_x.shape[0],
+                            training["patch_size"],
+                            training["patch_size"],
+                            3,
+                        ),
+                        dtype=np.float32,
+                    )
                     for i in range(len(batch_x)):
-                        batch_t[i] = resize(batch_x[i], [training['patch_size'], training['patch_size']],
-                                            anti_aliasing=True)
-                    batch_x = batch_t            
-                
+                        batch_t[i] = resize(
+                            batch_x[i],
+                            [training["patch_size"], training["patch_size"]],
+                            anti_aliasing=True,
+                        )
+                    batch_x = batch_t
+
                 # Data augmentation
-                if np.random.uniform() < training['augmentation_probs']['flip_h']: batch_x = batch_x[:, :, ::-1, :]
-                if np.random.uniform() < training['augmentation_probs']['flip_v']: batch_x = batch_x[:, ::-1, :, :]
-                if np.random.uniform() < training['augmentation_probs']['gamma']: batch_x = helpers.image.batch_gamma(batch_x)
+                if np.random.uniform() < training["augmentation_probs"]["flip_h"]:
+                    batch_x = batch_x[:, :, ::-1, :]
+                if np.random.uniform() < training["augmentation_probs"]["flip_v"]:
+                    batch_x = batch_x[:, ::-1, :, :]
+                if np.random.uniform() < training["augmentation_probs"]["gamma"]:
+                    batch_x = helpers.image.batch_gamma(batch_x)
 
                 # Make a training step
                 values = dcn.training_step(batch_x, learning_rate)
 
                 for key, value in values.items():
-                    caches[key]['training'].append(value)
+                    caches[key]["training"].append(value)
 
             # Record average values for the whole epoch
-            for key in ['loss', 'ssim', 'entropy']:
-                perf[key]['training'].append(float(np.mean(caches[key]['training'])))
+            for key in ["loss", "ssim", "entropy"]:
+                perf[key]["training"].append(float(np.mean(caches[key]["training"])))
 
             # Get some extra stats
             if dcn._h.scale_latent:
@@ -214,61 +259,95 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
             codebook = dcn.get_codebook()
 
             # Iterate through batches of the validation data
-            if epoch % training['validation_schedule'] == 0:
+            if epoch % training["validation_schedule"] == 0:
 
                 for batch_id in range(v_batches):
-                    batch_x = data.next_validation_batch(batch_id, training['batch_size'])
+                    batch_x = data.next_validation_batch(
+                        batch_id, training["batch_size"]
+                    )
                     batch_z = dcn.compress(batch_x).numpy()
                     batch_y = dcn.decompress(batch_z).numpy()
 
                     # Compute loss
                     loss_value = np.linalg.norm(batch_x - batch_y)
-                    caches['loss']['validation'].append(loss_value)
+                    caches["loss"]["validation"].append(loss_value)
 
                     # Compute SSIM
                     ssim_value = metrics.batch(batch_x, batch_y, metrics.ssim)
-                    caches['ssim']['validation'].append(ssim_value)
+                    caches["ssim"]["validation"].append(ssim_value)
 
                     # Entropy
                     entropy_value = helpers.stats.entropy(batch_z, codebook)
-                    caches['entropy']['validation'].append(entropy_value)
+                    caches["entropy"]["validation"].append(entropy_value)
 
-                for key in ['loss', 'ssim', 'entropy']:
-                    perf[key]['validation'].append(float(np.mean(caches[key]['validation'])))
+                for key in ["loss", "ssim", "entropy"]:
+                    perf[key]["validation"].append(
+                        float(np.mean(caches[key]["validation"]))
+                    )
 
                 # Save current snapshot
                 indices = np.argsort(np.var(batch_x, axis=(1, 2, 3)))[::-1]
-                thumbs_pairs_all = np.concatenate((batch_x[indices[::2]], batch_y[indices[::2]]), axis=0)
-                thumbs = (255 * plots.thumbnails(thumbs_pairs_all, ncols=training['batch_size'] // 2)).astype(np.uint8)                
-                imageio.imsave(os.path.join(model_output_dirname, 'thumbnails-{:05d}.png'.format(epoch)), thumbs)
+                thumbs_pairs_all = np.concatenate(
+                    (batch_x[indices[::2]], batch_y[indices[::2]]), axis=0
+                )
+                thumbs = (
+                    255
+                    * plots.thumbnails(
+                        thumbs_pairs_all, ncols=training["batch_size"] // 2
+                    )
+                ).astype(np.uint8)
+                imageio.imsave(
+                    os.path.join(
+                        model_output_dirname, "thumbnails-{:05d}.png".format(epoch)
+                    ),
+                    thumbs,
+                )
 
                 # Save summaries to TB
                 if tensorboard:
 
-                    thumbs_pairs_few = np.concatenate((batch_x[indices[:5]], batch_y[indices[:5]]), axis=0)
-                    thumbs_few = (255 * plots.thumbnails(thumbs_pairs_few, ncols=5)).astype(np.uint8)
+                    thumbs_pairs_few = np.concatenate(
+                        (batch_x[indices[:5]], batch_y[indices[:5]]), axis=0
+                    )
+                    thumbs_few = (
+                        255 * plots.thumbnails(thumbs_pairs_few, ncols=5)
+                    ).astype(np.uint8)
 
                     # Sample latent space
                     batch_z = dcn.compress(batch_x)
 
                     with summary_writer.as_default():
                         tf.summary.experimental.set_step(epoch)
-                        tf.summary.scalar('loss/validation', perf['loss']['validation'][-1])
-                        tf.summary.scalar('loss/training', perf['loss']['training'][-1])
-                        tf.summary.scalar('ssim/validation', perf['ssim']['validation'][-1])
-                        tf.summary.scalar('ssim/training', perf['ssim']['training'][-1])
-                        tf.summary.scalar('entropy/training', perf['entropy']['training'][-1])
-                        tf.summary.scalar('scaling', scaling)
-                        tf.summary.image('images/reconstructed', np.expand_dims(thumbs_few, axis=0))
-                        tf.summary.histogram('histograms/latent', batch_z)
+                        tf.summary.scalar(
+                            "loss/validation", perf["loss"]["validation"][-1]
+                        )
+                        tf.summary.scalar("loss/training", perf["loss"]["training"][-1])
+                        tf.summary.scalar(
+                            "ssim/validation", perf["ssim"]["validation"][-1]
+                        )
+                        tf.summary.scalar("ssim/training", perf["ssim"]["training"][-1])
+                        tf.summary.scalar(
+                            "entropy/training", perf["entropy"]["training"][-1]
+                        )
+                        tf.summary.scalar("scaling", scaling)
+                        tf.summary.image(
+                            "images/reconstructed", np.expand_dims(thumbs_few, axis=0)
+                        )
+                        tf.summary.histogram("histograms/latent", batch_z)
                         # tf.summary.image('histograms/latent_approx', np.expand_dims(visualize_distribution(dcn, data), axis=0))
 
                         if dcn._h.train_codebook:
-                            tf.summary.scalar('codebook/min', codebook.min())
-                            tf.summary.scalar('codebook/max', codebook.max())
-                            tf.summary.scalar('codebook/mean', codebook.mean())
-                            tf.summary.scalar('codebook/diff_variance', np.var(np.convolve(codebook, [-1, 1], mode='valid')))
-                            tf.summary.image('codebook/centroids', np.expand_dims(visualize_codebook(dcn), axis=0))
+                            tf.summary.scalar("codebook/min", codebook.min())
+                            tf.summary.scalar("codebook/max", codebook.max())
+                            tf.summary.scalar("codebook/mean", codebook.mean())
+                            tf.summary.scalar(
+                                "codebook/diff_variance",
+                                np.var(np.convolve(codebook, [-1, 1], mode="valid")),
+                            )
+                            tf.summary.image(
+                                "codebook/centroids",
+                                np.expand_dims(visualize_codebook(dcn), axis=0),
+                            )
 
                     summary_writer.flush()
 
@@ -279,29 +358,37 @@ def train_dcn(dcn, training, data, directory='./data/models/dcn/playground/', ov
                 dcn.save_model(model_output_dirname, epoch, quiet=True)
 
                 # Check for convergence or model deterioration
-                if len(perf['ssim']['validation']) > 5:
-                    current = np.mean(perf['ssim']['validation'][-n_tail:])
-                    previous = np.mean(perf['ssim']['validation'][-(n_tail + 1):-1])
+                if len(perf["ssim"]["validation"]) > 5:
+                    current = np.mean(perf["ssim"]["validation"][-n_tail:])
+                    previous = np.mean(perf["ssim"]["validation"][-(n_tail + 1) : -1])
                     perf_change = abs((current - previous) / previous)
 
-                    if perf_change < training['convergence_threshold']:
-                        print('Early stopping - the model converged, validation SSIM change {:.4f}'.format(perf_change))
+                    if perf_change < training["convergence_threshold"]:
+                        print(
+                            "Early stopping - the model converged, validation SSIM change {:.4f}".format(
+                                perf_change
+                            )
+                        )
                         break
 
                     if current < 0.9 * previous:
-                        print('Error - SSIM deterioration by more than 10% {:.4f} -> {:.4f}'.format(previous, current))
+                        print(
+                            "Error - SSIM deterioration by more than 10% {:.4f} -> {:.4f}".format(
+                                previous, current
+                            )
+                        )
                         break
 
             progress_dict = {
-                'L': np.mean(perf['loss']['training'][-3:]),
-                'Lv': np.mean(perf['loss']['validation'][-1:]),
-                'lr': '{:.1e}'.format(learning_rate),
-                'ssim': '{:.2f}'.format(perf['ssim']['validation'][-1]),
-                'H': '{:.1f}'.format(np.mean(perf['entropy']['training'][-1:])),
+                "L": np.mean(perf["loss"]["training"][-3:]),
+                "Lv": np.mean(perf["loss"]["validation"][-1:]),
+                "lr": "{:.1e}".format(learning_rate),
+                "ssim": "{:.2f}".format(perf["ssim"]["validation"][-1]),
+                "H": "{:.1f}".format(np.mean(perf["entropy"]["training"][-1:])),
             }
 
             if dcn._h.scale_latent:
-                progress_dict['S'] = '{:.1f}'.format(scaling)
+                progress_dict["S"] = "{:.1f}".format(scaling)
 
             # Update progress bar
             pbar.set_postfix(progress_dict)

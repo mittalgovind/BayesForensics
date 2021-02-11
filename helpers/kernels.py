@@ -6,39 +6,48 @@ import numpy as np
 from scipy import signal
 
 
-def upsampling_kernel(cfa_pattern='gbrg'):
+def upsampling_kernel(cfa_pattern="gbrg"):
     """
     Ideal initialization of up-sampling kernels for matching the 12-feature-layer format needed by depth-to-space.
     :param cfa_pattern: CFA pattern, e.g., 'GBRG'
     """
     cfa_pattern = cfa_pattern.upper()
 
-    if cfa_pattern.upper() == 'GBRG':
+    if cfa_pattern.upper() == "GBRG":
         #                R  G  B  R  G  B  R  G  B  R  G  B
         #                1  1  1  2  2  2  3  3  3  4  4  4
-        upk = np.array([[0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                        [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-                        [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-                       ])
-    elif cfa_pattern.upper() == 'RGGB':
+        upk = np.array(
+            [
+                [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+            ]
+        )
+    elif cfa_pattern.upper() == "RGGB":
         #                R  G  B  R  G  B  R  G  B  R  G  B
         #                1  1  1  2  2  2  3  3  3  4  4  4
-        upk = np.array([[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-                       ])
-    elif cfa_pattern.upper() == 'BGGR':
+        upk = np.array(
+            [
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            ]
+        )
+    elif cfa_pattern.upper() == "BGGR":
         #                R  G  B  R  G  B  R  G  B  R  G  B
         #                1  1  1  2  2  2  3  3  3  4  4  4
-        upk = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-                        [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-                        [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-                       ])
+        upk = np.array(
+            [
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            ]
+        )
     else:
-        raise ValueError('Unsupported CFA pattern: {}'.format(cfa_pattern))
+        raise ValueError("Unsupported CFA pattern: {}".format(cfa_pattern))
 
     return upk
 
@@ -54,14 +63,14 @@ def gamma_kernels():
     gamma_dense2_bias = np.array([-0.4702738])
 
     gamma_d1k = np.zeros((3, 12))
-    gamma_d1b = np.zeros((12, ))
+    gamma_d1b = np.zeros((12,))
     gamma_d2k = np.zeros((12, 3))
     gamma_d2b = np.zeros((3,))
 
     for r in range(3):
-        gamma_d1k[r, r*4:r*4+4] = gamma_dense1_kernel
-        gamma_d1b[r*4:r*4+4] = gamma_dense1_bias
-        gamma_d2k[r*4:r*4+4, r] = gamma_dense2_kernel
+        gamma_d1k[r, r * 4 : r * 4 + 4] = gamma_dense1_kernel
+        gamma_d1b[r * 4 : r * 4 + 4] = gamma_dense1_bias
+        gamma_d2k[r * 4 : r * 4 + 4, r] = gamma_dense2_kernel
         gamma_d2b[r] = gamma_dense2_bias
 
     return gamma_d1k, gamma_d1b, gamma_d2k, gamma_d2b
@@ -71,22 +80,30 @@ def bilin_kernel(kernel=3):
     """
     Bilinear demosaicing kernel.
     """
-    g_kern = np.array([[0, 1/4., 0], [1/4., 1, 1/4.], [0, 1/4., 0]])
-    rb_kern = np.array([[1/4., 1/2., 1/4.], [1/2., 1, 1/2.], [1/4., 1/2., 1/4.]])
+    g_kern = np.array([[0, 1 / 4.0, 0], [1 / 4.0, 1, 1 / 4.0], [0, 1 / 4.0, 0]])
+    rb_kern = np.array(
+        [
+            [1 / 4.0, 1 / 2.0, 1 / 4.0],
+            [1 / 2.0, 1, 1 / 2.0],
+            [1 / 4.0, 1 / 2.0, 1 / 4.0],
+        ]
+    )
 
-    G_kern = np.zeros((3,3,3), np.float32)
+    G_kern = np.zeros((3, 3, 3), np.float32)
     G_kern[:, :, 1] = g_kern
 
-    R_kern = np.zeros((3,3,3), np.float32)
+    R_kern = np.zeros((3, 3, 3), np.float32)
     R_kern[:, :, 0] = rb_kern
 
-    B_kern = np.zeros((3,3,3), np.float32)
+    B_kern = np.zeros((3, 3, 3), np.float32)
     B_kern[:, :, 2] = rb_kern
 
     dmf = np.stack((R_kern, G_kern, B_kern), axis=3)
     if kernel > 3:
         pad = (kernel - 3) // 2
-        dmf = np.pad(dmf, ((pad, pad), (pad, pad), (0, 0), (0, 0)), 'constant', constant_values=0)
+        dmf = np.pad(
+            dmf, ((pad, pad), (pad, pad), (0, 0), (0, 0)), "constant", constant_values=0
+        )
 
     return dmf
 
@@ -109,7 +126,7 @@ def repeat_2dfilter(f, channels=3, pad=0):
     rf = np.zeros((f.shape[0] + 2 * pad, f.shape[1] + 2 * pad, channels, channels))
 
     for r in range(channels):
-        rf[:, :, r, r] = np.pad(f, [pad, pad], 'constant')
+        rf[:, :, r, r] = np.pad(f, [pad, pad], "constant")
 
     return rf
 

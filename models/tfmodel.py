@@ -13,9 +13,11 @@ from helpers import utils
 from loguru import logger
 
 
-def restore(dir_name, module, key=None, patch_size=None, restore_perf=False, fetch_stats=False):
+def restore(
+    dir_name, module, key=None, patch_size=None, restore_perf=False, fetch_stats=False
+):
     """
-    Utility function to restore pre-trained models from a training directory. 
+    Utility function to restore pre-trained models from a training directory.
 
     :param dir_name: directory with a trained model (*.json + checkpoint data)
     :param module: Python module where classes should be looked up
@@ -27,56 +29,70 @@ def restore(dir_name, module, key=None, patch_size=None, restore_perf=False, fet
     training_log_path = None
 
     if dir_name is None:
-        raise ValueError('dcn directory cannot be None')
+        raise ValueError("dcn directory cannot be None")
 
     if not os.path.exists(dir_name):
         # If not explicit directory, check for presets
-        logger.info('config/presets/{}.json'.format(module.__name__.split('.')[-1]))
-        if os.path.isfile('config/presets/{}.json'.format(module.__name__.split('.')[-1])):
-            with open('config/presets/{}.json'.format(module.__name__.split('.')[-1])) as f:
+        logger.info("config/presets/{}.json".format(module.__name__.split(".")[-1]))
+        if os.path.isfile(
+            "config/presets/{}.json".format(module.__name__.split(".")[-1])
+        ):
+            with open(
+                "config/presets/{}.json".format(module.__name__.split(".")[-1])
+            ) as f:
                 presets = json.load(f)
             if dir_name in presets:
-                logger.info('Found {} in presets: {}'.format(dir_name, presets[dir_name]))
+                logger.info(
+                    "Found {} in presets: {}".format(dir_name, presets[dir_name])
+                )
                 dir_name = presets[dir_name]
             else:
-                raise ValueError('Directory {} does not exist & key not found in presets (config/presets/*)!'.format(dir_name))
+                raise ValueError(
+                    "Directory {} does not exist & key not found in presets (config/presets/*)!".format(
+                        dir_name
+                    )
+                )
         else:
-            raise ValueError('Directory {} does not exist (presets not available)!'.format(dir_name))
+            raise ValueError(
+                "Directory {} does not exist (presets not available)!".format(dir_name)
+            )
 
-    for filename in Path(dir_name).glob('**/*.json'):
+    for filename in Path(dir_name).glob("**/*.json"):
         training_log_path = str(filename)
 
     if training_log_path is None:
-        raise FileNotFoundError('Could not find a training log (JSON file) in {}'.format(dir_name))
+        raise FileNotFoundError(
+            "Could not find a training log (JSON file) in {}".format(dir_name)
+        )
 
     with open(training_log_path) as f:
         training_log = json.load(f)
-    
+
     if key is not None:
         training_log = training_log[key]
 
-    parameters = training_log['args']
-    parameters['patch_size'] = patch_size
+    parameters = training_log["args"]
+    parameters["patch_size"] = patch_size
 
     # TODO JSON Does not allow to store tuples, so they are stored as string
     for key, value in parameters.items():
-        if isinstance(value, str) and value[0] == '(' and value[-1] == ')':
+        if isinstance(value, str) and value[0] == "(" and value[-1] == ")":
             parameters[key] = eval(value)
 
-    model = getattr(module, training_log['model'])(**parameters)
+    model = getattr(module, training_log["model"])(**parameters)
     model.load_model(dir_name)
-    logger.info('Restored model: {} <- {}'.format(model.model_code, training_log_path))
+    logger.info("Restored model: {} <- {}".format(model.model_code, training_log_path))
 
     if restore_perf:
-        model.performance = training_log['performance']
+        model.performance = training_log["performance"]
 
     if fetch_stats:
         stats = {}
         for k, v in model.performance.items():
-            if 'validation' in v and len(v['validation']) > 0:
-                stats[k] = np.round(v['validation'][-1], 3)
-            elif 'training' in v and len(v['training']) > 0:
-                stats[k] = np.round(v['training'][-1], 3)
+            if "validation" in v and len(v["validation"]) > 0:
+                stats[k] = np.round(v["validation"][-1], 3)
+            elif "training" in v and len(v["training"]) > 0:
+                stats[k] = np.round(v["training"][-1], 3)
 
         return model, stats
     else:
@@ -86,13 +102,13 @@ def restore(dir_name, module, key=None, patch_size=None, restore_perf=False, fet
 class TFModel(object):
     """
     Abstract class to represent framework components. Provides common functionality to keep
-    performance statistics, help with model loading/saving/migration, access and count parameters, 
-    hyper-parameters, etc. For most use-cases, see specific sub-classes: e.g, NIPModel for camera 
+    performance statistics, help with model loading/saving/migration, access and count parameters,
+    hyper-parameters, etc. For most use-cases, see specific sub-classes: e.g, NIPModel for camera
     ISPs, or DCN for learned compression.
 
     # Working with hyper-parameters
     The framework provides the 'ParamSpec' class to help with hyper-parameter definitions, validation
-    and storage. See documentation of that class for details, and existing TFModel sub-classes for 
+    and storage. See documentation of that class for details, and existing TFModel sub-classes for
     more examples.
 
     # Accessing model parameters
@@ -109,14 +125,14 @@ class TFModel(object):
 
     def __init__(self, **kwargs):
         self._model = None
-        self.reset_performance_stats()        
+        self.reset_performance_stats()
 
     @staticmethod
     def _reset_performance(metrics):
-        return {k: {'training': [], 'validation': []} for k in metrics}
+        return {k: {"training": [], "validation": []} for k in metrics}
 
     def reset_performance_stats(self):
-        self.performance = self._reset_performance(['loss'])
+        self.performance = self._reset_performance(["loss"])
 
     def log_metric(self, metric, scope, value, raw=False):
         if not raw:
@@ -133,19 +149,28 @@ class TFModel(object):
     @property
     def parameters(self):
         return self._model.trainable_weights
-    
+
     @property
     def variables(self):
         return self._model.variables
-        
+
     def count_parameters(self):
         return np.sum([np.prod(tv.shape.as_list()) for tv in self.parameters])
-    
+
     def count_parameters_breakdown(self):
         import pandas as pd
+
         total = self.count_parameters()
-        data = [(tv.name, tv.shape, np.prod(tv.shape.as_list()), round(100 * np.prod(tv.shape.as_list()) / total, 1)) for tv in self.parameters]
-        return pd.DataFrame(data, columns=['name', 'shape', 'parameters', 'total'])        
+        data = [
+            (
+                tv.name,
+                tv.shape,
+                np.prod(tv.shape.as_list()),
+                round(100 * np.prod(tv.shape.as_list()) / total, 1),
+            )
+            for tv in self.parameters
+        ]
+        return pd.DataFrame(data, columns=["name", "shape", "parameters", "total"])
 
     def save_model(self, dirname, epoch=0, save_args=False, quiet=False):
         # if not dirname.endswith(self.model_filename):
@@ -155,18 +180,23 @@ class TFModel(object):
             os.makedirs(dirname)
 
         if not quiet:
-            logger.info(f'> {self.class_name} --> {os.path.join(dirname, self.class_name.lower())} {"JSON" if save_args else ""}')
-        self._model.save_weights(os.path.join(dirname, self.model_filename), save_format='h5')
+            logger.info(
+                f'> {self.class_name} --> {os.path.join(dirname, self.class_name.lower())} {"JSON" if save_args else ""}'
+            )
+        self._model.save_weights(
+            os.path.join(dirname, self.model_filename), save_format="h5"
+        )
 
         if save_args:
-            json_filename = self.model_filename.replace('.h5', '')
-            json_filename = f'{json_filename}.json'
+            json_filename = self.model_filename.replace(".h5", "")
+            json_filename = f"{json_filename}.json"
 
-            with open(os.path.join(dirname, json_filename), 'w') as f:
-                json.dump({
-                    'model': self.class_name,
-                    'args': self.get_hyperparameters()
-                }, f, indent=4)
+            with open(os.path.join(dirname, json_filename), "w") as f:
+                json.dump(
+                    {"model": self.class_name, "args": self.get_hyperparameters()},
+                    f,
+                    indent=4,
+                )
 
     def load_model(self, dirname, quiet=False):
         # if not dirname.endswith(self.model_filename):
@@ -179,7 +209,7 @@ class TFModel(object):
             filename = os.path.join(dirname, self.class_name.lower())
 
         if not quiet:
-            logger.info(f'> {self.class_name} <-- {filename}')
+            logger.info(f"> {self.class_name} <-- {filename}")
 
         if not self._model.built:
             self._model.build(self.input_shape)
@@ -189,10 +219,10 @@ class TFModel(object):
 
     @property
     def input_shape(self):
-        if hasattr(self, 'x'):
+        if hasattr(self, "x"):
             return self.x.shape
         else:
-            raise NotImplementedError('Input shape not available!')
+            raise NotImplementedError("Input shape not available!")
 
     def migrate_model(self, dirname, mapping=None, verbose=False):
         """
@@ -201,7 +231,7 @@ class TFModel(object):
         the checkpoint and uses their values for new weights. The mapping is defined in the
         'mapping' dictionary. The new model can later be saved using 'save_model'.
 
-        Hint: It may be useful to use tf.keras.backend.clear_session() to make sure variable 
+        Hint: It may be useful to use tf.keras.backend.clear_session() to make sure variable
         names are not changing during the migration.
 
         :param dirname: directory with a saved TF checkpoint
@@ -212,27 +242,41 @@ class TFModel(object):
         #     dirname = os.path.join(dirname, self.model_filename)
 
         if verbose:
-            logger.info('# Variables found in the checkpoint: {}'.format(dirname))
+            logger.info("# Variables found in the checkpoint: {}".format(dirname))
             for i, (var_name, _) in enumerate(tf.train.list_variables(dirname)):
                 var = tf.train.load_variable(dirname, var_name)
-                if hasattr(var, 'shape'):
-                    logger.info('{0:3d}.  {1:70s} -> tensor {2.shape}'.format(i, var_name, var))
+                if hasattr(var, "shape"):
+                    logger.info(
+                        "{0:3d}.  {1:70s} -> tensor {2.shape}".format(i, var_name, var)
+                    )
                 else:
-                    logger.info('{0:3d}.  {1:70s} -> {2}'.format(i, var_name, type(var)))
-            logger.info('\n# Model variables: {}'.format(self.class_name))
+                    logger.info(
+                        "{0:3d}.  {1:70s} -> {2}".format(i, var_name, type(var))
+                    )
+            logger.info("\n# Model variables: {}".format(self.class_name))
             for i, var in enumerate(self._model.trainable_variables):
-                logger.info('{0:3d}.  {1.name:70s} -> tensor {1.shape}'.format(i, var))
+                logger.info("{0:3d}.  {1.name:70s} -> tensor {1.shape}".format(i, var))
 
         if mapping is not None:
             for var in self._model.trainable_variables:
-                var_name = var.name.replace(':0', '')
+                var_name = var.name.replace(":0", "")
                 if var_name not in mapping:
-                    logger.warning('mapping for {} = {} not found'.format(var.name, var_name))
+                    logger.warning(
+                        "mapping for {} = {} not found".format(var.name, var_name)
+                    )
                     continue
                 var_value = tf.train.load_variable(dirname, mapping[var_name])
-                logger.info('{} = {} {} <- {} {}'.format(var.name, var_name, var.shape, mapping[var_name], var_value.shape))
+                logger.info(
+                    "{} = {} {} <- {} {}".format(
+                        var.name,
+                        var_name,
+                        var.shape,
+                        mapping[var_name],
+                        var_value.shape,
+                    )
+                )
                 var.assign(var_value)
-        
+
         self.reset_performance_stats()
 
     @property
@@ -240,10 +284,12 @@ class TFModel(object):
         return type(self).__name__
 
     def summary(self):
-        return '{} model [{:,.0f} parameters]'.format(self.class_name, self.count_parameters())
+        return "{} model [{:,.0f} parameters]".format(
+            self.class_name, self.count_parameters()
+        )
 
     def summary_compact(self):
-        return '{}'.format(self.class_name)
+        return "{}".format(self.class_name)
 
     @property
     def model_code(self):
@@ -251,10 +297,10 @@ class TFModel(object):
 
     @property
     def model_filename(self):
-        return f'{type(self).__name__.lower()}.h5'
+        return f"{type(self).__name__.lower()}.h5"
 
     def get_hyperparameters(self):
-        if hasattr(self, '_h'):
+        if hasattr(self, "_h"):
             return self._h.to_json()
         else:
             return None
@@ -263,22 +309,28 @@ class TFModel(object):
         try:
             extra_params = utils.join_args(self._h.changed_params())
         except:
-            extra_params = ''
-        return f'{self.class_name}({extra_params})'
+            extra_params = ""
+        return f"{self.class_name}({extra_params})"
 
-    def _has_attributes(self, attrs, message='Expected attributes not found: {}'):
+    def _has_attributes(self, attrs, message="Expected attributes not found: {}"):
         setup_status = {key: hasattr(self, key) for key in attrs}
         if not all(setup_status.values()):
-            raise NotImplementedError(message.format([key for key, value in setup_status.items() if not value]))
+            raise NotImplementedError(
+                message.format(
+                    [key for key, value in setup_status.items() if not value]
+                )
+            )
 
     @classmethod
     def restore(cls, dir_name, *, key=None, patch_size=None):
 
-        candidates = list(Path(dir_name).glob('**/*.json'))
+        candidates = list(Path(dir_name).glob("**/*.json"))
         training_log_path = str(candidates[0]) if candidates else None
 
         if training_log_path is None or not os.path.isfile(training_log_path):
-            raise FileNotFoundError('Could not find a training log (JSON file) in {}'.format(dir_name))
+            raise FileNotFoundError(
+                "Could not find a training log (JSON file) in {}".format(dir_name)
+            )
 
         with open(training_log_path) as f:
             training_log = json.load(f)
@@ -286,17 +338,18 @@ class TFModel(object):
         if key is not None:
             training_log = training_log[key]
 
-        parameters = training_log['args']
-        if patch_size is not None: parameters['patch_size'] = patch_size
+        parameters = training_log["args"]
+        if patch_size is not None:
+            parameters["patch_size"] = patch_size
 
         # JSON does not allow to store tuples, so they are stored as string
         for key, value in parameters.items():
-            if isinstance(value, str) and value[0] == '(' and value[-1] == ')':
+            if isinstance(value, str) and value[0] == "(" and value[-1] == ")":
                 parameters[key] = eval(value)
 
         instance = cls(**parameters)
         instance.load_model(dir_name)
-        
+
         return instance
 
     def process(self, x, training=False):
