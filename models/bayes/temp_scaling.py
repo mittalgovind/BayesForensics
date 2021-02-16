@@ -81,7 +81,7 @@ class TemperatureScaling(tf.keras.Model, ABC):
         labels_list = []
         # TODO remove hard coding
         n_batches = data.count_validation // self.batch_size
-        epochs = 35
+        epochs = 100
         nll_loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
         opt = tf.optimizers.Adam(learning_rate=0.01)
 
@@ -122,7 +122,7 @@ class TemperatureScaling(tf.keras.Model, ABC):
         return
 
     @staticmethod
-    def ece_loss(labels, logits, n_bins=15):
+    def ece_loss(labels, logits, n_bins=5):
         bin_boundaries = np.linspace(0, 1, n_bins + 1)
         bin_lowers = bin_boundaries[:-1]
         bin_uppers = bin_boundaries[1:]

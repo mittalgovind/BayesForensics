@@ -14,6 +14,7 @@ sys.path.append(os.path.abspath("/"))
 
 # External libraries
 import numpy as np
+import tensorflow as tf
 
 # Internal libraries
 
@@ -28,7 +29,10 @@ from workflows.bayes_scaling_factor import (
     BayarStammSFP,
     BayarStammCalibrated,
 )
-from models.bayes.temp_scaling import TemperatureScaling
+
+# TODO (Govind) remove before merge. Set memory growth for personal GPU.
+physical_devices = tf.config.list_physical_devices("GPU")
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 
 def parse_args():
