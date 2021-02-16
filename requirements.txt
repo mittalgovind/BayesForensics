@@ -1,8 +1,8 @@
-tensorboard==2.2.0
-tensorflow-gpu==2.2.0
-numpy==1.18.1
-scipy==1.4.1
-scikit-image==0.16.2
+tensorboard
+tensorflow
+numpy
+scipy
+scikit-image
 colour-demosaicing
 rawkit
 exifread
@@ -19,3 +19,7 @@ pdf2image
 loguru
 pytest
 pytest-lazy-fixture
+pandas
+jupyterlab
+jpylyzer
+tensorflow-probability
