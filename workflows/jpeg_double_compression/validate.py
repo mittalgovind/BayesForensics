@@ -1,0 +1,67 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# New York University
+# By: Govind (mittal@nyu.edu)
+
+# Standard libraries
+from itertools import product
+
+# External libraries
+import tensorflow as tf
+import numpy as np
+
+# Internal libraries
+from helpers.utils import progress_bar
+
+
+def run_tests(
+    model,
+    qf,
+    data,
+    classes,
+    batch_size,
+    patch_size,
+    codec,
+):
+    """
+
+    Parameters
+    ----------
+    model : BayesModel()
+        Bayes model for running tests
+    qf
+    data
+    classes
+    batch_size
+    patch_size
+    num_runs
+    cache
+    temperature
+    """
+    q_factors = np.arange(*qf)
+    n_factors = len(q_factors)
+    n_batches = data.count_validation // batch_size
+    counters = np.zeros((4, n_factors, n_factors))
+
+    for QF1, QF2 in progress_bar(product(q_factors)):
+        for batch_id in range(n_batches):
+            batch = data.next_validation_batch(batch_id, batch_size, patch_size)
+            # TODO why not just compress both with qf1 and then second batch with qf2?
+            batch_single_compressed = codec.process(batch, QF1)
+            batch_double_compressed = codec.process(batch_single_compressed, QF2)
+
+            images = tf.concat(
+                (batch_single_compressed, batch_double_compressed), axis=0
+            )
+            labels = tf.concat(tf.zeros(batch_size), tf.ones(batch_size))
+
+            with tf.GradientTape() as tape:
+                predictions = model(images, training=True)
+                loss = loss_criterion(predictions, labels)
+
+            grads = tape.gradient(loss, model._model.trainable_variables)
+            optimizer.apply_gradients(zip(grads, model._model.trainable_variables))
+
+            losses += loss.numpy()
+            accuracies += np.mean(predictions == labels)
