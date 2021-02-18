@@ -21,7 +21,6 @@ def train(
     epochs,
     data,
     batch_size,
-    batch_multiplier,
     qf,
     patch_size,
     cache,
@@ -43,9 +42,9 @@ def train(
             for batch_id in range(n_batches):
                 batch = data.next_training_batch(batch_id, batch_size, patch_size)
                 QF1, QF2 = np.random.uniform((2,), *qf, dtype=int)
-                # TODO why not just compress both with qf1 and then second batch with qf2?
-                batch_single_compressed = codec.process(batch, QF1)
-                batch_double_compressed = codec.process(batch_single_compressed, QF2)
+                batch_single_compressed = codec.process(batch, QF2)
+                # compressing with QF1 before QF2, to give compression history to batch.
+                batch_double_compressed = codec.process(codec.process(batch, QF1), QF2)
 
                 images = tf.concat(
                     (batch_single_compressed, batch_double_compressed), axis=0

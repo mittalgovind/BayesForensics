@@ -47,21 +47,22 @@ def run_tests(
     for QF1, QF2 in progress_bar(product(q_factors)):
         for batch_id in range(n_batches):
             batch = data.next_validation_batch(batch_id, batch_size, patch_size)
-            # TODO why not just compress both with qf1 and then second batch with qf2?
-            batch_single_compressed = codec.process(batch, QF1)
-            batch_double_compressed = codec.process(batch_single_compressed, QF2)
+            batch_single_compressed = codec.process(batch, QF2)
+            batch_double_compressed = codec.process(codec.process(batch, QF1), QF2)
 
             images = tf.concat(
                 (batch_single_compressed, batch_double_compressed), axis=0
             )
-            labels = tf.concat(tf.zeros(batch_size), tf.ones(batch_size))
+            if hasattr(model, "_mc_dropout"):
+                predictions = model._mc_dropout(images).numpy().argmax(axis=1)
+            else:
+                predictions = model(images).numpy().argmax(axis=1)
 
-            with tf.GradientTape() as tape:
-                predictions = model(images, training=True)
-                loss = loss_criterion(predictions, labels)
+            qf1 = np.argmax(q_factors == QF1)
+            qf2 = np.argmax(q_factors == QF2)
 
-            grads = tape.gradient(loss, model._model.trainable_variables)
-            optimizer.apply_gradients(zip(grads, model._model.trainable_variables))
-
-            losses += loss.numpy()
-            accuracies += np.mean(predictions == labels)
+            # Counter for True negatives, negatives, True positives, positives.
+            counters[0, qf2, qf1] += np.sum(predictions == 0)
+            counters[1, qf2, qf1] += batch_size
+            counters[2, qf2, qf1] += np.sum(predictions == 1)
+            counters[3, qf2, qf1] += batch_size
