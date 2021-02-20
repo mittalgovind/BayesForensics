@@ -28,6 +28,7 @@ def train(
     codec,
     save_every,
     save_dir,
+    **kwargs
 ):
     performance = {"loss": {"training": []}, "accuracy": {"training": []}}
     n_batches = data.count_training // batch_size
@@ -41,7 +42,8 @@ def train(
 
             for batch_id in range(n_batches):
                 batch = data.next_training_batch(batch_id, batch_size, patch_size)
-                QF1, QF2 = np.random.uniform((2,), *qf, dtype=int)
+                QF1 = int(tf.random.uniform((1,), *qf).numpy())
+                QF2 = int(tf.random.uniform((1,), *qf).numpy())
                 batch_single_compressed = codec.process(batch, QF2)
                 # compressing with QF1 before QF2, to give compression history to batch.
                 batch_double_compressed = codec.process(codec.process(batch, QF1), QF2)
@@ -49,11 +51,11 @@ def train(
                 images = tf.concat(
                     (batch_single_compressed, batch_double_compressed), axis=0
                 )
-                labels = tf.concat(tf.zeros(batch_size), tf.ones(batch_size))
+                labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)), axis=-1)
 
                 with tf.GradientTape() as tape:
                     predictions = model(images, training=True)
-                    loss = loss_criterion(predictions, labels)
+                    loss = loss_criterion(labels, predictions)
 
                 grads = tape.gradient(loss, model._model.trainable_variables)
                 optimizer.apply_gradients(zip(grads, model._model.trainable_variables))
@@ -75,3 +77,5 @@ def train(
 
         if cache:
             cache.save(performance, step="performance")
+
+    return model, performance

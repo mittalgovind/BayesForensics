@@ -10,19 +10,24 @@ import sys
 import os
 
 # External libraries
-import numpy as np
 import tensorflow as tf
+from loguru import logger
 
 # Internal libraries
 from models.jpeg import JPEG
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
+from helpers.plots import perf
+from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu
 from workflows.jpeg_double_compression import (
     train,
     run_tests,
     JPEGDoubleCompression,
+    qf_plot,
 )
+
+setup_logging()
 
 # necessary here, as slurm executes a copy
 sys.path.append(os.path.abspath("/"))
@@ -179,7 +184,6 @@ def main():
         "save_dir": args.save_dir,
         "save_every": args.save_every,
         "n_runs": args.n_runs,
-        "codec": JPEG(),
     }
 
     data = Dataset(
@@ -193,7 +197,7 @@ def main():
     model = JPEGDoubleCompression(
         method=args.uncertainty_method,
         c_filters=(32, 32, 32, 32),
-        d_filters=(32, 16, args.n_classes),
+        d_filters=(128, 2),
         kernel=5,
         activation="leaky_relu",
         trainable_residual=True,
@@ -202,14 +206,21 @@ def main():
     )
 
     if args.cont_model_path:
+        # TODO (Govind) Somehow this takes too much memory. Fix implementation.
         # train for an epoch so that model is built
-        model = train(
-            model=model, epochs=1, data=data, cache=None, qf=qf_train, **flags
+        model, _ = train(
+            model=model,
+            epochs=1,
+            data=data,
+            cache=None,
+            qf=qf_train,
+            codec=JPEG(),
+            **flags
         )
         model.load_model(os.path.abspath(args.cont_model_path))
 
     if not args.only_eval:
-        model = train(
+        model, train_performance = train(
             model=model,
             epochs=args.epochs,
             data=data,
@@ -217,6 +228,7 @@ def main():
             cache=cache,
             **flags
         )
+        perf(train_performance, log=False)
 
     # TODO Add calibration
     if args.calibrate:
@@ -227,14 +239,17 @@ def main():
     else:
         temperature = 1.0
 
-    run_tests(
+    logger.info("Started Testing")
+    tnr, tpr, accuracies = run_tests(
         model=model,
         data=data,
         qf=qf_test,
         cache=cache,
         temperature=temperature,
+        codec=JPEG(codec="libjpeg"),
         **flags
     )
+    qf_plot(qf_test, accuracies, args.save_dir)
 
 
 if __name__ == "__main__":

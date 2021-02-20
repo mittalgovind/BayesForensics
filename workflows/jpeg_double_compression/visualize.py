@@ -5,6 +5,7 @@
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
+import os
 
 # External libraries
 import numpy as np
@@ -13,7 +14,7 @@ import numpy as np
 import helpers.plots as plots
 
 
-def plot(qf, accuracies):
+def qf_plot(qf, accuracies, save_dir):
     n_factors = len(qf)
     m_accuracy = np.mean(accuracies[np.tri(qf[1] - qf[0], dtype=np.bool)])
 
@@ -30,3 +31,5 @@ def plot(qf, accuracies):
     axes[0].set_ylabel("$Q_2$")
     axes[0].set_xlabel("$Q_1$")
     axes[0].plot([0, n_factors - 1], [0, n_factors - 1], "r:")
+
+    fig.savefig(os.path.join(save_dir, "conf_matrix.pdf"))

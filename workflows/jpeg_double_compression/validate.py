@@ -24,7 +24,7 @@ def run_tests(model, qf, data, batch_size, patch_size, codec, temperature, **kwa
         Bayes model for running tests
     qf
     data
-    classes
+
     batch_size
     patch_size
     num_runs
@@ -36,15 +36,17 @@ def run_tests(model, qf, data, batch_size, patch_size, codec, temperature, **kwa
     n_batches = data.count_validation // batch_size
     counters = np.zeros((4, n_factors, n_factors))
 
-    for QF1, QF2 in progress_bar(product(q_factors)):
+    for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
+        QF1, QF2 = int(QF1), int(QF2)
         for batch_id in range(n_batches):
-            batch = data.next_validation_batch(batch_id, batch_size, patch_size)
+            batch = data.next_validation_batch(batch_id, batch_size)
             batch_single_compressed = codec.process(batch, QF2)
             batch_double_compressed = codec.process(codec.process(batch, QF1), QF2)
 
             images = tf.concat(
                 (batch_single_compressed, batch_double_compressed), axis=0
             )
+            del batch, batch_single_compressed, batch_double_compressed
             if hasattr(model, "_mc_dropout"):
                 predictions = model._mc_dropout(images).numpy().argmax(axis=1)
             else:
@@ -58,3 +60,13 @@ def run_tests(model, qf, data, batch_size, patch_size, codec, temperature, **kwa
             counters[1, qf2, qf1] += batch_size
             counters[2, qf2, qf1] += np.sum(predictions == 1)
             counters[3, qf2, qf1] += batch_size
+
+    tnr = counters[0] / counters[1]
+    tpr = counters[2] / counters[3]
+    accuracies = (tnr + tpr) / 2
+
+    return (
+        tnr,
+        tpr,
+        accuracies,
+    )

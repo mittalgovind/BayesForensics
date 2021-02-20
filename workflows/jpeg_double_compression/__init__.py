@@ -13,4 +13,4 @@
 from .flow import JPEGDoubleCompression
 from .train import train
 from .validate import run_tests
-from .visualize import plot
+from .visualize import qf_plot
