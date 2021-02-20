@@ -226,6 +226,7 @@ def main():
             data=data,
             qf=qf_train,
             cache=cache,
+            codec=JPEG(),
             **flags
         )
         perf(train_performance, log=False)
