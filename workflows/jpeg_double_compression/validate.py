@@ -15,15 +15,7 @@ import numpy as np
 from helpers.utils import progress_bar
 
 
-def run_tests(
-    model,
-    qf,
-    data,
-    classes,
-    batch_size,
-    patch_size,
-    codec,
-):
+def run_tests(model, qf, data, batch_size, patch_size, codec, temperature, **kwargs):
     """
 
     Parameters

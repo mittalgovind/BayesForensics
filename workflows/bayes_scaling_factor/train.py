@@ -35,6 +35,7 @@ def train(
     lr,
     methods,
     save_every,
+    **kwargs
 ):
     """Scaling factor training
     Parameters
