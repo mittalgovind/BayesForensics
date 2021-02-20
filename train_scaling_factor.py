@@ -163,7 +163,17 @@ def parse_args():
         default=False,
         help="Overwrite the output folder, if exists.",
     )
-
+    parser.add_argument("-a", "--adversarial", dest="adversarial", action="store_true")
+    parser.add_argument("--no-adversarial", dest="adversarial", action="store_false")
+    parser.set_defaults(adversarial=False)
+    parser.add_argument(
+        "-eps",
+        "--epsilon",
+        dest="epsilon",
+        action="store",
+        default=0.01,
+        help="Epsilon value used when generating adversarial training examples.",
+    )
     return parser.parse_args()
 
 
@@ -182,13 +192,15 @@ def main():
     cache = ResultCache(["{step}_{sampling_method}.npz"], prefix=args.save_dir)
     classes = np.linspace(*scales, num=args.n_classes)
     flags = {
-        "lr": args.lr,
+        "lr": 1e-3,
         "patch_size": patch_size,
         "scales": scales,
         "sampling_method": args.sampling_method,
         "classes": classes,
         "save_dir": args.save_dir,
         "methods": methods,
+        "adversarial": args.adversarial,
+        "epsilon": args.epsilon,
         "save_every": args.save_every,
     }
     n_runs = args.n_runs

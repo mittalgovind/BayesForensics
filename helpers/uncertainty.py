@@ -7,9 +7,15 @@
 # Standard libraries
 
 # External libraries
-from scipy.stats import mode, entropy
+from scipy.stats import mode
+from scipy.special import softmax
+import numpy as np
+import tensorflow as tf
 
 # Internal libraries
+
+MAX = int(2e16)
+MIN = -int(2e16)
 
 
 def get_pred(logits):
@@ -35,10 +41,9 @@ def get_probs_passes_logits(logits):
 
 
 def variation_ratio(logits):
-    set_trace()
     probs, n_passes, _ = get_probs_passes_logits(logits)
     means = np.array([[np.sum(c) / n_passes for c in run.T] for run in probs])
-    var_ratio = 1 - means[np.argmax(means, axis=-1)]
+    var_ratio = 1 - means[np.arange(means.shape[0]), np.argmax(means, axis=-1)]
     return var_ratio
 
 
@@ -46,19 +51,39 @@ def predictive_entropy(logits):
     probs, n_passes, _ = get_probs_passes_logits(logits)
     means = np.array([[np.sum(c) / n_passes for c in run.T] for run in probs])
 
-    pred_ent = -np.sum(np.multiply(means, np.log(np.clip(means, 1e-12, None))), axis=-1)
+    pred_ent = -np.sum(
+        np.multiply(means, np.log2(np.clip(means, 1e-16, None))), axis=-1
+    )
     return pred_ent
 
 
 def mutual_information(logits):
     probs, n_passes, logits = get_probs_passes_logits(logits)
     pred_ent = predictive_entropy(logits)
-    clipped_pred = np.clip(probs, 1e-12, None)
+    clipped_pred = np.clip(probs, 1e-16, None)
     exp_value = np.array(
         [
-            np.divide(np.sum(np.multiply([prob], np.log(prob))), n_passes)
+            np.divide(np.sum(np.multiply([prob], np.log2(prob))), n_passes)
             for prob in clipped_pred
         ]
     )
 
     return pred_ent + exp_value
+
+
+def get_limits(n_models, n_classes):
+    logits = []
+    for i in range(n_models):
+        model = [[MIN] * n_classes]
+        model[0][i % n_classes] = MAX
+        logits.append(model)
+
+    logits = tf.convert_to_tensor(logits)
+
+    uncertainty_limits = {
+        "variation_ratio": variation_ratio(logits)[0],
+        "predictive_entropy": predictive_entropy(logits)[0],
+        "mutual_information": mutual_information(logits)[0],
+    }
+
+    return uncertainty_limits

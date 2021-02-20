@@ -411,7 +411,7 @@ def confusion_to_text(conf, labels, title="accuracy", fmt="txt"):
         for i in range(n):
             out.append("{:>{width}}".format(labels[i], width=l))
             for j in range(n):
-                out.append("{:4.0f}".format(conf[i][j]))
+                out.append("{:4.2f}".format(conf[i][j]))
             out.append("\n")
 
     else:
@@ -430,6 +430,7 @@ def convert_table(
     color1="cyan",
     color0="white",
     labels_rows=None,
+    threshold=3,
 ):
     """
     Converts a 2D array into a human-readable format (txt, tex, csv or dataframe [df]).
@@ -485,7 +486,7 @@ def convert_table(
             for j in range(m):
                 if conf[i][j] == 0:
                     out.append(" & ")
-                elif conf[i][j] < 3:
+                elif conf[i][j] < threshold:
                     out.append(" & *")
                 else:
                     if color1 is not None and color0 is not None:
