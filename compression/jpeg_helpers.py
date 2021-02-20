@@ -9,21 +9,37 @@ from jpylyzer import jpylyzer
 
 from helpers import metrics
 
-app_markers = (0xffe0, 0xffe1, 0xffe2, 0xffe3, 0xffe4, 0xffe5, 0xffe6, 0xffe7, 0xffe8, 0xffe9, 0xffea, 0xffeb, 0xffec,
-               0xffed, 0xffee, 0xffef)
+app_markers = (
+    0xFFE0,
+    0xFFE1,
+    0xFFE2,
+    0xFFE3,
+    0xFFE4,
+    0xFFE5,
+    0xFFE6,
+    0xFFE7,
+    0xFFE8,
+    0xFFE9,
+    0xFFEA,
+    0xFFEB,
+    0xFFEC,
+    0xFFED,
+    0xFFEE,
+    0xFFEF,
+)
 
 markers = {
-    'SOS': 'Start of Stream',
-    'SOI': 'Start of Image',
-    'APP': 'Application',
-    'EOI': 'End of Image',
-    'DHT': 'Huffman tables',
-    'DQT': 'DCT Quantization Tables',
-    'ECD': 'Entropy Coded Data'
+    "SOS": "Start of Stream",
+    "SOI": "Start of Image",
+    "APP": "Application",
+    "EOI": "End of Image",
+    "DHT": "Huffman tables",
+    "DQT": "DCT Quantization Tables",
+    "ECD": "Entropy Coded Data",
 }
 
 
-def match_quality(image, target=0.95, match='ssim', subsampling='4:4:4'):
+def match_quality(image, target=0.95, match="ssim", subsampling="4:4:4"):
     """
     Find JPEG quality level which matches a given SSIM or bpp target.
     :param image:
@@ -33,7 +49,7 @@ def match_quality(image, target=0.95, match='ssim', subsampling='4:4:4'):
     :return: jpeg quality level (integer from 1 to 95)
     """
 
-    assert image.ndim == 3, 'Only RGB images supported'
+    assert image.ndim == 3, "Only RGB images supported"
 
     def get_ssim(q):
         image_j = compress_batch(image, q, subsampling=subsampling)[0].squeeze()
@@ -45,12 +61,12 @@ def match_quality(image, target=0.95, match='ssim', subsampling='4:4:4'):
         bpp = 8 * np.mean(bytes_arr) / image.shape[0] / image.shape[1]
         return bpp - target
 
-    if match == 'ssim':
+    if match == "ssim":
         fun = get_ssim
-    elif match == 'bpp':
+    elif match == "bpp":
         fun = get_bpp
     else:
-        raise ValueError('Invalid argument: match')
+        raise ValueError("Invalid argument: match")
 
     low = 1
     high = 95
@@ -66,9 +82,11 @@ def match_quality(image, target=0.95, match='ssim', subsampling='4:4:4'):
                 return high
 
         if low_obj * high_obj > 0:
-            raise ValueError('Same deviation for both end-points {} - {}'.format(low, high))
+            raise ValueError(
+                "Same deviation for both end-points {} - {}".format(low, high)
+            )
 
-        mid = int((low + high)/2)
+        mid = int((low + high) / 2)
         mid_obj = fun(mid)
 
         if mid_obj * high_obj > 0:
@@ -79,7 +97,7 @@ def match_quality(image, target=0.95, match='ssim', subsampling='4:4:4'):
             low_obj = mid_obj
 
 
-def compress_batch(batch_x, jpeg_quality, effective=False, subsampling='4:4:4'):
+def compress_batch(batch_x, jpeg_quality, effective=False, subsampling="4:4:4"):
     """
     Compress an image batch with the standard JPEG codec. Returns compressed images and their sizes in bytes.
     :param batch_x: numpy array (n, h, w, 3)
@@ -90,13 +108,23 @@ def compress_batch(batch_x, jpeg_quality, effective=False, subsampling='4:4:4'):
     """
 
     if batch_x.max() > 1:
-        batch_x = batch_x.astype(np.float32) / (2**8 - 1)
+        batch_x = batch_x.astype(np.float32) / (2 ** 8 - 1)
 
     if batch_x.ndim == 3:
         s = io.BytesIO()
-        imageio.imsave(s, (255 * batch_x).astype(np.uint8).squeeze(), format='jpg', quality=jpeg_quality, subsampling=subsampling)
+        imageio.imsave(
+            s,
+            (255 * batch_x).astype(np.uint8).squeeze(),
+            format="jpg",
+            quality=jpeg_quality,
+            subsampling=subsampling,
+        )
         image_compressed = imageio.imread(s.getvalue())
-        image_bytes = len(s.getvalue()) if not effective else JPEGMarkerStats(s.getvalue()).get_effective_bytes()
+        image_bytes = (
+            len(s.getvalue())
+            if not effective
+            else JPEGMarkerStats(s.getvalue()).get_effective_bytes()
+        )
 
         return image_compressed / (2 ** 8 - 1), image_bytes
 
@@ -105,10 +133,20 @@ def compress_batch(batch_x, jpeg_quality, effective=False, subsampling='4:4:4'):
         bytes_arr = []
         for r in range(batch_x.shape[0]):
             s = io.BytesIO()
-            imageio.imsave(s, (255 * batch_x[r]).astype(np.uint8).squeeze(), format='jpg', quality=jpeg_quality, subsampling=subsampling)
+            imageio.imsave(
+                s,
+                (255 * batch_x[r]).astype(np.uint8).squeeze(),
+                format="jpg",
+                quality=jpeg_quality,
+                subsampling=subsampling,
+            )
             image_compressed = imageio.imread(s.getvalue())
             batch_j[r] = image_compressed.astype(np.float32) / (2 ** 8 - 1)
-            image_bytes = len(s.getvalue()) if not effective else JPEGMarkerStats(s.getvalue()).get_effective_bytes()
+            image_bytes = (
+                len(s.getvalue())
+                if not effective
+                else JPEGMarkerStats(s.getvalue()).get_effective_bytes()
+            )
             bytes_arr.append(image_bytes)
 
         return batch_j, bytes_arr
@@ -117,10 +155,12 @@ def compress_batch(batch_x, jpeg_quality, effective=False, subsampling='4:4:4'):
 def jp2bytes(filename):
     """ Gets JPEG 2000 payload size in bytes (using jpylyzer). Not thoroughly tested. Should sum all tiles. """
     out = jpylyzer.checkOneFile(filename).toxml()
-    data_length = [int(x) for x in re.findall(r'\<psot\>([0-9]+)\</psot\>', out.decode('utf8'))]
+    data_length = [
+        int(x) for x in re.findall(r"\<psot\>([0-9]+)\</psot\>", out.decode("utf8"))
+    ]
 
     if len(data_length) == 0:
-        raise RuntimeError('Error running jpylyzer {}'.format(filename))
+        raise RuntimeError("Error running jpylyzer {}".format(filename))
 
     return sum(data_length)
 
@@ -145,12 +185,12 @@ class JPEGMarkerStats:
         self.blocks = OrderedDict()
 
         if type(image) is str:
-            with open(image, 'rb') as f:
+            with open(image, "rb") as f:
                 image = f.read()
         elif type(image) is bytes:
             pass
         else:
-            raise ValueError('Image not supported! Supported: str, bytes')
+            raise ValueError("Image not supported! Supported: str, bytes")
 
         self._quantization_tables = {}
         self._process(image)
@@ -160,100 +200,107 @@ class JPEGMarkerStats:
         """ Extracts the quantization tables and updates the marker stats. """
         while len(data) > 0:
             # get the ID of the table [Luma(0), Chroma(1)]
-            marker, = unpack("B", data[0:1])
+            (marker,) = unpack("B", data[0:1])
             # get the complete table of 64 elements in one go
-            self.blocks['DQT:{}'.format(marker & 0xf)] = self.l_decode
-            self._quantization_tables[marker & 0xf] = np.frombuffer(data[1:65], np.uint8)[zigzag(8).ravel()].reshape((8, 8))
+            self.blocks["DQT:{}".format(marker & 0xF)] = self.l_decode
+            self._quantization_tables[marker & 0xF] = np.frombuffer(
+                data[1:65], np.uint8
+            )[zigzag(8).ravel()].reshape((8, 8))
             # remove the quantization table chunk
             data = data[65:]
 
     def _process_huffman_tables(self, data):
         """ Extracts the Huffman tables and updates the marker stats. """
         while len(data) > 0:
-            id, = unpack("B", data[0: 1])
-            lengths = get_byte_array(data[1: 17])
+            (id,) = unpack("B", data[0:1])
+            lengths = get_byte_array(data[1:17])
             data = data[17:]
             for i in lengths:
                 data = data[i:]
-            self.blocks['DHT:{}'.format(id)] = self.l_decode
+            self.blocks["DHT:{}".format(id)] = self.l_decode
 
     def _process(self, data):
         """ Parse the JPEG bit-stream and find the locations of markers. Returns  """
         temp_data = data
         rst_marker_index = 0
         app_marker_index = 0
-        self.blocks['SOI'] = 0
+        self.blocks["SOI"] = 0
         try:
             while len(data) > 0:
                 # unpacking big endian hexadecimal marker
-                marker, = unpack(">H", data[0:2])
+                (marker,) = unpack(">H", data[0:2])
                 # start of image
-                if marker == 0xffd8:
+                if marker == 0xFFD8:
                     self.len_chunk = 2
                     self.l_decode = 2
                 # end of image
-                elif marker == 0xffd9:
+                elif marker == 0xFFD9:
                     self.l_decode += 2
-                    self.blocks['EOI'] = self.l_decode
+                    self.blocks["EOI"] = self.l_decode
                     return self.blocks
                 else:
                     # decode the image chunk by chunk
-                    self.len_chunk, = unpack(">H", data[2:4])
+                    (self.len_chunk,) = unpack(">H", data[2:4])
                     # add the length of the 2 bytes marker
                     self.len_chunk += 2
                     # get the chunk after removing marker and length bytes
-                    chunk = data[4:self.len_chunk]
-                    if marker == 0xffdb:
+                    chunk = data[4 : self.len_chunk]
+                    if marker == 0xFFDB:
                         self._process_quantization_tables(chunk)
-                    elif marker == 0xffc0:
-                        self.blocks['DCT'] = self.l_decode
-                    elif marker == 0xffc2:
+                    elif marker == 0xFFC0:
+                        self.blocks["DCT"] = self.l_decode
+                    elif marker == 0xFFC2:
                         print("Skipping progressive mode fragments")
-                        raise NotImplementedError('Progressive JPEG images not supported yet')
-                    elif marker == 0xffc4:
+                        raise NotImplementedError(
+                            "Progressive JPEG images not supported yet"
+                        )
+                    elif marker == 0xFFC4:
                         self._process_huffman_tables(chunk)
-                    elif marker == 0xffda:
+                    elif marker == 0xFFDA:
                         # assuming valid JPEG
-                        self.blocks['SOS'] = self.l_decode
-                        self.len_chunk, = unpack(">H", data[2:4])
+                        self.blocks["SOS"] = self.l_decode
+                        (self.len_chunk,) = unpack(">H", data[2:4])
                         self.len_chunk += 2
                         self.l_decode += self.len_chunk
-                        data = data[self.len_chunk:]
+                        data = data[self.len_chunk :]
                         self.len_chunk = len(temp_data) - self.l_decode - 2
-                        self.blocks['ECD'] = self.l_decode
+                        self.blocks["ECD"] = self.l_decode
                     elif marker in app_markers:
                         # suppose header contains two app markers then for ex, ffed -> app_13_0 and ffe0 -> app_0_1
-                        self.blocks['APP:{}/{}'.format(0xf & marker, app_marker_index)] = self.l_decode
+                        self.blocks[
+                            "APP:{}/{}".format(0xF & marker, app_marker_index)
+                        ] = self.l_decode
                         app_marker_index += 1
-                    elif marker in (0xfffe, 0xffdd):
-                        self.blocks['RST'] = self.l_decode
+                    elif marker in (0xFFFE, 0xFFDD):
+                        self.blocks["RST"] = self.l_decode
                         rst_marker_index += 1
                     else:
                         break
                     self.l_decode += self.len_chunk
-                data = data[self.len_chunk:]
+                data = data[self.len_chunk :]
         except Exception as e:
-            raise IOError('Parsing error: {}'.format(e))
+            raise IOError("Parsing error: {}".format(e))
 
         return None
 
     def get_bytes(self):
-        return self.blocks['EOI']
+        return self.blocks["EOI"]
 
     def get_effective_bytes(self):
-        return self.blocks['EOI'] - self.blocks['DHT:0']
+        return self.blocks["EOI"] - self.blocks["DHT:0"]
 
     def get_effective_bpp(self):
         return 8 * self.get_effective_bytes() / self.shape[0] / self.shape[1]
 
     def get_bpp(self):
-        return 8 * self.blocks['EOI'] / self.shape[0] / self.shape[1]
+        return 8 * self.blocks["EOI"] / self.shape[0] / self.shape[1]
 
 
 def zigzag(n):
     def compare(xy):
         x, y = xy
         return (x + y, -y if (x + y) % 2 else y)
+
     xs = range(n)
     zz = np.zeros((n, n), dtype=np.uint16)
     for n, (x, y) in enumerate(sorted(((x, y) for x in xs for y in xs), key=compare)):
@@ -272,33 +319,37 @@ def jpeg_qtable(quality, channel=0):
     quality = np.maximum(np.minimum(100, quality), 1)
 
     # Convert to linear quality scale
-    quality = 5000 / quality if quality < 50 else 200 - quality*2
+    quality = 5000 / quality if quality < 50 else 200 - quality * 2
 
     if channel == 0:
         # This is table 0 (the luminance table):
-        t = [[16,  11,  10,  16,  24,  40,  51,  61],
-             [12,  12,  14,  19,  26,  58,  60,  55],
-             [14,  13,  16,  24,  40,  57,  69,  56],
-             [14,  17,  22,  29,  51,  87,  80,  62],
-             [18,  22,  37,  56,  68, 109, 103,  77],
-             [24,  35,  55,  64,  81, 104, 113,  92],
-             [49,  64,  78,  87, 103, 121, 120, 101],
-             [72,  92,  95,  98, 112, 100, 103,  99]]
+        t = [
+            [16, 11, 10, 16, 24, 40, 51, 61],
+            [12, 12, 14, 19, 26, 58, 60, 55],
+            [14, 13, 16, 24, 40, 57, 69, 56],
+            [14, 17, 22, 29, 51, 87, 80, 62],
+            [18, 22, 37, 56, 68, 109, 103, 77],
+            [24, 35, 55, 64, 81, 104, 113, 92],
+            [49, 64, 78, 87, 103, 121, 120, 101],
+            [72, 92, 95, 98, 112, 100, 103, 99],
+        ]
         t = np.array(t, np.float32)
 
     else:
         # This is table 1 (the chrominance table):
-        t = [[17,  18,  24,  47,  99,  99,  99,  99],
-             [18,  21,  26,  66,  99,  99,  99,  99],
-             [24,  26,  56,  99,  99,  99,  99,  99],
-             [47,  66,  99,  99,  99,  99,  99,  99],
-             [99,  99,  99,  99,  99,  99,  99,  99],
-             [99,  99,  99,  99,  99,  99,  99,  99],
-             [99,  99,  99,  99,  99,  99,  99,  99],
-             [99,  99,  99,  99,  99,  99,  99,  99]]
+        t = [
+            [17, 18, 24, 47, 99, 99, 99, 99],
+            [18, 21, 26, 66, 99, 99, 99, 99],
+            [24, 26, 56, 99, 99, 99, 99, 99],
+            [47, 66, 99, 99, 99, 99, 99, 99],
+            [99, 99, 99, 99, 99, 99, 99, 99],
+            [99, 99, 99, 99, 99, 99, 99, 99],
+            [99, 99, 99, 99, 99, 99, 99, 99],
+            [99, 99, 99, 99, 99, 99, 99, 99],
+        ]
         t = np.array(t, np.float32)
 
-    t = np.floor((t * quality + 50)/100)
+    t = np.floor((t * quality + 50) / 100)
     t[t < 1] = 1
     t[t > 255] = 255
 

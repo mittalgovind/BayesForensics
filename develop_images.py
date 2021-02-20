@@ -10,27 +10,39 @@ import tensorflow as tf
 from helpers import fsutil, utils
 
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger('data')
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+log = logging.getLogger("data")
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 
-extensions = '(npy)'
-raw_extensions = ['.nef', '.dng', '.NEF', '.DNG']
-supported_pipelines = ['libRAW', 'Python', 'INet', 'DNet', 'UNet']
+extensions = "(npy)"
+raw_extensions = [".nef", ".dng", ".NEF", ".DNG"]
+supported_pipelines = ["libRAW", "Python", "INet", "DNet", "UNet"]
 
 
-def develop_images(camera, pipeline, n_images=0, root_dir='./data', model_dir='nip', dev_dir='developed', nip_params=None):
+def develop_images(
+    camera,
+    pipeline,
+    n_images=0,
+    root_dir="./data",
+    model_dir="nip",
+    dev_dir="developed",
+    nip_params=None,
+):
 
     if pipeline not in supported_pipelines:
-        raise ValueError('Unsupported pipeline model ({})! Available models: {}'.format(pipeline, ', '.join(supported_pipelines)))
+        raise ValueError(
+            "Unsupported pipeline model ({})! Available models: {}".format(
+                pipeline, ", ".join(supported_pipelines)
+            )
+        )
 
     dir_models = os.path.join(root_dir, model_dir)
-    nip_directory = os.path.join(root_dir, 'raw', 'training_data', camera)
-    out_directory = os.path.join(root_dir, 'raw', dev_dir, camera, pipeline)
-    raw_directory = os.path.join(root_dir, 'raw', 'images', camera)
+    nip_directory = os.path.join(root_dir, "raw", "training_data", camera)
+    out_directory = os.path.join(root_dir, "raw", dev_dir, camera, pipeline)
+    raw_directory = os.path.join(root_dir, "raw", "images", camera)
 
     if not os.path.exists(nip_directory):
-        raise IOError('Directory not found! {}'.format(nip_directory))
+        raise IOError("Directory not found! {}".format(nip_directory))
 
     if not os.path.exists(out_directory):
         os.makedirs(out_directory)
@@ -41,29 +53,33 @@ def develop_images(camera, pipeline, n_images=0, root_dir='./data', model_dir='n
     from helpers import raw
     from models import pipelines
 
-    print('Camera: {}'.format(camera))
-    print('Pipeline: {}'.format(pipeline))
-    print('NIP Models: {}'.format(dir_models))
-    print('NIP Training Directory: {}'.format(nip_directory))
-    print('Out Directory: {}'.format(out_directory))
+    print("Camera: {}".format(camera))
+    print("Pipeline: {}".format(pipeline))
+    print("NIP Models: {}".format(dir_models))
+    print("NIP Training Directory: {}".format(nip_directory))
+    print("Out Directory: {}".format(out_directory))
 
     # %% Process Bayer stacks with the given pipeline
-    npy_filenames = fsutil.listdir(nip_directory, '.*\.{}$'.format(extensions))
-    log.info('Camera {} matched {:,} Bayer stacks'.format(camera, len(npy_filenames)))
+    npy_filenames = fsutil.listdir(nip_directory, ".*\.{}$".format(extensions))
+    log.info("Camera {} matched {:,} Bayer stacks".format(camera, len(npy_filenames)))
 
-    manual_dev_settings = {'use_srgb': True, 'use_gamma': True, 'brightness': None}
+    manual_dev_settings = {"use_srgb": True, "use_gamma": True, "brightness": None}
 
     # Setup the NIP model
-    if pipeline.endswith('Net'):
+    if pipeline.endswith("Net"):
         sess = tf.Session()
-        model = getattr(pipelines, pipeline)(sess, tf.get_default_graph(), loss_metric='L2', **nip_params)
+        model = getattr(pipelines, pipeline)(
+            sess, tf.get_default_graph(), loss_metric="L2", **nip_params
+        )
         model.load_model(camera, out_directory_root=dir_models)
 
     # Limit the number of images
     if n_images > 0:
         npy_filenames = npy_filenames[:n_images]
 
-    for npy_file in utils.progress_bar(npy_filenames, f'Developing ({camera}/{pipeline})'):
+    for npy_file in utils.progress_bar(
+        npy_filenames, f"Developing ({camera}/{pipeline})"
+    ):
 
         # Find the original RAW file (for standard pipelines.py)
         raw_file = os.path.join(raw_directory, os.path.splitext(npy_file)[0])
@@ -76,21 +92,23 @@ def develop_images(camera, pipeline, n_images=0, root_dir='./data', model_dir='n
                 break
 
         if not raw_found:
-            raise RuntimeError('RAW file not found for Bayer stack: {}'.format(npy_file))
+            raise RuntimeError(
+                "RAW file not found for Bayer stack: {}".format(npy_file)
+            )
 
-        out_png = os.path.join(out_directory, os.path.splitext(npy_file)[0] + '.png')
+        out_png = os.path.join(out_directory, os.path.splitext(npy_file)[0] + ".png")
 
         if not os.path.exists(out_png):
             # Process with the desired pipeline
-            if pipeline == 'libRAW':
+            if pipeline == "libRAW":
                 rgb = raw.process_auto(raw_file)
-            elif pipeline == 'Python':
+            elif pipeline == "Python":
                 rgb = 255 * raw.process(raw_file, **manual_dev_settings)
                 rgb = rgb.astype(np.uint8)
             else:
                 # Find the cached Bayer stack
                 bayer_file = os.path.join(nip_directory, npy_file)
-                bayer_stack = np.load(bayer_file).astype(np.float32) / (2**16 - 1)
+                bayer_stack = np.load(bayer_file).astype(np.float32) / (2 ** 16 - 1)
                 rgb = 255 * model.process(bayer_stack).squeeze()
                 rgb = rgb.astype(np.uint8)
 
@@ -98,36 +116,77 @@ def develop_images(camera, pipeline, n_images=0, root_dir='./data', model_dir='n
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Develops RAW images with a selected pipeline')
-    parser.add_argument('--cam', dest='camera', action='store', help='camera')
-    parser.add_argument('--pipe', dest='pipeline', action='store', default='libRAW',
-                        help='imaging pipeline ({})'.format(supported_pipelines))
-    parser.add_argument('--dir', dest='dir', action='store', default='./data',
-                        help='root directory with images and training data')
-    parser.add_argument('--model_dir', dest='model_dir', action='store', default='nip',
-                        help='directory with TF models')                        
-    parser.add_argument('--dev_dir', dest='dev_dir', action='store', default='developed',
-                        help='output directory')
-    parser.add_argument('--params', dest='nip_params', default=None, help='Extra parameters for NIP constructor (JSON string)')    
-    parser.add_argument('--images', dest='images', action='store', default=0, type=int,
-                        help='number of images to process')
+    parser = argparse.ArgumentParser(
+        description="Develops RAW images with a selected pipeline"
+    )
+    parser.add_argument("--cam", dest="camera", action="store", help="camera")
+    parser.add_argument(
+        "--pipe",
+        dest="pipeline",
+        action="store",
+        default="libRAW",
+        help="imaging pipeline ({})".format(supported_pipelines),
+    )
+    parser.add_argument(
+        "--dir",
+        dest="dir",
+        action="store",
+        default="./data",
+        help="root directory with images and training data",
+    )
+    parser.add_argument(
+        "--model_dir",
+        dest="model_dir",
+        action="store",
+        default="nip",
+        help="directory with TF models",
+    )
+    parser.add_argument(
+        "--dev_dir",
+        dest="dev_dir",
+        action="store",
+        default="developed",
+        help="output directory",
+    )
+    parser.add_argument(
+        "--params",
+        dest="nip_params",
+        default=None,
+        help="Extra parameters for NIP constructor (JSON string)",
+    )
+    parser.add_argument(
+        "--images",
+        dest="images",
+        action="store",
+        default=0,
+        type=int,
+        help="number of images to process",
+    )
 
     args = parser.parse_args()
 
     if not args.camera:
-        print('A camera needs to be specified!')
+        print("A camera needs to be specified!")
         parser.print_usage()
         sys.exit(1)
 
     try:
         if args.nip_params is not None:
-            args.nip_params = json.loads(args.nip_params.replace('\'', '"'))
+            args.nip_params = json.loads(args.nip_params.replace("'", '"'))
     except json.decoder.JSONDecodeError:
-        print('WARNING', 'JSON parsing error for: ', args.nip_params.replace('\'', '"'))
+        print("WARNING", "JSON parsing error for: ", args.nip_params.replace("'", '"'))
         sys.exit(2)
 
     try:
-        develop_images(args.camera, args.pipeline, args.images, args.dir, args.model_dir, args.dev_dir, nip_params=args.nip_params)
+        develop_images(
+            args.camera,
+            args.pipeline,
+            args.images,
+            args.dir,
+            args.model_dir,
+            args.dev_dir,
+            nip_params=args.nip_params,
+        )
     except Exception as error:
         log.error(error)
 

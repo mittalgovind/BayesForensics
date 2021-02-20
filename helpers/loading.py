@@ -10,7 +10,9 @@ from helpers import fsutil, utils
 from loguru import logger
 
 
-def discover_images(data_directory, n_images=120, v_images=30, extension='png', randomize=0):
+def discover_images(
+    data_directory, n_images=120, v_images=30, extension="png", randomize=0
+):
     """
     Find available images and split them into training / validation sets.
     :param data_directory: directory
@@ -20,8 +22,10 @@ def discover_images(data_directory, n_images=120, v_images=30, extension='png', 
     :param randomize: whether to shuffle files before the split
     """
 
-    files = fsutil.listdir(data_directory, '.*\\.{}$'.format(extension))
-    logger.debug(f'{data_directory}: in total {len(files)} files available - requested split {n_images}:{v_images}')
+    files = fsutil.listdir(data_directory, ".*\\.{}$".format(extension))
+    logger.debug(
+        f"{data_directory}: in total {len(files)} files available - requested split {n_images}:{v_images}"
+    )
 
     if randomize:
         np.random.seed(randomize)
@@ -34,15 +38,15 @@ def discover_images(data_directory, n_images=120, v_images=30, extension='png', 
         n_images = len(files)
 
     if len(files) >= n_images + v_images:
-        val_files = files[n_images:(n_images + v_images)]
+        val_files = files[n_images : (n_images + v_images)]
         files = files[0:n_images]
     else:
-        raise ValueError('Not enough images!')
-        
+        raise ValueError("Not enough images!")
+
     return files, val_files
 
 
-def load_images(files, data_directory, extension='png', load='xy'):
+def load_images(files, data_directory, extension="png", load="xy"):
     """
     Load pairs of full-resolution images: (raw, rgb). Raw inputs are stored in *.npy files (see
     train_prepare_training_set.py).
@@ -54,37 +58,50 @@ def load_images(files, data_directory, extension='png', load='xy'):
     n_images = len(files)
 
     if n_images == 0:
-        logger.warning('No images to load!')
+        logger.warning("No images to load!")
         return {k: np.zeros(shape=(1, 1, 1, 1)) for k in load}
-    
+
     # Check image resolution
     image = imageio.imread(os.path.join(data_directory, files[0]))
     resolutions = (image.shape[0] >> 1, image.shape[1] >> 1)
     del image
-    
-    data = {}
-    
-    if 'x' in load:
-        data['x'] = np.zeros((n_images, *resolutions, 4), dtype=np.uint16)
-    if 'y' in load:
-        data['y'] = np.zeros((n_images, 2 * resolutions[0], 2 * resolutions[1], 3), dtype=np.uint8)
 
-    with utils.progress_bar(n_images, 'Loading images') as pbar:
+    data = {}
+
+    if "x" in load:
+        data["x"] = np.zeros((n_images, *resolutions, 4), dtype=np.uint16)
+    if "y" in load:
+        data["y"] = np.zeros(
+            (n_images, 2 * resolutions[0], 2 * resolutions[1], 3), dtype=np.uint8
+        )
+
+    with utils.progress_bar(n_images, "Loading images") as pbar:
 
         for i, file in enumerate(files):
-            npy_file = file.replace('.{}'.format(extension), '.npy')
+            npy_file = file.replace(".{}".format(extension), ".npy")
 
-            if 'x' in data:
-                data['x'][i] = np.load(os.path.join(data_directory, npy_file))
-            if 'y' in data:
-                data['y'][i] = imageio.imread(os.path.join(data_directory, file), pilmode='RGB')
+            if "x" in data:
+                data["x"][i] = np.load(os.path.join(data_directory, npy_file))
+            if "y" in data:
+                data["y"][i] = imageio.imread(
+                    os.path.join(data_directory, file), pilmode="RGB"
+                )
 
             pbar.update(1)
 
         return data
 
-    
-def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='flat-aggressive', extension='png', load='xy', order=1):
+
+def load_patches(
+    files,
+    data_directory,
+    patch_size=128,
+    n_patches=100,
+    discard="flat-aggressive",
+    extension="png",
+    load="xy",
+    order=1,
+):
     """
     Sample (raw, rgb) pairs or random patches from given images.
 
@@ -98,27 +115,35 @@ def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='
     """
     v_images = len(files)
     max_attempts = 100
-    discard_label = '(random)' if discard is None else '({})'.format(discard)
-    discard_label = f'Loading {2*patch_size}px patches {discard_label}'
+    discard_label = "(random)" if discard is None else "({})".format(discard)
+    discard_label = f"Loading {2*patch_size}px patches {discard_label}"
     data = {}
 
-    if 'x' in load: data['x'] = np.zeros((v_images * n_patches, patch_size, patch_size, 4), dtype=np.uint16)
-    if 'y' in load: data['y'] = np.zeros((v_images * n_patches, 2 * patch_size, 2 * patch_size, 3), dtype=np.uint8)
+    if "x" in load:
+        data["x"] = np.zeros(
+            (v_images * n_patches, patch_size, patch_size, 4), dtype=np.uint16
+        )
+    if "y" in load:
+        data["y"] = np.zeros(
+            (v_images * n_patches, 2 * patch_size, 2 * patch_size, 3), dtype=np.uint8
+        )
 
-    fetch_raw = 'x' in data
-    fetch_rgb = 'y' in data
+    fetch_raw = "x" in data
+    fetch_rgb = "y" in data
 
     with utils.progress_bar(v_images * n_patches, discard_label) as pbar:
 
         for i, file in enumerate(files):
-            npy_file = file.replace('.{}'.format(extension), '.npy')
+            npy_file = file.replace(".{}".format(extension), ".npy")
 
             # If requested, load the RAW image
             if fetch_raw:
                 image_x = np.load(os.path.join(data_directory, npy_file))
 
             if fetch_rgb or discard is not None:
-                image_y = imageio.imread(os.path.join(data_directory, file), pilmode='RGB')
+                image_y = imageio.imread(
+                    os.path.join(data_directory, file), pilmode="RGB"
+                )
 
             # Sample random patches
             for b in range(n_patches):
@@ -132,16 +157,22 @@ def load_patches(files, data_directory, patch_size=128, n_patches=100, discard='
                     index = i + b * v_images
 
                 if fetch_raw:
-                    data['x'][index] = image_x[ry:ry + patch_size, rx:rx + patch_size, :]
+                    data["x"][index] = image_x[
+                        ry : ry + patch_size, rx : rx + patch_size, :
+                    ]
                 if fetch_rgb:
-                    data['y'][index] = image_y[yy:yy + 2 * patch_size, xx:xx + 2 * patch_size, :]
+                    data["y"][index] = image_y[
+                        yy : yy + 2 * patch_size, xx : xx + 2 * patch_size, :
+                    ]
 
                 pbar.update(1)
 
         return data
 
 
-def sample_patch(rgb_image, rgb_patch_size=128, discard=None, max_attempts=25, rgb_shape=None):
+def sample_patch(
+    rgb_image, rgb_patch_size=128, discard=None, max_attempts=25, rgb_shape=None
+):
     """
     Sample a single patch from a full-resolution image. Sampling can be fully random or can follow a discarding policy.
     The following DISCARD modes are available:
@@ -181,12 +212,17 @@ def sample_patch(rgb_image, rgb_patch_size=128, discard=None, max_attempts=25, r
                 found = True
                 continue
 
-            patch = rgb_image[yy:yy + rgb_patch_size, xx:xx + rgb_patch_size].astype(np.float) / 255
+            patch = (
+                rgb_image[yy : yy + rgb_patch_size, xx : xx + rgb_patch_size].astype(
+                    np.float
+                )
+                / 255
+            )
             patch_variance = np.var(patch)
             patch_intensity = np.mean(patch)
 
             # Check if the sampled patch is acceptable
-            if discard == 'flat':
+            if discard == "flat":
 
                 if patch_variance < 0.005:
                     panic_counter -= 1
@@ -196,7 +232,7 @@ def sample_patch(rgb_image, rgb_patch_size=128, discard=None, max_attempts=25, r
                 else:
                     found = True
 
-            elif discard == 'flat-aggressive':
+            elif discard == "flat-aggressive":
 
                 if patch_variance < 0.02:
                     if panic_counter == max_attempts or patch_variance > best_patch[-1]:
@@ -208,13 +244,15 @@ def sample_patch(rgb_image, rgb_patch_size=128, discard=None, max_attempts=25, r
                 else:
                     found = True
 
-            elif discard == 'dark-n-textured':
+            elif discard == "dark-n-textured":
 
                 if 0 < patch_variance < 0.005 and 0.35 < patch_intensity < 0.99:
                     found = True
                 else:
-                    if panic_counter == max_attempts or (patch_variance < 2 * best_patch[-1]
-                                                         and patch_intensity > 1.1 * best_patch[-2]):
+                    if panic_counter == max_attempts or (
+                        patch_variance < 2 * best_patch[-1]
+                        and patch_intensity > 1.1 * best_patch[-2]
+                    ):
                         best_patch = (xx, yy, patch_intensity, patch_variance)
                     panic_counter -= 1
                     found = False if panic_counter > 0 else True
@@ -225,6 +263,6 @@ def sample_patch(rgb_image, rgb_patch_size=128, discard=None, max_attempts=25, r
                 found = True
 
             else:
-                raise ValueError('Unrecognized discard mode: {}'.format(discard))
+                raise ValueError("Unrecognized discard mode: {}".format(discard))
 
     return xx, yy

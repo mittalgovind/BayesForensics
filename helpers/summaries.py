@@ -13,24 +13,26 @@ import matplotlib.pyplot as plt
 
 
 def log_image(thumbs):
-    
+
     if thumbs.dtype == np.float:
-        thumbs = (255*thumbs).astype(np.uint8)
-    
+        thumbs = (255 * thumbs).astype(np.uint8)
+
     s = io.BytesIO()
-    imageio.imsave(s, thumbs, format='png')
-    return tf.Summary.Image(encoded_image_string=s.getvalue(), height=thumbs.shape[0], width=thumbs.shape[1])
+    imageio.imsave(s, thumbs, format="png")
+    return tf.Summary.Image(
+        encoded_image_string=s.getvalue(), height=thumbs.shape[0], width=thumbs.shape[1]
+    )
 
 
 def log_plot(fig):
     s = io.BytesIO()
-    fig.savefig(s, format='png', bbox_inches='tight')
+    fig.savefig(s, format="png", bbox_inches="tight")
     plt.close(fig)
-    return log_image(imageio.imread(s.getvalue(), pilmode='RGB'))
+    return log_image(imageio.imread(s.getvalue(), pilmode="RGB"))
 
 
 def log_histogram(values, bins=50):
-    # Create histogram using numpy        
+    # Create histogram using numpy
     counts, bin_edges = np.histogram(values, bins=bins)
 
     # Fill fields of histogram proto
@@ -39,7 +41,7 @@ def log_histogram(values, bins=50):
     hist.max = float(np.max(values))
     hist.num = int(np.prod(values.shape))
     hist.sum = float(np.sum(values))
-    hist.sum_squares = float(np.sum(values**2))
+    hist.sum_squares = float(np.sum(values ** 2))
 
     # Requires equal number as bins, where the first goes from -DBL_MAX to bin_edges[1]
     # See https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/framework/summary.proto#L30
@@ -51,5 +53,5 @@ def log_histogram(values, bins=50):
         hist.bucket_limit.append(edge)
     for c in counts:
         hist.bucket.append(c)
-        
+
     return hist
