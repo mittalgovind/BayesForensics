@@ -24,7 +24,6 @@ def run_tests(model, qf, data, batch_size, patch_size, codec, temperature, **kwa
         Bayes model for running tests
     qf
     data
-
     batch_size
     patch_size
     num_runs
@@ -56,9 +55,9 @@ def run_tests(model, qf, data, batch_size, patch_size, codec, temperature, **kwa
             qf2 = np.argmax(q_factors == QF2)
 
             # Counter for True negatives, negatives, True positives, positives.
-            counters[0, qf2, qf1] += np.sum(predictions == 0)
+            counters[0, qf2, qf1] += np.sum(predictions[:batch_size] == 0)
             counters[1, qf2, qf1] += batch_size
-            counters[2, qf2, qf1] += np.sum(predictions == 1)
+            counters[2, qf2, qf1] += np.sum(predictions[batch_size:] == 1)
             counters[3, qf2, qf1] += batch_size
 
     tnr = counters[0] / counters[1]
