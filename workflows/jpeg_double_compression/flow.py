@@ -93,36 +93,23 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         """Vanilla part of the forward pass for the model."""
         return self._model(inputs, training=training)
 
-    def _mc_dropout(self, inputs):
-        x = inputs
-        r = self._residual(x)
 
-        if self.append_rgb:
-            f = tf.keras.layers.concatenate([x, r])
-        else:
-            f = r
-
-        for l in self._layers:
-            f = l(f, training=isinstance(l, tf.keras.layers.Dropout))
-
-        return f
-
-    def mc_dropout(self, x, n_samples=10):
-
-        y_pred = self._mc_dropout(x)
-        p_pred = np.zeros(tuple(y_pred.shape) + (n_samples,))
-
-        for n in range(n_samples):
-            y_pred = self._mc_dropout(x)
-            p_pred[..., n] = tf.nn.softmax(y_pred)
-
-        # Clip to eliminate zeroes
-        p_pred = tf.clip_by_value(p_pred, 1e-12, 1)
-
-        p_avg = p_pred.numpy().mean(axis=-1)
-        p_entr = np.sum(-p_avg * np.log2(p_avg), axis=-1)
-
-        # Compute uncertainty as mutual information
-        p_mi = p_entr - np.mean(p_pred * np.log2(p_pred), axis=(1, 2))
-
-        return p_avg, p_mi
+    # def mc_dropout(self, x, n_samples=10):
+    #
+    #     y_pred = self._mc_dropout(x)
+    #     p_pred = np.zeros(tuple(y_pred.shape) + (n_samples,))
+    #
+    #     for n in range(n_samples):
+    #         y_pred = self._mc_dropout(x)
+    #         p_pred[..., n] = tf.nn.softmax(y_pred)
+    #
+    #     # Clip to eliminate zeroes
+    #     p_pred = tf.clip_by_value(p_pred, 1e-12, 1)
+    #
+    #     p_avg = p_pred.numpy().mean(axis=-1)
+    #     p_entr = np.sum(-p_avg * np.log2(p_avg), axis=-1)
+    #
+    #     # Compute uncertainty as mutual information
+    #     p_mi = p_entr - np.mean(p_pred * np.log2(p_pred), axis=(1, 2))
+    #
+    #     return p_avg, p_mi
