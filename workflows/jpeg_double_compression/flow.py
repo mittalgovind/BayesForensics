@@ -7,15 +7,19 @@
 # Standard libraries
 
 # External libraries
+from abc import ABC
+
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras.layers import Input
+from tensorflow.keras.models import Model
 
 # Internal libraries
 from models.layers import ConstrainedConv2D
 from models.bayes import BayesBaseModel
 
 
-class JPEGDoubleCompression(BayesBaseModel):
+class JPEGDoubleCompression(BayesBaseModel, ABC):
     def __init__(
         self,
         method,
@@ -25,6 +29,8 @@ class JPEGDoubleCompression(BayesBaseModel):
         trainable_residual,
         drop,
         append_rgb,
+        tensorboard,
+        patch_size,
         **kwargs
     ):
         """
@@ -49,6 +55,8 @@ class JPEGDoubleCompression(BayesBaseModel):
         self.drop_rate = drop
         self.append_rgb = append_rgb
         self._residual = ConstrainedConv2D(trainable=self.trainable_residual)
+        self.tensorboard = tensorboard
+        self.patch_size = patch_size
 
     def _create_model(self):
         """Need to override to specify model architecture."""
@@ -57,9 +65,7 @@ class JPEGDoubleCompression(BayesBaseModel):
             self._layers.append(
                 self.conv2d(n_filters, self.kernel, activation=self.activation)
             )
-
         self._layers.append(tf.keras.layers.GlobalAvgPool2D())
-
         # Setup dense layers
         for n, n_filters in enumerate(self.d_filters):
             act = None if n == len(self.d_filters) - 1 else self.activation
@@ -67,19 +73,25 @@ class JPEGDoubleCompression(BayesBaseModel):
             if self.drop_rate > 0 and n < len(self.d_filters) - 1:
                 self._layers.append(self.dropout(self.drop_rate))
 
-        self._model = tf.keras.Sequential(self._layers)
+        # make a custom keras model
+        inputs = Input(shape=(self.patch_size, self.patch_size, 3))
+        if self.append_rgb:
+            # concatenate residual if append_rgb is true
+            outputs = tf.keras.layers.concatenate(
+                [inputs, self._residual(inputs)])
+        else:
+            outputs = inputs
+
+        for layer in self._layers:
+            outputs = layer(outputs)
+
+        self._model = tf.keras.models.Model(inputs, outputs)
+        if self.tensorboard:
+            self.tensorboard.set_model(model=self._model)
 
     def _call(self, inputs, training=False):
         """Vanilla part of the forward pass for the model."""
-        x = inputs
-        r = self._residual(x)
-
-        if self.append_rgb:
-            f = tf.keras.layers.concatenate([x, r])
-        else:
-            f = r
-
-        return self._model(f, training=training)
+        return self._model(inputs, training=training)
 
     def _mc_dropout(self, inputs):
         x = inputs

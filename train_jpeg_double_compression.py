@@ -162,6 +162,12 @@ def parse_args():
         default=False,
         help="Calibrate model using temperature scaling.",
     )
+    parser.add_argument(
+        "--tensorboard",
+        action="store_true",
+        default=False,
+        help="Output tensorboard logs to the save directory.",
+    )
     return parser.parse_args()
 
 
@@ -173,6 +179,11 @@ def main():
         raise IsADirectoryError(
             "Output directory exists! Use --overwrite or provide another directory name."
         )
+
+    if args.tensorboard:
+        tb_callback = tf.keras.callbacks.TensorBoard(args.save_dir)
+    else:
+        tb_callback = None
 
     qf_train = (int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
     qf_test = (int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
@@ -202,7 +213,9 @@ def main():
         activation="leaky_relu",
         trainable_residual=True,
         drop=0.1,
-        append_rgb=False,
+        append_rgb=True,
+        tensorboard=tb_callback,
+        patch_size=args.patch_size
     )
 
     if args.cont_model_path:
