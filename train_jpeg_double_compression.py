@@ -32,10 +32,6 @@ setup_logging()
 # necessary here, as slurm executes a copy
 sys.path.append(os.path.abspath("/"))
 
-# TODO (Govind) remove before merge. Set memory growth for personal GPU.
-physical_devices = tf.config.list_physical_devices("GPU")
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -168,12 +164,23 @@ def parse_args():
         default=False,
         help="Output tensorboard logs to the save directory.",
     )
+    parser.add_argument(
+        "--memory-growth",
+        action="store_true",
+        default=False,
+        help="Enable TF memory growth for GPU.",
+    )
+
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
 
+    if args.memory_growth:
+        # TODO (Govind) remove before merge. Set memory growth for personal GPU.
+        physical_devices = tf.config.list_physical_devices("GPU")
+        tf.config.experimental.set_memory_growth(physical_devices[0], True)
     # Change json to npz
     if os.path.isdir(os.path.abspath(args.save_dir)) and not args.overwrite:
         raise IsADirectoryError(
