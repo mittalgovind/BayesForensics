@@ -214,9 +214,9 @@ def main():
 
     model = JPEGDoubleCompression(
         method=args.uncertainty_method,
-        c_filters=(32, 32, 32, 32),
-        d_filters=(128, 2),
-        kernel=5,
+        c_filters=(64, 64, 64, 64),
+        d_filters=(256, 2),
+        kernel=7,
         activation="leaky_relu",
         trainable_residual=True,
         drop=0.1,

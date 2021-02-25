@@ -65,7 +65,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             self._layers.append(
                 self.conv2d(n_filters, self.kernel, activation=self.activation)
             )
-        self._layers.append(tf.keras.layers.GlobalAvgPool2D())
+        self._layers.append(tf.keras.layers.GlobalAveragePooling2D())
         # Setup dense layers
         for n, n_filters in enumerate(self.d_filters):
             act = None if n == len(self.d_filters) - 1 else self.activation
