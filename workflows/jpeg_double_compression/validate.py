@@ -46,7 +46,7 @@ def run_tests(model, qf, data, batch_size, patch_size, codec, temperature, **kwa
                 (batch_single_compressed, batch_double_compressed), axis=0
             )
             del batch, batch_single_compressed, batch_double_compressed
-            predictions = model(images).numpy().argmax(axis=1)
+            predictions = model(images, training=False).numpy().argmax(axis=1)
 
             qf1 = np.argmax(q_factors == QF1)
             qf2 = np.argmax(q_factors == QF2)
