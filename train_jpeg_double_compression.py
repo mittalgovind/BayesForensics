@@ -170,7 +170,7 @@ def parse_args():
         default=False,
         help="Enable TF memory growth for GPU.",
     )
-
+    p
     return parser.parse_args()
 
 
@@ -227,7 +227,6 @@ def main():
     )
 
     if args.cont_model_path:
-        # TODO (Govind) Somehow this takes too much memory. Fix implementation.
         # train for an epoch so that model is built
         model, _ = train(
             model=model,
@@ -238,6 +237,7 @@ def main():
             codec=JPEG(),
             **flags
         )
+        # TODO (Pawel) Somehow this takes too much memory. Fix implementation.
         model.load_model(os.path.abspath(args.cont_model_path))
 
     if not args.only_eval:
@@ -269,6 +269,7 @@ def main():
         cache=cache,
         temperature=temperature,
         codec=JPEG(codec="libjpeg"),
+        save_dir=args.save_dir,
         **flags
     )
     qf_plot(qf_test, accuracies, args.save_dir)

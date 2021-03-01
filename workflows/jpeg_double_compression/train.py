@@ -60,7 +60,7 @@ def train(
                 with tf.GradientTape() as tape:
                     predictions = model(images, training=True)
                     loss = loss_criterion(labels, predictions)
-
+                del batch, batch_single_compressed, batch_double_compressed, images
                 grads = tape.gradient(loss, model._model.trainable_variables)
                 optimizer.apply_gradients(
                     zip(grads, model._model.trainable_variables))
