@@ -170,7 +170,6 @@ def parse_args():
         default=False,
         help="Enable TF memory growth for GPU.",
     )
-    p
     return parser.parse_args()
 
 
