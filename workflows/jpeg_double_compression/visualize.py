@@ -15,6 +15,7 @@ import helpers.plots as plots
 
 
 def qf_plot(qf, accuracies, save_dir):
+    """plotting function for confusion matrix between quality factors"""
     n_factors = len(qf)
     m_accuracy = np.mean(accuracies[np.tri(qf[1] - qf[0], dtype=np.bool)])
 

@@ -16,8 +16,7 @@ import numpy as np
 from helpers.utils import progress_bar
 
 
-def run_tests(model, qf, data, batch_size, save_dir,
-              patch_size, codec, temperature, cache):
+def run_tests(model, qf, data, batch_size, save_dir, codec, cache, **kwargs):
     """
 
     Parameters
@@ -39,7 +38,7 @@ def run_tests(model, qf, data, batch_size, save_dir,
 
     if cache:
         try:
-            performance = cache.load(os.path.join(save_dir, "performance.npz"))
+            performance = cache.load()
             performance["loss"]["validation"] = []
             performance["accuracy"]["validation"] = []
         except RuntimeWarning:
