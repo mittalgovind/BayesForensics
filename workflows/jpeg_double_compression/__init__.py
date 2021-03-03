@@ -11,6 +11,6 @@
 # Internal libraries
 
 from .flow import JPEGDoubleCompression
-from .train import train
+from .train import train, preprocess_batch
 from .validate import run_tests
 from .visualize import qf_plot

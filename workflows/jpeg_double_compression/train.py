@@ -16,6 +16,24 @@ from helpers.utils import progress_bar
 from helpers.plots import perf
 
 
+def preprocess_batch(inputs, batch_size, codec, qf):
+    """To preprocess input batch before training"""
+    QF1 = int(tf.random.uniform((1,), *qf).numpy())
+    QF2 = int(tf.random.uniform((1,), *qf).numpy())
+    batch_single_compressed = codec.process(inputs, QF2)
+    # compressing with QF1 before QF2, to give compression history to batch.
+    batch_double_compressed = codec.process(
+        codec.process(inputs, QF1), QF2)
+
+    images = tf.concat(
+        (batch_single_compressed, batch_double_compressed), axis=0
+    )
+    labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)),
+                       axis=-1)
+
+    return images, labels
+
+
 def train(
         model,
         epochs,
@@ -44,23 +62,11 @@ def train(
             for batch_id in range(n_batches):
                 batch = data.next_training_batch(batch_id, batch_size,
                                                  patch_size)
-                QF1 = int(tf.random.uniform((1,), *qf).numpy())
-                QF2 = int(tf.random.uniform((1,), *qf).numpy())
-                batch_single_compressed = codec.process(batch, QF2)
-                # compressing with QF1 before QF2, to give compression history to batch.
-                batch_double_compressed = codec.process(
-                    codec.process(batch, QF1), QF2)
-
-                images = tf.concat(
-                    (batch_single_compressed, batch_double_compressed), axis=0
-                )
-                labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)),
-                                   axis=-1)
-
+                batch, labels = preprocess_batch(batch, batch_size, codec, qf)
                 with tf.GradientTape() as tape:
-                    predictions = model(images, training=True)
+                    predictions = model(batch, training=True)
                     loss = loss_criterion(labels, predictions)
-                del batch, batch_single_compressed, batch_double_compressed, images
+
                 grads = tape.gradient(loss, model._model.trainable_variables)
                 optimizer.apply_gradients(
                     zip(grads, model._model.trainable_variables))
@@ -79,9 +85,10 @@ def train(
                 model.save_model(dirname=save_dir)
                 fig = perf(performance, results="training")
                 fig.savefig(
-                    os.path.join(save_dir, "train_epoch_{}".format(epoch + 1)))
+                    os.path.join(save_dir,
+                                 "training_progress".format(epoch + 1)))
 
         if cache:
             cache.save(performance, step="performance")
 
-    return model, performance
+    return performance
