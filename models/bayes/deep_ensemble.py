@@ -79,7 +79,7 @@ class DeepEnsemble:
             self.models[i].save_model(path)
 
     @abstractmethod
-    def preprocess(self):
+    def preprocess(self, **kwargs):
         """
         Preprocess a given batch of data.
         Implement as needed.
@@ -87,7 +87,7 @@ class DeepEnsemble:
         raise NotImplementedError
 
     @abstractmethod
-    def train(self):
+    def train(self, **kwargs):
         """
         Train the models.
         Implement as needed.

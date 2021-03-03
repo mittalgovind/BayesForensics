@@ -14,7 +14,7 @@ from loguru import logger
 
 # Internal libraries
 from models.tfmodel import TFModel
-from models import layers
+from models.layers import PaddedConv2D
 import helpers.tf_helpers as tfh
 
 
@@ -43,13 +43,14 @@ class BayesBaseModel(TFModel):
     """Defines a Tensorflow model (keras or not)."""
 
     def __init__(
-        self,
-        method: str,
-        activation: str,
-        drop_rate=0.5,
-        mc_num_samples=50,
-        temperature=False,
-        bayesian=True,
+            self,
+            method: str,
+            activation: str,
+            drop_rate=0.5,
+            mc_num_samples=50,
+            temperature=False,
+            bayesian=True,
+            use_own_dropout=False,
     ):
         """
         method : str
@@ -70,16 +71,17 @@ class BayesBaseModel(TFModel):
         self.method = method.lower()
         self.activation = tfh.activation_mapping[activation]
         self.bayesian = bayesian
+        self.use_own_dropout = use_own_dropout
+
+        # hard-coded to False, because model will need to be created.
         self.model_created = False
-        self.use_own_dropout = False
-        # self.ensemble_model = Ensemble()
 
         # Put all the layer instances used in the forward (call) pass
         # Depending on your choice of method, Conv2D, Dense and Dropout are chosen accordingly.
         if bayesian:
             if "mc" in method:
                 # captures temperature scaling too
-                self.conv2d = layers.PaddedConv2D
+                self.conv2d = PaddedConv2D
                 self.dropout = MCDropoutLayer
                 self.dense = tf.keras.layers.Dense
 
@@ -87,12 +89,23 @@ class BayesBaseModel(TFModel):
                 self.conv2d = tfp.layers.Convolution2DFlipout
                 self.dropout = tf.keras.layers.Dropout
                 self.dense = tfp.layers.DenseFlipout
+
+            elif method == "reparameterization":
+                self.conv2d = tfp.layers.Convolution2DReparameterization
+                self.dropout = tf.keras.layers.Dropout
+                self.dense = tfp.layers.DenseReparameterization
+
+            elif method == "variational":
+                self.conv2d = tfp.layers.Convolution2DVariational
+                self.dropout = tf.keras.layers.Dropout
+                self.dense = tfp.layers.DenseVariational
+
             else:
-                self.conv2d = layers.PaddedConv2D
+                self.conv2d = PaddedConv2D
                 self.dropout = tf.keras.layers.Dropout
                 self.dense = tf.keras.layers.Dense
         else:
-            self.conv2d = layers.PaddedConv2D
+            self.conv2d = PaddedConv2D
             self.dropout = tf.keras.layers.Dropout
             self.dense = tf.keras.layers.Dense
 
@@ -104,42 +117,37 @@ class BayesBaseModel(TFModel):
                 x_tmp = self.dropout(x)
             else:
                 x_tmp = tf.identity(x)
-            x_tmp = self._model._fc(x_tmp)
+            x_tmp = self._model.last_layer(x_tmp)
             x_list.append(x_tmp)
 
         return tf.convert_to_tensor(x_list)
 
     def create_model(self):
+        """Top-level model creator and corresponding modifier."""
+        # store the vanilla model definition in self._model
         self._create_model()
 
         # configuring model for MC inference
         if "mc" in self.method:
             # make output layer as Identity and copy it to a variable
-            if "dense" in self._model._layers[-1].name.lower():
-                self._model._fc = self._model._layers[-1]
-                self._model._layers[-1] = IdentityLayer()
+            if "dense" in self._model.layers[-1].name.lower():
+                self._model.last_layer = self._model.layers[-1]
+                self._model.layers[-1] = IdentityLayer()
             else:
                 logger.error("Model not ending with a dense layer.")
 
             # if second last layer is not dropout then attach MCDropoutLayer
-            if "dropout" not in self._model._layers[-2].name.lower():
+            if "dropout" not in self._model.layers[-2].name.lower():
                 self.use_own_dropout = True
         else:
-            self._model._fc = IdentityLayer()
+            self._model.last_layer = IdentityLayer()
 
         if self.method == "temp-scaling":
             self._model.temperature = tf.Variable(1.0)
 
-    def __call__(self, inputs, training):
-        """Internal call method for model forward pass"""
-        if not self.model_created:
-            self.create_model()
-            self.model_created = True
-            logger.info("Model created successfully.")
-            logger.info("{}".format(self._model._layers))
-        logits = self._call(inputs, training)
-
-        return self._model._fc(logits, training=training)
+        self.model_created = True
+        logger.info("Model created successfully.")
+        logger.info("{}".format(self._model.layers))
 
     @abstractmethod
     def _create_model(self):
@@ -173,6 +181,9 @@ class BayesBaseModel(TFModel):
         """
         raise NotImplementedError
 
-    def _call(self, inputs, training=None):
-        """Forward pass through model. Extend this and not the call method."""
-        return self._model(inputs, training=training)
+    def __call__(self, inputs, training):
+        """Internal call method for model forward pass"""
+        if not self.model_created:
+            raise RuntimeError("The model needs to be created in the subclass constructor.")
+        logits = self._model(inputs, training=training)
+        return self._model.last_layer(logits, training=training)
