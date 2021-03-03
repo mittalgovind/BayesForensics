@@ -178,7 +178,6 @@ def main():
     args = parse_args()
 
     if args.memory_growth:
-        # TODO (Govind) remove before merge. Set memory growth for personal GPU.
         physical_devices = tf.config.list_physical_devices("GPU")
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
     # Change json to npz
