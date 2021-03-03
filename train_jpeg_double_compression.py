@@ -231,7 +231,7 @@ def main():
         model.load_model(os.path.abspath(args.cont_model_path))
 
     if not args.only_eval:
-        model, train_performance = train(
+        train_performance = train(
             model=model,
             epochs=args.epochs,
             data=data,
