@@ -23,6 +23,7 @@ from helpers.tf_helpers import disable_gpu
 from workflows.jpeg_double_compression import (
     train,
     run_tests,
+    preprocess_batch,
     JPEGDoubleCompression,
     qf_plot,
 )
@@ -194,6 +195,7 @@ def main():
     qf_train = (int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
     qf_test = (int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
+
     flags = {
         "batch_size": args.batch_size,
         "lr": args.lr,
@@ -214,9 +216,9 @@ def main():
 
     model = JPEGDoubleCompression(
         method=args.uncertainty_method,
-        c_filters=(64, 64, 64, 64),
-        d_filters=(256, 2),
-        kernel=7,
+        c_filters=(32, 32, 32, 32),
+        d_filters=(128, 2),
+        kernel=5,
         activation="leaky_relu",
         trainable_residual=True,
         drop=0.1,
@@ -226,17 +228,6 @@ def main():
     )
 
     if args.cont_model_path:
-        # train for an epoch so that model is built
-        model, _ = train(
-            model=model,
-            epochs=1,
-            data=data,
-            cache=None,
-            qf=qf_train,
-            codec=JPEG(),
-            **flags
-        )
-        # TODO (Pawel) Somehow this takes too much memory. Fix implementation.
         model.load_model(os.path.abspath(args.cont_model_path))
 
     if not args.only_eval:
@@ -249,7 +240,8 @@ def main():
             codec=JPEG(),
             **flags
         )
-        perf(train_performance, log=False)
+        # save the training performance
+        perf(train_performance)
 
     # TODO Add calibration
     if args.calibrate:
@@ -268,7 +260,6 @@ def main():
         cache=cache,
         temperature=temperature,
         codec=JPEG(codec="libjpeg"),
-        save_dir=args.save_dir,
         **flags
     )
     qf_plot(qf_test, accuracies, args.save_dir)

@@ -25,14 +25,14 @@ class SFPDeepEnsemble(DeepEnsemble):
         super().__init__(base_model, n_models)
 
     def preprocess(
-        self,
-        batch,
-        scales,
-        patch_size,
-        sampling_method,
-        random_method,
-        methods,
-        classes,
+            self,
+            batch,
+            scales,
+            patch_size,
+            sampling_method,
+            random_method,
+            methods,
+            classes,
     ):
         """
         Resize a batch with the desired scaling factor and sampling method.
@@ -71,13 +71,16 @@ class SFPDeepEnsemble(DeepEnsemble):
             m = sampling_method
 
         # Resize batch.
-        batch_processed = tf.image.resize(batch, [resized_size, resized_size], method=m)
+        batch_processed = tf.image.resize(batch, [resized_size, resized_size],
+                                          method=m)
         class_id = quantize(sf.numpy(), classes, return_indices=True)
         batch_sf = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
 
         return batch_processed, batch_sf
 
-    def train(self, epochs, data, batch_size, cache, **kwargs):
+    def train(self, epochs, data, batch_size, cache, patch_size, scales,
+              classes, sampling_method, save_dir,
+              lr, methods, adversarial, **kwargs):
         """
         Trains models inside the Deep Ensemble.
 
@@ -94,23 +97,17 @@ class SFPDeepEnsemble(DeepEnsemble):
         kwargs
         """
 
-        patch_size = kwargs["patch_size"]
-        scales = kwargs["scales"]
-        classes = kwargs["classes"]
-        sampling_method = kwargs["sampling_method"]
-        save_dir = kwargs["save_dir"]
-        lr = kwargs["lr"]
         random_method = sampling_method == "random"
-        methods = kwargs["methods"]
-        adversarial = kwargs["adversarial"]
         if adversarial:
             epsilon = kwargs["epsilon"]
 
         n_batches = data.count_training // batch_size
 
         # Different performance dictionary for each model.
-        performance = [{"loss": {"training": []}} for _ in range(self.n_models)]
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        performance = [{"loss": {"training": []}} for _ in
+                       range(self.n_models)]
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True)
         opt = tf.keras.optimizers.Adam(lr)
 
         with progress_bar(epochs, "Training") as pbar:
@@ -120,7 +117,8 @@ class SFPDeepEnsemble(DeepEnsemble):
 
                 for batch_id in range(n_batches):
                     # Get next training batch.
-                    batch_y = data.next_training_batch(batch_id, batch_size, patch_size)
+                    batch_y = data.next_training_batch(batch_id, batch_size,
+                                                       patch_size)
 
                     batch_yy, batch_sf = self.preprocess(
                         batch_y,
@@ -134,6 +132,7 @@ class SFPDeepEnsemble(DeepEnsemble):
 
                     for i in range(self.n_models):
                         # Create adversarial batch.
+                        # TODO (Marcelo) is this working?
                         if adversarial:
                             ### Look into using a single Gradient Tape.
                             ### Check with a single model.
@@ -144,7 +143,8 @@ class SFPDeepEnsemble(DeepEnsemble):
                             with tf.GradientTape() as tape:
                                 tape.watch(batch_yy)
                                 loss = loss_criterion(
-                                    batch_sf, self.models[i](batch_yy, training=False)
+                                    batch_sf,
+                                    self.models[i](batch_yy, training=False)
                                 )
 
                             grad_adv = tape.gradient(loss, batch_yy)
@@ -155,24 +155,28 @@ class SFPDeepEnsemble(DeepEnsemble):
 
                         with tf.GradientTape() as tape:
                             loss = loss_criterion(
-                                batch_sf, self.models[i](batch_yy, training=True)
+                                batch_sf,
+                                self.models[i](batch_yy, training=True)
                             )
 
                             # Loss becomes the sum of both adversarial loss and regular training loss.
                             if adversarial:
                                 loss += loss_criterion(
-                                    batch_sf, self.models[i](batch_adv, training=True)
+                                    batch_sf,
+                                    self.models[i](batch_adv, training=True)
                                 )
 
                         grads = tape.gradient(loss, self.models[i].variables)
-                        opt.apply_gradients(zip(grads, self.models[i].variables))
+                        opt.apply_gradients(
+                            zip(grads, self.models[i].variables))
 
                         # Update loss counter.
                         losses[i] += loss.numpy()
 
                 # Save losses.
                 for i in range(self.n_models):
-                    performance[i]["loss"]["training"].append(losses[i] / n_batches)
+                    performance[i]["loss"]["training"].append(
+                        losses[i] / n_batches)
 
                 pbar.set_postfix(loss=np.mean(losses) / n_batches)
                 pbar.update(1)
