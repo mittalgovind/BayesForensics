@@ -65,14 +65,17 @@ class OptimDataset(Dataset):
         dp = tf.data.Dataset.from_generator(lambda: data.get_training_generator(batch_size, rgb_patch_size, discard),
             output_types=len(self._loaded_data) * (tf.float32, ))
         """
-        for batch_id in range(self.count_training // batch_size):
-            batch = self.next_training_batch(
-                batch_id, batch_size, rgb_patch_size, discard
-            )
-            images, labels = self.preprocess_batch(inputs=batch,
-                                                   batch_size=batch_size,
-                                                   codec=JPEG(), qf=(75, 100))
-            yield images, labels
+
+        while True:
+            for batch_id in range(self.count_training // batch_size):
+                batch = self.next_training_batch(
+                    batch_id, batch_size, rgb_patch_size, discard
+                )
+                images, labels = self.preprocess_batch(inputs=batch,
+                                                       batch_size=batch_size,
+                                                       codec=JPEG(),
+                                                       qf=(75, 100))
+                yield images, labels
 
     def get_validation_generator(self, batch_size):
         """
@@ -81,14 +84,15 @@ class OptimDataset(Dataset):
         dp = tf.data.Dataset.from_generator(lambda: data.get_validation_generator(batch_size),
             output_types=len(self._loaded_data) * (tf.float32, ))
         """
-
-        for batch_id in range(self.count_validation // batch_size):
-            batch = self.next_training_batch(batch_id, batch_size)
-            images, labels = self.preprocess_batch(inputs=batch,
-                                                   batch_size=batch_size,
-                                                   codec=JPEG(codec="libjpeg"),
-                                                   qf=(60, 100))
-            yield images, labels
+        while True:
+            for batch_id in range(self.count_validation // batch_size):
+                batch = self.next_training_batch(batch_id, batch_size)
+                images, labels = self.preprocess_batch(inputs=batch,
+                                                       batch_size=batch_size,
+                                                       codec=JPEG(
+                                                           codec="libjpeg"),
+                                                       qf=(60, 100))
+                yield images, labels
 
 
 def make_model(kernel, activation, conv_layers, dense_layers, dense_units,
@@ -133,7 +137,8 @@ def make_model(kernel, activation, conv_layers, dense_layers, dense_units,
 from pdb import set_trace
 def train_network(parameters):
     try:
-        model = make_model(activation='leaky_relu', append_rgb=True, **parameters)
+        model = make_model(activation='leaky_relu', append_rgb=True,
+                           **parameters)
 
         model.compile(optimizer=tf.keras.optimizers.RMSprop(),
                       loss=tf.keras.losses.BinaryCrossentropy(),
@@ -149,7 +154,7 @@ def train_network(parameters):
             x=data.get_training_generator(batch_size, patch_size),
             validation_data=data.get_validation_generator(batch_size),
             epochs=epochs,
-            batch_size=batch_size, verbose=2,
+            batch_size=batch_size, verbose=1,
             callbacks=callbacks_list,
             #steps_per_epoch=t_images//batch_size,
             #validation_steps=v_images//batch_size
