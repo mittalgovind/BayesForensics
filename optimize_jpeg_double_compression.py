@@ -28,8 +28,8 @@ patch_size = 64
 epochs = 1500
 data_dir = "/scratch/gm2724/data/rgb/native12k"
 save_dir = "/scratch/gm2724/nip_runs/hyperopt"
-#data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
-#save_dir = "./outputs"
+# data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
+# save_dir = "./outputs"
 
 if True:
     physical_devices = tf.config.list_physical_devices("GPU")
@@ -132,28 +132,28 @@ def make_model(kernel, activation, conv_layers, dense_layers, dense_units,
 
 
 def train_network(parameters):
-    # try:
-    model = make_model(activation='leaky_relu', append_rgb=True, **parameters)
+    try:
+        model = make_model(activation='leaky_relu', append_rgb=True, **parameters)
 
-    model.compile(optimizer=tf.keras.optimizers.RMSprop(),
-                  loss=tf.keras.losses.BinaryCrossentropy(),
-                  metrics=['accuracy'])
-    model.summary()
-    history = model.fit(
-        x=data.get_training_generator(batch_size, patch_size),
-        validation_data=data.get_validation_generator(batch_size),
-        epochs=epochs,
-        batch_size=batch_size, verbose=1,
-        callbacks=callbacks_list,
-        steps_per_epoch=t_images//batch_size,
-        validation_steps=v_images//batch_size
-    )
-    loss = min(history.history['loss'])
-    accuracy = max(history.history['accuracy'])
-    tf.keras.backend.clear_session()
-    # except:
-    #     accuracy = 0
-    #     loss = np.inf
+        model.compile(optimizer=tf.keras.optimizers.RMSprop(),
+                      loss=tf.keras.losses.BinaryCrossentropy(),
+                      metrics=['accuracy'])
+        model.summary()
+        history = model.fit(
+            x=data.get_training_generator(batch_size, patch_size),
+            validation_data=data.get_validation_generator(batch_size),
+            epochs=epochs,
+            batch_size=batch_size, verbose=1,
+            callbacks=callbacks_list,
+            steps_per_epoch=t_images//batch_size,
+            validation_steps=v_images//batch_size
+        )
+        loss = min(history.history['loss'])
+        accuracy = max(history.history['accuracy'])
+        tf.keras.backend.clear_session()
+    except:
+        accuracy = 0
+        loss = np.inf
 
     print("Loss: {}".format(loss))
     print("Accuracy: {:.2%}".format(accuracy))
