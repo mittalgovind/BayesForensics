@@ -11,7 +11,7 @@ from abc import ABC
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import Input, MaxPool2D
 from tensorflow.keras.models import Model
 
 # Internal libraries
@@ -21,17 +21,21 @@ from models.bayes import BayesBaseModel
 
 class JPEGDoubleCompression(BayesBaseModel, ABC):
     def __init__(
-        self,
-        method,
-        c_filters,
-        d_filters,
-        kernel,
-        trainable_residual,
-        drop,
-        append_rgb,
-        tensorboard,
-        patch_size,
-        **kwargs
+            self,
+            conv_layers,
+            dense_layers,
+            method,
+            filters,
+            dense_units,
+            pool_size,
+            kernel,
+            activation='leaky_relu',
+            trainable_residual=True,
+            drop=0.1,
+            append_rgb=True,
+            tensorboard=None,
+            patch_size=64,
+            **kwargs
     ):
         """
         c_filters: int
@@ -45,11 +49,14 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         trainable_residual: bool
             flag to make the residual trainable (see layers.ConstrainedConv2D)
         """
-        super().__init__(method=method, **kwargs)
+        super().__init__(method=method, activation=activation, **kwargs)
 
-        self.c_filters = c_filters
-        self.d_filters = d_filters
+        self.filters = filters
+        self.dense_layers = dense_layers
+        self.dense_units = dense_units
         self.kernel = kernel
+        self.pool_size = pool_size
+        self.conv_layers = conv_layers
         self.trainable_residual = trainable_residual
         self.drop_rate = drop
         self.append_rgb = append_rgb
@@ -59,22 +66,27 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
 
         # Needs to be called as the last line in the subclass.
         self.create_model()
+
     def _create_model(self):
         """Need to override to specify model architecture."""
-
         layers = []
-
         # Setup conv layers
-        for n_filters in self.c_filters:
+        for _ in range(self.conv_layers):
             layers.append(
-                self.conv2d(n_filters, self.kernel, activation=self.activation)
+                self.conv2d(self.filters, self.kernel,
+                            activation=self.activation)
             )
+            layers.append(
+                MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
+
         layers.append(tf.keras.layers.GlobalAveragePooling2D())
         # Setup dense layers
-        for n, n_filters in enumerate(self.d_filters):
-            act = None if n == len(self.d_filters) - 1 else self.activation
-            layers.append(self.dense(n_filters, activation=act))
-            if self.drop_rate > 0 and n < len(self.d_filters) - 1:
+        for i in range(self.dense_layers):
+            last_layer = i == self.dense_layers - 1
+            act = self.activation if not last_layer else None
+            dense_units = self.dense_units // (1.5 ** i) if not last_layer else 2
+            layers.append(self.dense(dense_units, activation=act))
+            if self.drop_rate > 0 and not last_layer:
                 layers.append(self.dropout(self.drop_rate))
 
         # make a custom keras model

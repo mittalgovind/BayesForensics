@@ -23,7 +23,6 @@ from helpers.tf_helpers import disable_gpu
 from workflows.jpeg_double_compression import (
     train,
     run_tests,
-    preprocess_batch,
     JPEGDoubleCompression,
     qf_plot,
 )
@@ -171,11 +170,21 @@ def parse_args():
         default=False,
         help="Enable TF memory growth for GPU.",
     )
+    parser.add_argument(
+        "--cpu",
+        action="store_true",
+        default=False,
+        help="Disables GPU utilization.",
+    )
+
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+
+    if args.cpu:
+        disable_gpu()
 
     if args.memory_growth:
         physical_devices = tf.config.list_physical_devices("GPU")
@@ -212,18 +221,24 @@ def main():
         randomize=69,
         val_rgb_patch_size=args.patch_size,
     )
+    parameters = {
+        'filters': filters,
+        'conv_layers': conv_layers,
+        'dense_layers': dense_layers,
+        'dense_units': dense_units,
+        'kernel': kernel,
+        'pool_size': pool_size,
+        'activation': "leaky_relu",
+        'trainable_residua': True,
+        'drop': 0.1,
+        'append_rgb': True,
+    }
 
     model = JPEGDoubleCompression(
         method=args.uncertainty_method,
-        c_filters=(32, 32, 32, 32),
-        d_filters=(128, 2),
-        kernel=5,
-        activation="leaky_relu",
-        trainable_residual=True,
-        drop=0.1,
-        append_rgb=True,
         tensorboard=tb_callback,
-        patch_size=args.patch_size
+        patch_size=args.patch_size,
+        **parameters
     )
 
     if args.cont_model_path:
