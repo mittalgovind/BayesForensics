@@ -65,7 +65,6 @@ class OptimDataset(Dataset):
         dp = tf.data.Dataset.from_generator(lambda: data.get_training_generator(batch_size, rgb_patch_size, discard),
             output_types=len(self._loaded_data) * (tf.float32, ))
         """
-
         for batch_id in range(self.count_training // batch_size):
             batch = self.next_training_batch(
                 batch_id, batch_size, rgb_patch_size, discard
@@ -131,6 +130,7 @@ def make_model(kernel, activation, conv_layers, dense_layers, dense_units,
     return tf.keras.models.Model(inputs, outputs)
 
 
+from pdb import set_trace
 def train_network(parameters):
     try:
         model = make_model(activation='leaky_relu', append_rgb=True, **parameters)
@@ -139,15 +139,22 @@ def train_network(parameters):
                       loss=tf.keras.losses.BinaryCrossentropy(),
                       metrics=['accuracy'])
         model.summary()
+    except:
+        print("model cannot be created")
+        return np.inf
+
+    try:
+        set_trace()
         history = model.fit(
             x=data.get_training_generator(batch_size, patch_size),
             validation_data=data.get_validation_generator(batch_size),
             epochs=epochs,
-            batch_size=batch_size, verbose=1,
+            batch_size=batch_size, verbose=2,
             callbacks=callbacks_list,
-            steps_per_epoch=t_images//batch_size,
-            validation_steps=v_images//batch_size
+            #steps_per_epoch=t_images//batch_size,
+            #validation_steps=v_images//batch_size
         )
+        print("finished training this model")
         loss = min(history.history['loss'])
         accuracy = max(history.history['accuracy'])
         tf.keras.backend.clear_session()
