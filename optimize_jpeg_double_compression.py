@@ -26,10 +26,10 @@ t_images = 1024
 batch_size = 256
 patch_size = 64
 epochs = 1500
-data_dir = "/scratch/gm2724/data/rgb/native12k"
-save_dir = "/scratch/gm2724/nip_runs/hyperopt"
-# data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
-# save_dir = "./outputs"
+# data_dir = "/scratch/gm2724/data/rgb/native12k"
+# save_dir = "/scratch/gm2724/nip_runs/hyperopt"
+data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
+save_dir = "./outputs"
 
 if True:
     physical_devices = tf.config.list_physical_devices("GPU")
@@ -148,17 +148,17 @@ def train_network(parameters):
         print("model cannot be created")
         return np.inf
 
-    set_trace()
     try:
+        set_trace()
         history = model.fit(
-            x=data.get_training_generator(batch_size, patch_size),
-            validation_data=data.get_validation_generator(batch_size),
-            epochs=epochs,
-            batch_size=batch_size, verbose=1,
-            callbacks=callbacks_list,
-            steps_per_epoch=t_images//batch_size,
-            validation_steps=v_images//batch_size
-        )
+                x=data.get_training_generator(batch_size, patch_size),
+                validation_data=data.get_validation_generator(batch_size),
+                epochs=epochs,
+                batch_size=batch_size, verbose=1,
+                callbacks=callbacks_list,
+                #steps_per_epoch=t_images//batch_size,
+                #validation_steps=v_images//batch_size
+            )
         print("finished training this model")
         loss = min(history.history['loss'])
         accuracy = max(history.history['accuracy'])
@@ -184,14 +184,14 @@ data = OptimDataset(
 
 callbacks_list = [
     EarlyStopping(monitor='loss', patience=300,
-                  restore_best_weights=True, min_delta=0.01),
-    """ModelCheckpoint(
-        os.path.join(save_dir, 'model_save.h5'),
-        monitor='loss'),
-    CSVLogger(
-        filename=os.path.join(save_dir, 'model_save.log'),
-        append=True)"""
-]
+                  restore_best_weights=True, min_delta=0.01)]
+"""ModelCheckpoint(
+    os.path.join(save_dir, 'model_save.h5'),
+    monitor='loss'),
+CSVLogger(
+    filename=os.path.join(save_dir, 'model_save.log'),
+    append=True)"""
+
 
 parameter_space = {
     'conv_layers': hp.choice('conv_layers', [2, 3, 4, 5]),
