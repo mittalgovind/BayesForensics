@@ -26,10 +26,10 @@ t_images = 1024
 batch_size = 256
 patch_size = 64
 epochs = 1500
-# data_dir = "/scratch/gm2724/data/rgb/native12k"
-# save_dir = "/scratch/gm2724/nip_runs/hyperopt"
-data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
-save_dir = "./outputs"
+data_dir = "/scratch/gm2724/data/rgb/native12k"
+save_dir = "/scratch/gm2724/nip_runs/hyperopt"
+# data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
+# save_dir = "./outputs"
 
 if True:
     physical_devices = tf.config.list_physical_devices("GPU")
