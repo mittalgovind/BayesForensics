@@ -23,7 +23,7 @@ from helpers.tf_helpers import activation_mapping
 
 v_images = 256
 t_images = 2048
-batch_size = 128
+batch_size = 256
 patch_size = 64
 epochs = 1500
 data_dir = "/scratch/gm2724/data/rgb/native12k"
@@ -149,12 +149,12 @@ def train_network(parameters):
         return np.inf
 
     try:
-        set_trace()
+        # set_trace()
         history = model.fit(
                 x=data.get_training_generator(batch_size, patch_size),
                 validation_data=data.get_validation_generator(batch_size),
                 epochs=epochs,
-                batch_size=batch_size, verbose=1,
+                batch_size=batch_size, verbose=0,
                 callbacks=callbacks_list,
                 steps_per_epoch=t_images//batch_size,
                 validation_steps=v_images//batch_size
