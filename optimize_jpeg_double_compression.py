@@ -183,7 +183,7 @@ data = OptimDataset(
 )
 
 callbacks_list = [
-    EarlyStopping(monitor='loss', patience=300,
+    EarlyStopping(monitor='loss', patience=150,
                   restore_best_weights=True, min_delta=0.01)]
 """ModelCheckpoint(
     os.path.join(save_dir, 'model_save.h5'),
@@ -205,10 +205,10 @@ parameter_space = {
 algo = partial(tpe.suggest,
                n_EI_candidates=1000,
                gamma=0.2,
-               n_startup_jobs=10)
+               n_startup_jobs=50)
 
 fmin(fn=train_network,
      space=parameter_space,
      algo=algo,
-     max_evals=100,
+     max_evals=300,
      show_progressbar=True)
