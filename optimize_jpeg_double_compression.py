@@ -22,8 +22,8 @@ from models.jpeg import JPEG
 from helpers.tf_helpers import activation_mapping
 
 v_images = 256
-t_images = 1024
-batch_size = 256
+t_images = 2048
+batch_size = 128
 patch_size = 64
 epochs = 1500
 data_dir = "/scratch/gm2724/data/rgb/native12k"
