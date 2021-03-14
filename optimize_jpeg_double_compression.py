@@ -156,8 +156,8 @@ def train_network(parameters):
                 epochs=epochs,
                 batch_size=batch_size, verbose=1,
                 callbacks=callbacks_list,
-                #steps_per_epoch=t_images//batch_size,
-                #validation_steps=v_images//batch_size
+                steps_per_epoch=t_images//batch_size,
+                validation_steps=v_images//batch_size
             )
         print("finished training this model")
         loss = min(history.history['loss'])
