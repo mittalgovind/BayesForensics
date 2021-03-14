@@ -148,16 +148,16 @@ def train_network(parameters):
         print("model cannot be created")
         return np.inf
 
+    set_trace()
     try:
-        set_trace()
         history = model.fit(
             x=data.get_training_generator(batch_size, patch_size),
             validation_data=data.get_validation_generator(batch_size),
             epochs=epochs,
             batch_size=batch_size, verbose=1,
             callbacks=callbacks_list,
-            #steps_per_epoch=t_images//batch_size,
-            #validation_steps=v_images//batch_size
+            steps_per_epoch=t_images//batch_size,
+            validation_steps=v_images//batch_size
         )
         print("finished training this model")
         loss = min(history.history['loss'])
@@ -183,14 +183,14 @@ data = OptimDataset(
 )
 
 callbacks_list = [
-    EarlyStopping(monitor='loss', patience=3,
+    EarlyStopping(monitor='loss', patience=300,
                   restore_best_weights=True, min_delta=0.01),
-    ModelCheckpoint(
+    """ModelCheckpoint(
         os.path.join(save_dir, 'model_save.h5'),
         monitor='loss'),
-    # CSVLogger(
-    #     filename=os.path.join(save_dir, 'model_save.log'),
-    #     append=True)
+    CSVLogger(
+        filename=os.path.join(save_dir, 'model_save.log'),
+        append=True)"""
 ]
 
 parameter_space = {
