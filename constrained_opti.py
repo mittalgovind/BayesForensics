@@ -163,6 +163,8 @@ def train_network(parameters):
             validation_steps=v_images // batch_size
         )
         print("finished training this model")
+        set_trace()
+        model.save(save_dir + 'rgb.h5')
         loss = min(history.history['loss'])
         accuracy = max(history.history['accuracy'])
         tf.keras.backend.clear_session()
