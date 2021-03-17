@@ -158,7 +158,7 @@ def train_network(parameters):
             x=data.get_training_generator(batch_size, patch_size),
             validation_data=data.get_validation_generator(batch_size),
             epochs=epochs,
-            batch_size=batch_size, verbose=0,
+            batch_size=batch_size, verbose=2,
             callbacks=callbacks_list,
             steps_per_epoch=t_images // batch_size,
             validation_steps=v_images // batch_size
