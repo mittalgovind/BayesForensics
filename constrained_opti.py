@@ -33,9 +33,9 @@ else:
     data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
     save_dir = "./outputs"
 
-if True:
-    physical_devices = tf.config.list_physical_devices("GPU")
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+# if True:
+#     physical_devices = tf.config.list_physical_devices("GPU")
+#     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 
 class OptimDataset(Dataset):
@@ -159,7 +159,6 @@ def train_network(parameters):
             validation_data=data.get_validation_generator(batch_size),
             epochs=epochs,
             batch_size=batch_size, verbose=2,
-            callbacks=callbacks_list,
             steps_per_epoch=t_images // batch_size,
             validation_steps=v_images // batch_size
         )
@@ -186,9 +185,9 @@ data = OptimDataset(
     val_rgb_patch_size=patch_size,
 )
 
-callbacks_list = [
-    EarlyStopping(monitor='loss', patience=150,
-                  restore_best_weights=True, min_delta=0.01)]
+# callbacks_list = [
+#     EarlyStopping(monitor='loss', patience=150,
+#                   restore_best_weights=True, min_delta=0.01)]
 """ModelCheckpoint(
     os.path.join(save_dir, 'model_save.h5'),
     monitor='loss'),
