@@ -21,7 +21,7 @@ from helpers.plots import perf
 from models.layers import ConstrainedConv2D, PaddedConv2D
 from models.jpeg import JPEG
 from helpers.tf_helpers import activation_mapping
-from workflows.jpeg_double_compression import train
+from workflows.jpeg_double_compression import train, JPEGDoubleCompression
 from helpers.results_data import ResultCache
 
 patch_size = 64
@@ -41,71 +41,6 @@ else:
     batch_size = 64
     epochs = 5
 
-
-# if True:
-#     physical_devices = tf.config.list_physical_devices("GPU")
-#     tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
-
-# class OptimDataset(Dataset):
-#     def __init__(self, **kwargs):
-#         super().__init__(**kwargs)
-#
-#     def preprocess_batch(self, inputs, batch_size, codec, qf):
-#         """To preprocess input batch before training"""
-#         QF1 = int(tf.random.uniform((1,), *qf).numpy())
-#         QF2 = int(tf.random.uniform((1,), *qf).numpy())
-#         batch_single_compressed = codec.process(inputs, QF2)
-#         # compressing with QF1 before QF2, to give compression history to batch.
-#         batch_double_compressed = codec.process(
-#             codec.process(inputs, QF1), QF2)
-#
-#         images = tf.concat(
-#             (batch_single_compressed, batch_double_compressed), axis=0
-#         )
-#         labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)),
-#                            axis=-1)
-#
-#         return images, labels
-#
-#     def get_training_generator(self, batch_size, rgb_patch_size,
-#                                discard="flat"):
-#         """
-#         Get a generator for training data. Can be used to construct a data pipeline:
-#
-#         dp = tf.data.Dataset.from_generator(lambda: data.get_training_generator(batch_size, rgb_patch_size, discard),
-#             output_types=len(self._loaded_data) * (tf.float32, ))
-#         """
-#
-#         while True:
-#             for batch_id in range(self.count_training // batch_size):
-#                 batch = self.next_training_batch(
-#                     batch_id, batch_size, rgb_patch_size, discard
-#                 )
-#                 images, labels = self.preprocess_batch(inputs=batch,
-#                                                        batch_size=batch_size,
-#                                                        codec=JPEG(),
-#                                                        qf=(75, 100))
-#                 yield images, labels
-#
-#     def get_validation_generator(self, batch_size):
-#         """
-#         Get a generator for validation data. Can be used to construct a data pipeline:
-#
-#         dp = tf.data.Dataset.from_generator(lambda: data.get_validation_generator(batch_size),
-#             output_types=len(self._loaded_data) * (tf.float32, ))
-#         """
-#         while True:
-#             for batch_id in range(self.count_validation // batch_size):
-#                 batch = self.next_training_batch(batch_id, batch_size)
-#                 images, labels = self.preprocess_batch(inputs=batch,
-#                                                        batch_size=batch_size,
-#                                                        codec=JPEG(
-#                                                            codec="libjpeg"),
-#                                                        qf=(60, 100))
-#                 yield images, labels
-#
-
 def make_model(kernel, activation, conv_layers, dense_layers, dense_units,
                filters, pool_size, append_rgb, ):
     """Need to override to specify model architecture."""
@@ -119,7 +54,7 @@ def make_model(kernel, activation, conv_layers, dense_layers, dense_units,
         layers.append(
             MaxPool2D(pool_size=(pool_size, pool_size)))
 
-    layers.append(tf.keras.layers.GlobalAveragePooling2D())
+    layers.append(tf.keras.layers.Flatten())
     # Setup dense layers
     for i in range(dense_layers):
         last_layer = i == dense_layers - 1
@@ -150,12 +85,7 @@ from pdb import set_trace
 def train_network(parameters):
     cache = ResultCache(["{step}.npz"], prefix=save_dir)
     try:
-        model = make_model(activation='leaky_relu', append_rgb=True,
-                           **parameters)
-
-        model.compile(optimizer=tf.keras.optimizers.RMSprop(),
-                      loss=tf.keras.losses.BinaryCrossentropy(),
-                      metrics=['accuracy'])
+        model = JPEGDoubleCompression(method='vanilla', **parameters)
         model.summary()
     except:
         print("model cannot be created")
