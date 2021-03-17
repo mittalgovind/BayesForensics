@@ -17,13 +17,14 @@ from tensorflow.keras.callbacks import EarlyStopping, CSVLogger, \
 
 # Internal libraries
 from helpers.dataset import Dataset
+from helpers.plots import perf
 from models.layers import ConstrainedConv2D, PaddedConv2D
 from models.jpeg import JPEG
 from helpers.tf_helpers import activation_mapping
-
+from workflows.jpeg_double_compression import train
+from helpers.results_data import ResultCache
 
 patch_size = 64
-
 
 if "CLUSTER" in os.environ and os.environ["CLUSTER"] == "GREENE":
     data_dir = "/scratch/gm2724/data/rgb/native12k"
@@ -40,69 +41,70 @@ else:
     batch_size = 64
     epochs = 5
 
+
 # if True:
 #     physical_devices = tf.config.list_physical_devices("GPU")
 #     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 
-class OptimDataset(Dataset):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def preprocess_batch(self, inputs, batch_size, codec, qf):
-        """To preprocess input batch before training"""
-        QF1 = int(tf.random.uniform((1,), *qf).numpy())
-        QF2 = int(tf.random.uniform((1,), *qf).numpy())
-        batch_single_compressed = codec.process(inputs, QF2)
-        # compressing with QF1 before QF2, to give compression history to batch.
-        batch_double_compressed = codec.process(
-            codec.process(inputs, QF1), QF2)
-
-        images = tf.concat(
-            (batch_single_compressed, batch_double_compressed), axis=0
-        )
-        labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)),
-                           axis=-1)
-
-        return images, labels
-
-    def get_training_generator(self, batch_size, rgb_patch_size,
-                               discard="flat"):
-        """
-        Get a generator for training data. Can be used to construct a data pipeline:
-
-        dp = tf.data.Dataset.from_generator(lambda: data.get_training_generator(batch_size, rgb_patch_size, discard),
-            output_types=len(self._loaded_data) * (tf.float32, ))
-        """
-
-        while True:
-            for batch_id in range(self.count_training // batch_size):
-                batch = self.next_training_batch(
-                    batch_id, batch_size, rgb_patch_size, discard
-                )
-                images, labels = self.preprocess_batch(inputs=batch,
-                                                       batch_size=batch_size,
-                                                       codec=JPEG(),
-                                                       qf=(75, 100))
-                yield images, labels
-
-    def get_validation_generator(self, batch_size):
-        """
-        Get a generator for validation data. Can be used to construct a data pipeline:
-
-        dp = tf.data.Dataset.from_generator(lambda: data.get_validation_generator(batch_size),
-            output_types=len(self._loaded_data) * (tf.float32, ))
-        """
-        while True:
-            for batch_id in range(self.count_validation // batch_size):
-                batch = self.next_training_batch(batch_id, batch_size)
-                images, labels = self.preprocess_batch(inputs=batch,
-                                                       batch_size=batch_size,
-                                                       codec=JPEG(
-                                                           codec="libjpeg"),
-                                                       qf=(60, 100))
-                yield images, labels
-
+# class OptimDataset(Dataset):
+#     def __init__(self, **kwargs):
+#         super().__init__(**kwargs)
+#
+#     def preprocess_batch(self, inputs, batch_size, codec, qf):
+#         """To preprocess input batch before training"""
+#         QF1 = int(tf.random.uniform((1,), *qf).numpy())
+#         QF2 = int(tf.random.uniform((1,), *qf).numpy())
+#         batch_single_compressed = codec.process(inputs, QF2)
+#         # compressing with QF1 before QF2, to give compression history to batch.
+#         batch_double_compressed = codec.process(
+#             codec.process(inputs, QF1), QF2)
+#
+#         images = tf.concat(
+#             (batch_single_compressed, batch_double_compressed), axis=0
+#         )
+#         labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)),
+#                            axis=-1)
+#
+#         return images, labels
+#
+#     def get_training_generator(self, batch_size, rgb_patch_size,
+#                                discard="flat"):
+#         """
+#         Get a generator for training data. Can be used to construct a data pipeline:
+#
+#         dp = tf.data.Dataset.from_generator(lambda: data.get_training_generator(batch_size, rgb_patch_size, discard),
+#             output_types=len(self._loaded_data) * (tf.float32, ))
+#         """
+#
+#         while True:
+#             for batch_id in range(self.count_training // batch_size):
+#                 batch = self.next_training_batch(
+#                     batch_id, batch_size, rgb_patch_size, discard
+#                 )
+#                 images, labels = self.preprocess_batch(inputs=batch,
+#                                                        batch_size=batch_size,
+#                                                        codec=JPEG(),
+#                                                        qf=(75, 100))
+#                 yield images, labels
+#
+#     def get_validation_generator(self, batch_size):
+#         """
+#         Get a generator for validation data. Can be used to construct a data pipeline:
+#
+#         dp = tf.data.Dataset.from_generator(lambda: data.get_validation_generator(batch_size),
+#             output_types=len(self._loaded_data) * (tf.float32, ))
+#         """
+#         while True:
+#             for batch_id in range(self.count_validation // batch_size):
+#                 batch = self.next_training_batch(batch_id, batch_size)
+#                 images, labels = self.preprocess_batch(inputs=batch,
+#                                                        batch_size=batch_size,
+#                                                        codec=JPEG(
+#                                                            codec="libjpeg"),
+#                                                        qf=(60, 100))
+#                 yield images, labels
+#
 
 def make_model(kernel, activation, conv_layers, dense_layers, dense_units,
                filters, pool_size, append_rgb, ):
@@ -112,7 +114,7 @@ def make_model(kernel, activation, conv_layers, dense_layers, dense_units,
     # Setup conv layers
     for _ in range(conv_layers):
         layers.append(
-            Conv2D(filters, kernel, activation=activation)
+            ConstrainedConv2D()
         )
         layers.append(
             MaxPool2D(pool_size=(pool_size, pool_size)))
@@ -136,7 +138,6 @@ def make_model(kernel, activation, conv_layers, dense_layers, dense_units,
     #         [inputs, ConstrainedConv2D(trainable=True)(inputs)])
     # else:
     outputs = inputs
-
     for layer in layers:
         outputs = layer(outputs)
 
@@ -147,6 +148,7 @@ from pdb import set_trace
 
 
 def train_network(parameters):
+    cache = ResultCache(["{step}.npz"], prefix=save_dir)
     try:
         model = make_model(activation='leaky_relu', append_rgb=True,
                            **parameters)
@@ -159,33 +161,25 @@ def train_network(parameters):
         print("model cannot be created")
         return np.inf
 
-    try:
-        # set_trace()
-        history = model.fit(
-            x=data.get_training_generator(batch_size, patch_size),
-            validation_data=data.get_validation_generator(batch_size),
-            epochs=epochs,
-            batch_size=batch_size, verbose=2,
-            steps_per_epoch=t_images // batch_size,
-            validation_steps=v_images // batch_size
-        )
-        print("finished training this model")
-        set_trace()
-        model.save(save_dir + 'rgb.h5')
-        loss = min(history.history['loss'])
-        accuracy = max(history.history['accuracy'])
-        tf.keras.backend.clear_session()
-    except:
-        accuracy = 0
-        loss = np.inf
+    performance = train(model, epochs, data, batch_size, cache, (75, 100),
+                        patch_size, 1e-4, JPEG(), 100, save_dir)
 
-    print("Loss: {}".format(loss))
-    print("Accuracy: {:.2%}".format(accuracy))
+    print("finished training this model")
+    set_trace()
+    model.save(save_dir + 'residual.h5')
+    perf(performance)
+    # loss = min(history.history['loss'])
+    # accuracy = max(history.history['accuracy'])
+    tf.keras.backend.clear_session()
+        # accuracy = 0
+        # loss = np.inf
 
-    return loss
+    # print("Loss: {}".format(loss))
+    # print("Accuracy: {:.2%}".format(accuracy))
 
 
-data = OptimDataset(
+
+data = Dataset(
     data_directory=data_dir,
     load="y",
     n_images=t_images,
