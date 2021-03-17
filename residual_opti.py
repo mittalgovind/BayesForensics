@@ -12,8 +12,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import MaxPool2D, Dropout, Dense, Input, Conv2D
 from hyperopt import hp, fmin, tpe, Trials, tpe, partial
 import numpy as np
-from tensorflow.keras.callbacks import EarlyStopping, CSVLogger, \
-    ModelCheckpoint
+from tensorflow.keras.callbacks import EarlyStopping, CSVLogger, ModelCheckpoint
 
 # Internal libraries
 from helpers.dataset import Dataset
@@ -41,26 +40,66 @@ else:
     batch_size = 64
     epochs = 5
 
-def make_model(kernel, activation, conv_layers, dense_layers, dense_units,
-               filters, pool_size, append_rgb, ):
+
+class JPEGDoodleCompression(JPEGDoubleCompression):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _create_model(self):
+        """Need to override to specify model architecture."""
+        layers = []
+        # Setup conv layers
+        for _ in range(self.conv_layers):
+            layers.append(
+                self.residual(self.filters, self.kernel, activation=self.activation)
+            )
+            layers.append(MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
+
+        layers.append(tf.keras.layers.GlobalAveragePooling2D())
+        # Setup dense layers
+        for i in range(self.dense_layers):
+            last_layer = i == self.dense_layers - 1
+            act = self.activation if not last_layer else None
+            dense_units = self.dense_units // (1.5 ** i) if not last_layer else 2
+            layers.append(self.dense(dense_units, activation=act))
+            if self.drop_rate > 0 and not last_layer:
+                layers.append(self.dropout(self.drop_rate))
+
+        # make a custom keras model
+        outputs = Input(shape=(self.patch_size, self.patch_size, 3))
+
+        for layer in layers:
+            outputs = layer(outputs)
+
+        self._model = tf.keras.models.Model(inputs, outputs)
+        if self.tensorboard:
+            self.tensorboard.set_model(model=self._model)
+
+
+def make_model(
+    kernel,
+    activation,
+    conv_layers,
+    dense_layers,
+    dense_units,
+    filters,
+    pool_size,
+    append_rgb,
+):
     """Need to override to specify model architecture."""
     activation = activation_mapping[activation]
     layers = []
     # Setup conv layers
     for _ in range(conv_layers):
-        layers.append(
-            ConstrainedConv2D()
-        )
-        layers.append(
-            MaxPool2D(pool_size=(pool_size, pool_size)))
+        layers.append(ConstrainedConv2D())
+        layers.append(MaxPool2D(pool_size=(pool_size, pool_size)))
 
     layers.append(tf.keras.layers.Flatten())
     # Setup dense layers
     for i in range(dense_layers):
         last_layer = i == dense_layers - 1
         act = activation if not last_layer else None
-        dense_units = dense_units // (
-                1.5 ** i) if not last_layer else 2
+        dense_units = dense_units // (1.5 ** i) if not last_layer else 2
         layers.append(Dense(dense_units, activation=act))
         if not last_layer:
             layers.append(Dropout(0.1))
@@ -85,28 +124,38 @@ from pdb import set_trace
 def train_network(parameters):
     cache = ResultCache(["{step}.npz"], prefix=save_dir)
     try:
-        model = JPEGDoubleCompression(method='vanilla', **parameters)
+        model = JPEGDoubleCompression(method="vanilla", **parameters)
         model.summary()
     except:
         print("model cannot be created")
         return np.inf
 
-    performance = train(model, epochs, data, batch_size, cache, (75, 100),
-                        patch_size, 1e-4, JPEG(), 100, save_dir)
+    performance = train(
+        model,
+        epochs,
+        data,
+        batch_size,
+        cache,
+        (75, 100),
+        patch_size,
+        1e-4,
+        JPEG(),
+        100,
+        save_dir,
+    )
 
     print("finished training this model")
     set_trace()
-    model.save(save_dir + 'residual.h5')
+    model.save(save_dir + "residual.h5")
     perf(performance)
     # loss = min(history.history['loss'])
     # accuracy = max(history.history['accuracy'])
     tf.keras.backend.clear_session()
-        # accuracy = 0
-        # loss = np.inf
+    # accuracy = 0
+    # loss = np.inf
 
     # print("Loss: {}".format(loss))
     # print("Accuracy: {:.2%}".format(accuracy))
-
 
 
 data = Dataset(
@@ -128,7 +177,13 @@ CSVLogger(
     filename=os.path.join(save_dir, 'model_save.log'),
     append=True)"""
 
-parameters = {'conv_layers': 4, 'dense_layers': 3, 'dense_units': 64,
-              'filters': 32, 'kernel': 3, 'pool_size': 2}
+parameters = {
+    "conv_layers": 4,
+    "dense_layers": 3,
+    "dense_units": 64,
+    "filters": 32,
+    "kernel": 3,
+    "pool_size": 2,
+}
 
 train_network(parameters)
