@@ -48,6 +48,8 @@ def run_tests(model, qf, data, batch_size, save_dir, codec, cache, **kwargs):
             logger.warning(
                 "performance cache from training could not be loaded. Making a new one.")
 
+    from pdb import set_trace
+    set_trace()
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
         QF1, QF2 = int(QF1), int(QF2)
         for batch_id in range(n_batches):
