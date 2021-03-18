@@ -115,7 +115,8 @@ def parse_args():
         help="Uncertainty method. Can be 'mc-dropout', 'flipout', 'vanilla'",
     )
     parser.add_argument(
-        "--save-dir", type=str, default="./output", help="Output save directory"
+        "--save-dir", type=str, default="./output",
+        help="Output save directory"
     )
     parser.add_argument(
         "--data-dir",
@@ -132,7 +133,8 @@ def parse_args():
         help="Number of epochs to log after.",
     )
     parser.add_argument(
-        "-lr", "--lr", action="store", default=1e-4, type=float, help="Learning_rate"
+        "-lr", "--lr", action="store", default=1e-4, type=float,
+        help="Learning_rate"
     )
     parser.add_argument(
         "--cont-model-path",
@@ -200,8 +202,10 @@ def main():
     else:
         tb_callback = None
 
-    qf_train = (int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
-    qf_test = (int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
+    qf_train = (
+    int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
+    qf_test = (
+    int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
     flags = {
@@ -221,24 +225,36 @@ def main():
         randomize=69,
         val_rgb_patch_size=args.patch_size,
     )
-    parameters = {
-        'filters': filters,
-        'conv_layers': conv_layers,
-        'dense_layers': dense_layers,
-        'dense_units': dense_units,
-        'kernel': kernel,
-        'pool_size': pool_size,
-        'activation': "leaky_relu",
-        'trainable_residua': True,
-        'drop': 0.1,
-        'append_rgb': True,
+    # TODO fix this
+    # if args.parameters is None:
+    args.parameters = {
+        "conv_layers": 4,
+        "dense_layers": 3,
+        "dense_units": 64,
+        "filters": 32,
+        "kernel": 3,
+        "pool_size": 2,
     }
+    # else:
+    #     args.parameters = {
+    #         'filters': filters,
+    #         'conv_layers': conv_layers,
+    #         'dense_layers': dense_layers,
+    #         'dense_units': dense_units,
+    #         'kernel': kernel,
+    #         'pool_size': pool_size,
+    #         'activation': "leaky_relu",
+    #         'trainable_residua': True,
+    #         'drop': 0.1,
+    #         'append_rgb': True,
+    #     }
+
 
     model = JPEGDoubleCompression(
         method=args.uncertainty_method,
         tensorboard=tb_callback,
         patch_size=args.patch_size,
-        **parameters
+        **args.parameters
     )
 
     if args.cont_model_path:
