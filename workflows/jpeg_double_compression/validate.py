@@ -41,7 +41,7 @@ def run_tests(model, qf, data, batch_size, save_dir, codec, cache, **kwargs):
             performance = cache.load()
             performance["loss"]["validation"] = []
             performance["accuracy"]["validation"] = []
-        except RuntimeWarning:
+        except:
             performance = {"loss": {"validation": []},
                            "accuracy": {"validation": []}}
             raise RuntimeWarning(
