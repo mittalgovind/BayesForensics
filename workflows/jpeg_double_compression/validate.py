@@ -11,6 +11,7 @@ import os
 # External libraries
 import tensorflow as tf
 import numpy as np
+from loguru import logger
 
 # Internal libraries
 from helpers.utils import progress_bar
@@ -44,7 +45,7 @@ def run_tests(model, qf, data, batch_size, save_dir, codec, cache, **kwargs):
         except:
             performance = {"loss": {"validation": []},
                            "accuracy": {"validation": []}}
-            raise RuntimeWarning(
+            logger.warning(
                 "performance cache from training could not be loaded. Making a new one.")
 
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
