@@ -52,51 +52,51 @@ def train(
     optimizer = tf.keras.optimizers.Adam(lr)
     loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
-    with progress_bar(epochs, "Training") as pbar:
-        for epoch in range(epochs):
-            losses = 0.0
-            accuracies = 0.0
+    # with progress_bar(epochs, "Training") as pbar:
+    for epoch in range(epochs):
+        losses = 0.0
+        accuracies = 0.0
 
-            for batch_id in range(n_batches):
-                batch = data.next_training_batch(batch_id, batch_size, patch_size)
-                batch, labels = preprocess_batch(batch, batch_size, codec, qf)
-                with tf.GradientTape() as tape:
-                    predictions = model(batch, training=True)
-                    loss = loss_criterion(labels, predictions)
+        for batch_id in range(n_batches):
+            batch = data.next_training_batch(batch_id, batch_size, patch_size)
+            batch, labels = preprocess_batch(batch, batch_size, codec, qf)
+            with tf.GradientTape() as tape:
+                predictions = model(batch, training=True)
+                loss = loss_criterion(labels, predictions)
 
-                grads = tape.gradient(loss, model._model.trainable_variables)
-                optimizer.apply_gradients(zip(grads, model._model.trainable_variables))
+            grads = tape.gradient(loss, model._model.trainable_variables)
+            optimizer.apply_gradients(zip(grads, model._model.trainable_variables))
 
-                losses += loss.numpy()
+            losses += loss.numpy()
 
-                accuracies += np.mean(predictions == labels)
+            accuracies += np.mean(predictions == labels)
 
-            performance["loss"]["training"].append(losses / n_batches)
-            performance["accuracy"]["training"].append(accuracies / n_batches)
+        performance["loss"]["training"].append(losses / n_batches)
+        performance["accuracy"]["training"].append(accuracies / n_batches)
 
-            pbar.set_postfix(loss=losses / n_batches)
-            pbar.update(1)
+        pbar.set_postfix(loss=losses / n_batches)
+        pbar.update(1)
 
-            if (epoch + 1) % save_every == 0:
-                model.save_model(dirname=save_dir)
-                fig = perf(performance, results="training")
-                fig.savefig(
-                    os.path.join(save_dir, "training_progress".format(epoch + 1))
-                )
+        if (epoch + 1) % save_every == 0:
+            model.save_model(dirname=save_dir)
+            fig = perf(performance, results="training")
+            fig.savefig(
+                os.path.join(save_dir, "training_progress".format(epoch + 1))
+            )
 
-            if (epoch + 1) % patience == 0 and (
-                performance["loss"]["training"][-patience]
-                - performance["loss"]["training"][-1]
-            ) < min_delta:
-                logger.log(
-                    1,
-                    "Loss did not decrease by {} in {} epochs. Stopping training.".format(
-                        min_delta, patience
-                    ),
-                )
-                break
+        if (epoch + 1) % patience == 0 and (
+            performance["loss"]["training"][-patience]
+            - performance["loss"]["training"][-1]
+        ) < min_delta:
+            logger.log(
+                1,
+                "Loss did not decrease by {} in {} epochs. Stopping training.".format(
+                    min_delta, patience
+                ),
+            )
+            break
 
-        if cache:
-            cache.save(performance, step="performance")
+    if cache:
+        cache.save(performance, step="performance")
 
     return performance
