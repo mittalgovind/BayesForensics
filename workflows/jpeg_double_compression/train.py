@@ -87,7 +87,7 @@ def train(
             if (epoch + 1) % patience == 0 and (
                 performance["loss"]["training"][-patience]
                 - performance["loss"]["training"][-1]
-            ) >= min_delta:
+            ) < min_delta:
                 logger.log(
                     1,
                     "Loss did not decrease by {} in {} epochs. Stopping training.".format(

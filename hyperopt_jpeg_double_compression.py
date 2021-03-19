@@ -17,10 +17,12 @@ from tensorflow.keras.callbacks import EarlyStopping, CSVLogger, \
 
 # Internal libraries
 from helpers.dataset import Dataset
+from helpers.results_data import ResultCache
+from helpers.plots import perf
 from models.layers import ConstrainedConv2D, PaddedConv2D
 from models.jpeg import JPEG
+from workflows.jpeg_double_compression import train, JPEGDoubleCompression
 from helpers.tf_helpers import activation_mapping
-
 
 v_images = 256
 t_images = 2048
@@ -36,43 +38,38 @@ if True:
     physical_devices = tf.config.list_physical_devices("GPU")
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-from pdb import set_trace
-def train_network(parameters):
-    try:
-        model = make_model(activation='leaky_relu', append_rgb=True,
-                           **parameters)
+run = 1
 
-        model.compile(optimizer=tf.keras.optimizers.RMSprop(),
-                      loss=tf.keras.losses.BinaryCrossentropy(),
-                      metrics=['accuracy'])
+def train_network(parameters):
+    global run
+    print(parameters)
+    cache = ResultCache(["{step}.npz"], prefix=save_dir)
+    try:
+        model = JPEGDoubleCompression(method="vanilla", **parameters)
         model.summary()
     except:
         print("model cannot be created")
         return np.inf
 
-    try:
-        # set_trace()
-        history = model.fit(
-                x=data.get_training_generator(batch_size, patch_size),
-                validation_data=data.get_validation_generator(batch_size),
-                epochs=epochs,
-                batch_size=batch_size, verbose=0,
-                callbacks=callbacks_list,
-                steps_per_epoch=t_images//batch_size,
-                validation_steps=v_images//batch_size
-            )
-        print("finished training this model")
-        loss = min(history.history['loss'])
-        accuracy = max(history.history['accuracy'])
-        tf.keras.backend.clear_session()
-    except:
-        accuracy = 0
-        loss = np.inf
+    performance = train(
+        model,
+        epochs,
+        data,
+        batch_size,
+        cache,
+        (75, 100),
+        patch_size,
+        1e-4,
+        JPEG(),
+        100,
+        save_dir,
+    )
 
-    print("Loss: {}".format(loss))
-    print("Accuracy: {:.2%}".format(accuracy))
-
-    return loss
+    print("finished training this model")
+    fig = perf(performance)
+    fig.savefig(os.path.join(save_dir, 'train_{}.pdf'.format(run)))
+    run += 1
+    tf.keras.backend.clear_session()
 
 flags = {
     "batch_size": batch_size,
