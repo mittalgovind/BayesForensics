@@ -74,8 +74,8 @@ def train(
         performance["loss"]["training"].append(losses / n_batches)
         performance["accuracy"]["training"].append(accuracies / n_batches)
 
-        pbar.set_postfix(loss=losses / n_batches)
-        pbar.update(1)
+        # pbar.set_postfix(loss=losses / n_batches)
+        # pbar.update(1)
 
         if (epoch + 1) % save_every == 0:
             model.save_model(dirname=save_dir)
