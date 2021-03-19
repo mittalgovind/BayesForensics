@@ -202,10 +202,8 @@ def main():
     else:
         tb_callback = None
 
-    qf_train = (
-    int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
-    qf_test = (
-    int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
+    qf_train = (int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
+    qf_test = (int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
     flags = {
@@ -234,6 +232,7 @@ def main():
         "filters": 32,
         "kernel": 3,
         "pool_size": 2,
+        "append_rgb": False,
     }
     # else:
     #     args.parameters = {

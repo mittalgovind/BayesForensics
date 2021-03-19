@@ -49,7 +49,7 @@ def run_tests(model, qf, data, batch_size, save_dir, codec, cache, **kwargs):
                 "performance cache from training could not be loaded. Making a new one.")
 
     from pdb import set_trace
-    set_trace()
+    # set_trace()
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
         QF1, QF2 = int(QF1), int(QF2)
         for batch_id in range(n_batches):
@@ -72,11 +72,11 @@ def run_tests(model, qf, data, batch_size, save_dir, codec, cache, **kwargs):
             counters[1, qf2, qf1] += batch_size
             counters[2, qf2, qf1] += np.sum(predictions[batch_size:] == 1)
             counters[3, qf2, qf1] += batch_size
-        tnr = counters[0] / counters[1]
-        tpr = counters[2] / counters[3]
-        accuracies = (tnr + tpr) / 2
+    tnr = counters[0] / counters[1]
+    tpr = counters[2] / counters[3]
+    accuracies = (tnr + tpr) / 2
 
-        performance["accuracy"]["validation"].append(accuracies / n_batches)
+    performance["accuracy"]["validation"].append(accuracies / n_batches)
 
     if cache:
         cache.save(performance, step="performance")

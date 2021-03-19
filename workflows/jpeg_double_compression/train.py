@@ -46,6 +46,7 @@ def train(
         codec,
         save_every,
         save_dir,
+        patience=150,
         **kwargs
 ):
     performance = {"loss": {"training": []}, "accuracy": {"training": []}}
@@ -87,6 +88,8 @@ def train(
                 fig.savefig(
                     os.path.join(save_dir,
                                  "training_progress".format(epoch + 1)))
+
+            if (epoch + 1) % patience == 0 and performance["loss"]["training"]:
 
         if cache:
             cache.save(performance, step="performance")

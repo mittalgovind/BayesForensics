@@ -121,12 +121,12 @@ def make_model(kernel, activation, conv_layers, dense_layers, dense_units,
 
     # make a custom keras model
     inputs = Input(shape=(patch_size, patch_size, 3))
-    # if append_rgb:
-    #     # concatenate residual if append_rgb is true
-    #     outputs = tf.keras.layers.concatenate(
-    #         [inputs, ConstrainedConv2D(trainable=True)(inputs)])
-    # else:
-    outputs = inputs
+    if append_rgb:
+        # concatenate residual if append_rgb is true
+        outputs = tf.keras.layers.concatenate(
+            [inputs, ConstrainedConv2D(trainable=True)(inputs)])
+    else:
+        outputs = inputs
 
     for layer in layers:
         outputs = layer(outputs)
@@ -194,13 +194,15 @@ CSVLogger(
 
 
 parameter_space = {
-    'conv_layers': hp.choice('conv_layers', [2, 3, 4, 5]),
-    'dense_layers': hp.choice('dense_layers', [2, 3, 4]),
-    'dense_units': hp.choice('dense_units', [64, 128, 192, 256, 384]),
-    'filters': hp.choice('filters', [32, 64, 128, 150]),
-    'kernel': hp.choice('kernel', [3, 5, 7]),
-    'pool_size': hp.choice('pool_size', [2, 4, 6]),
-}
+    'conv_layers': hp.choice('conv_layers', [2, 4, 6]),
+    'dense_layers': hp.choice('dense_layers', [0, 1, 2, 4]),
+    'dense_units': hp.choice('dense_units', [128, 256, 512]),
+    'filters': hp.choice('filters', [8, 16, 32, 64, 128]),
+    'kernel': hp.choice('kernel', [3, 5]),
+    'pool_size': hp.choice('pool_size', [1, 2]),
+    "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
+    "dense_multiplier": hp.choice("dense_multiplier", [1, 0.5])
+    }
 
 algo = partial(tpe.suggest,
                n_EI_candidates=1000,
