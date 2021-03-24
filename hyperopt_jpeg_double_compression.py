@@ -34,6 +34,9 @@ save_dir = "/scratch/gm2724/nip_runs/hyperopt"
 # data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
 # save_dir = "./outputs"
 
+from pdb import set_trace
+
+
 if True:
     physical_devices = tf.config.list_physical_devices("GPU")
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
@@ -66,6 +69,7 @@ def train_network(parameters):
     )
 
     print("finished training this model")
+    set_trace()
     fig = perf(performance)
     fig.savefig(os.path.join(save_dir, 'train_{}.pdf'.format(run)))
     run += 1
