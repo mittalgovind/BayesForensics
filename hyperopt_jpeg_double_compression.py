@@ -66,7 +66,7 @@ def train_network(parameters):
             cache,
             (75, 100),
             patch_size,
-            1e-4,
+            5e-4,
             JPEG(),
             100,
             save_dir,
@@ -83,15 +83,6 @@ def train_network(parameters):
         print("model cannot be trained!")
         return np.inf
 
-
-flags = {
-    "batch_size": batch_size,
-    "lr": 5e-4,
-    "patch_size": patch_size,
-    "save_dir": save_dir,
-    "save_every": 100,
-    "n_runs": 50,
-}
 
 data = Dataset(
     data_directory=data_dir,
