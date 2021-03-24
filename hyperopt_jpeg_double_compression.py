@@ -30,7 +30,7 @@ batch_size = 256
 patch_size = 64
 epochs = 1500
 data_dir = "/scratch/gm2724/data/rgb/native12k"
-save_dir = "/scratch/gm2724/nip_runs/hyperopt"
+base_save_dir = "/scratch/gm2724/nip_runs/hyperopt"
 # data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
 # save_dir = "./outputs"
 
@@ -46,8 +46,10 @@ run = 1
 
 def train_network(parameters):
     global run
+    print("======RUN - {} ======".format(run))
     print(parameters)
-    cache = ResultCache(["performance_{}.npz".format(run)], prefix=save_dir)
+    save_dir = os.path.join(base_save_dir, str(run))
+    cache = ResultCache(["performance.npz"], prefix=save_dir)
     try:
         model = JPEGDoubleCompression(method="vanilla", **parameters)
         model.summary()
@@ -73,7 +75,7 @@ def train_network(parameters):
         print("finished training this model")
         # set_trace()
         fig = perf(performance)
-        fig.savefig(os.path.join(save_dir, 'train_{}.pdf'.format(run)))
+        fig.savefig(os.path.join(save_dir, 'train.pdf'))
         run += 1
         tf.keras.backend.clear_session()
         return min(performance["loss"]["training"])
