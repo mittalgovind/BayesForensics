@@ -43,10 +43,11 @@ if True:
 
 run = 1
 
+
 def train_network(parameters):
     global run
     print(parameters)
-    cache = ResultCache(["{step}.npz"], prefix=save_dir)
+    cache = ResultCache(["{step}_{run}.npz"], prefix=save_dir)
     try:
         model = JPEGDoubleCompression(method="vanilla", **parameters)
         model.summary()
@@ -69,11 +70,13 @@ def train_network(parameters):
     )
 
     print("finished training this model")
-    set_trace()
+    # set_trace()
     fig = perf(performance)
     fig.savefig(os.path.join(save_dir, 'train_{}.pdf'.format(run)))
     run += 1
     tf.keras.backend.clear_session()
+    return min(performance["training"]["loss"])
+
 
 flags = {
     "batch_size": batch_size,
