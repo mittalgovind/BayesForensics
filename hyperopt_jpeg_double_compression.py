@@ -28,7 +28,7 @@ v_images = 256
 t_images = 2048
 batch_size = 256
 patch_size = 64
-epochs = 1500
+epochs = 15
 data_dir = "/scratch/gm2724/data/rgb/native12k"
 save_dir = "/scratch/gm2724/nip_runs/hyperopt"
 # data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
@@ -47,7 +47,7 @@ run = 1
 def train_network(parameters):
     global run
     print(parameters)
-    cache = ResultCache(["{step}_{run}.npz"], prefix=save_dir)
+    cache = ResultCache(["performance_{}.npz".format(run)], prefix=save_dir)
     try:
         model = JPEGDoubleCompression(method="vanilla", **parameters)
         model.summary()
