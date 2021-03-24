@@ -28,7 +28,7 @@ v_images = 256
 t_images = 2048
 batch_size = 256
 patch_size = 64
-epochs = 15
+epochs = 1500
 data_dir = "/scratch/gm2724/data/rgb/native12k"
 save_dir = "/scratch/gm2724/nip_runs/hyperopt"
 # data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
@@ -66,7 +66,7 @@ def train_network(parameters):
             patch_size,
             1e-4,
             JPEG(),
-            5,
+            100,
             save_dir,
         )
 
@@ -76,7 +76,7 @@ def train_network(parameters):
         fig.savefig(os.path.join(save_dir, 'train_{}.pdf'.format(run)))
         run += 1
         tf.keras.backend.clear_session()
-        return min(performance["training"]["loss"])
+        return min(performance["loss"]["training"])
     except :
         print("model cannot be trained!")
         return np.inf
