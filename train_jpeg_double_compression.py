@@ -115,8 +115,7 @@ def parse_args():
         help="Uncertainty method. Can be 'mc-dropout', 'flipout', 'vanilla'",
     )
     parser.add_argument(
-        "--save-dir", type=str, default="./output",
-        help="Output save directory"
+        "--save-dir", type=str, default="./output", help="Output save directory"
     )
     parser.add_argument(
         "--data-dir",
@@ -133,8 +132,7 @@ def parse_args():
         help="Number of epochs to log after.",
     )
     parser.add_argument(
-        "-lr", "--lr", action="store", default=1e-4, type=float,
-        help="Learning_rate"
+        "-lr", "--lr", action="store", default=5e-4, type=float, help="Learning_rate"
     )
     parser.add_argument(
         "--cont-model-path",
@@ -250,7 +248,6 @@ def main():
     #         'append_rgb': True,
     #     }
 
-
     model = JPEGDoubleCompression(
         method=args.uncertainty_method,
         tensorboard=tb_callback,
@@ -297,7 +294,6 @@ def main():
         **flags
     )
     qf_plot(qf_test, accuracies, args.save_dir)
-    pass
 
 
 if __name__ == "__main__":
