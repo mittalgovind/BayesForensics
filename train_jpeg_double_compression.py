@@ -233,6 +233,8 @@ def main():
         "kernel": 3,
         "pool_size": 2,
         "append_rgb": False,
+        "dense_multiplier": 1,
+        "filter_multiplier": 1.5,
     }
     # else:
     #     args.parameters = {
@@ -258,6 +260,8 @@ def main():
 
     if args.cont_model_path:
         model.load_model(os.path.abspath(args.cont_model_path))
+    elif args.only_eval:
+        logger.info("WARNING! No model given. Evaluating an untrained model.")
 
     if not args.only_eval:
         train_performance = train(
@@ -266,11 +270,12 @@ def main():
             data=data,
             qf=qf_train,
             cache=cache,
-            codec=JPEG(),
+            codec=JPEG(codec="libjpeg"),
             **flags
         )
         # save the training performance
-        perf(train_performance)
+        fig = perf(train_performance)
+        fig.savefig(os.path.join(args.save_dir, "training_progress.pdf"))
 
     # TODO Add calibration
     if args.calibrate:
@@ -292,6 +297,7 @@ def main():
         **flags
     )
     qf_plot(qf_test, accuracies, args.save_dir)
+    pass
 
 
 if __name__ == "__main__":
