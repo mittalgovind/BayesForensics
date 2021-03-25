@@ -225,15 +225,17 @@ def main():
     # if args.parameters is None:
     args.parameters = {
         "conv_layers": 4,
-        "dense_layers": 3,
-        "dense_units": 64,
-        "filters": 32,
-        "kernel": 3,
-        "pool_size": 2,
+        "dense_layers": 2,
+        "dense_units": 512,
+        "filters": 64,
+        "kernel": 5,
+        "pool_size": 1,
         "append_rgb": False,
-        "dense_multiplier": 1,
-        "filter_multiplier": 1.5,
+        "dense_multiplier": 0.5,
+        "filter_multiplier": 1,
     }
+    print(args.parameters)
+
     # else:
     #     args.parameters = {
     #         'filters': filters,
