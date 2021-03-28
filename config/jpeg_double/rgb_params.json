@@ -4,8 +4,8 @@
   "dense_units": 256,
   "filters": 64,
   "kernel": 5,
-  "pool_size": 1,
+  "pool_size": 2,
   "append_rgb": false,
   "dense_multiplier": 0.5,
-  "filter_multiplier": 1
+  "filter_multiplier": 1.5
 }
