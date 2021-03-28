@@ -5,7 +5,7 @@
   "filters": 64,
   "kernel": 5,
   "pool_size": 1,
-  "append_rgb": false,
+  "append_rgb": true,
   "dense_multiplier": 0.5,
   "filter_multiplier": 1
 }
