@@ -8,6 +8,7 @@
 import argparse
 import sys
 import os
+import json
 
 # External libraries
 import tensorflow as tf
@@ -115,7 +116,8 @@ def parse_args():
         help="Uncertainty method. Can be 'mc-dropout', 'flipout', 'vanilla'",
     )
     parser.add_argument(
-        "--save-dir", type=str, default="./output", help="Output save directory"
+        "--save-dir", type=str, default="./output",
+        help="Output save directory"
     )
     parser.add_argument(
         "--data-dir",
@@ -132,7 +134,8 @@ def parse_args():
         help="Number of epochs to log after.",
     )
     parser.add_argument(
-        "-lr", "--lr", action="store", default=5e-4, type=float, help="Learning_rate"
+        "-lr", "--lr", action="store", default=5e-4, type=float,
+        help="Learning_rate"
     )
     parser.add_argument(
         "--cont-model-path",
@@ -145,6 +148,12 @@ def parse_args():
         default=False,
         action="store_true",
         help="Only evaluate passed model",
+    )
+    parser.add_argument(
+        "--parameters",
+        type=str,
+        default=None,
+        help="path to a parameters JSON file."
     )
     parser.add_argument(
         "--overwrite",
@@ -200,8 +209,10 @@ def main():
     else:
         tb_callback = None
 
-    qf_train = (int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
-    qf_test = (int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
+    qf_train = (
+    int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
+    qf_test = (
+    int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
     flags = {
@@ -221,34 +232,33 @@ def main():
         randomize=69,
         val_rgb_patch_size=args.patch_size,
     )
-    # TODO fix this
-    # if args.parameters is None:
-    args.parameters = {
-        "conv_layers": 4,
-        "dense_layers": 2,
-        "dense_units": 512,
-        "filters": 64,
-        "kernel": 5,
-        "pool_size": 1,
-        "append_rgb": False,
-        "dense_multiplier": 0.5,
-        "filter_multiplier": 1,
-    }
-    print(args.parameters)
 
-    # else:
-    #     args.parameters = {
-    #         'filters': filters,
-    #         'conv_layers': conv_layers,
-    #         'dense_layers': dense_layers,
-    #         'dense_units': dense_units,
-    #         'kernel': kernel,
-    #         'pool_size': pool_size,
-    #         'activation': "leaky_relu",
-    #         'trainable_residua': True,
-    #         'drop': 0.1,
-    #         'append_rgb': True,
-    #     }
+    if args.parameters is None:
+        # TODO change to a good config after hyperopt
+        args.parameters = {
+            "conv_layers": 4,
+            "dense_layers": 2,
+            "dense_units": 512,
+            "filters": 64,
+            "kernel": 5,
+            "pool_size": 1,
+            "append_rgb": False,
+            "dense_multiplier": 0.5,
+            "filter_multiplier": 1,
+        }
+    else:
+        try:
+            f = open(args.parameters, 'r')
+            parameters = json.load(f)
+            f.close()
+            logger.info(
+                'Model configuration loaded successfully from {}.'.format(
+                    args.parameters))
+            args.parameters = parameters
+        except:
+            logger.error("ERROR! cannot load parameter configuration.")
+
+    print(args.parameters)
 
     model = JPEGDoubleCompression(
         method=args.uncertainty_method,
@@ -262,6 +272,7 @@ def main():
     elif args.only_eval:
         logger.info("WARNING! No model given. Evaluating an untrained model.")
 
+    # TODO there is still some hard-coding left, like codec below.
     if not args.only_eval:
         train_performance = train(
             model=model,
@@ -270,6 +281,7 @@ def main():
             qf=qf_train,
             cache=cache,
             codec=JPEG(codec="libjpeg"),
+            patience=int(0.1 * args.epochs),
             **flags
         )
         # save the training performance

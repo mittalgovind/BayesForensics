@@ -1,0 +1,11 @@
+{
+  "conv_layers": 4,
+  "dense_layers": 2,
+  "dense_units": 512,
+  "filters": 64,
+  "kernel": 5,
+  "pool_size": 1,
+  "append_rgb": false,
+  "dense_multiplier": 0.5,
+  "filter_multiplier": 1
+}
