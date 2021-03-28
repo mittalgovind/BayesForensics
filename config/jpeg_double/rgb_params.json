@@ -3,7 +3,7 @@
   "dense_layers": 2,
   "dense_units": 256,
   "filters": 64,
-  "kernel": 5,
+  "kernel": 3,
   "pool_size": 2,
   "append_rgb": false,
   "dense_multiplier": 0.5,
