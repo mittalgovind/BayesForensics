@@ -1,5 +1,5 @@
 {
-  "conv_layers": 4,
+  "conv_layers": 3,
   "dense_layers": 2,
   "dense_units": 256,
   "filters": 64,
