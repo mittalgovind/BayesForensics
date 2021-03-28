@@ -17,17 +17,26 @@ from helpers.utils import progress_bar
 from helpers.plots import perf
 
 
-def preprocess_batch(inputs, codec, qf):
+def preprocess_batch(inputs, codec, qf, batch_wise=True):
     """To preprocess input batch before training"""
     batch_size = len(inputs)
-    QF1 = list(np.random.uniform(low=qf[0], high=qf[1], size=batch_size))
-    QF2 = list(np.random.uniform(low=qf[0], high=qf[1], size=batch_size))
-    batch_single_compressed = [codec.process(inputs[i], int(QF2[i])) for i in
-                               range(batch_size)]
-    # compressing with QF1 before QF2, to give compression history to batch.
-    batch_double_compressed = [
-        codec.process(codec.process(inputs[i], int(QF1[i])), int(QF2[i])) for i in
-        range(batch_size)]
+    if batch_wise:
+        QF1 = np.random.uniform(low=qf[0], high=qf[1])
+        QF2 = np.random.uniform(low=qf[0], high=qf[1])
+        batch_single_compressed = codec.process(inputs, int(QF2))
+        # compressing with QF1 before QF2, to give compression history to batch.
+        batch_double_compressed = codec.process(codec.process(inputs, int(QF1)), int(QF2))
+    else:
+        QF1 = list(np.random.uniform(low=qf[0], high=qf[1], size=batch_size))
+        QF2 = list(np.random.uniform(low=qf[0], high=qf[1], size=batch_size))
+        batch_single_compressed = [codec.process(inputs[i], int(QF2[i])) for i
+                                   in
+                                   range(batch_size)]
+        # compressing with QF1 before QF2, to give compression history to batch.
+        batch_double_compressed = [
+            codec.process(codec.process(inputs[i], int(QF1[i])), int(QF2[i]))
+            for i in
+            range(batch_size)]
 
     images = tf.concat((batch_single_compressed, batch_double_compressed),
                        axis=0)
@@ -66,7 +75,8 @@ def train(
             accuracies = 0.0
 
             for batch_id in range(n_batches):
-                batch = data.next_training_batch(batch_id, batch_size, patch_size)
+                batch = data.next_training_batch(batch_id, batch_size,
+                                                 patch_size)
                 batch, labels = preprocess_batch(batch, codec, qf)
                 with tf.GradientTape() as tape:
                     predictions = model(batch, training=True)
@@ -90,7 +100,8 @@ def train(
                 model.save_model(dirname=save_dir)
                 fig = perf(performance, results="training")
                 fig.savefig(
-                    os.path.join(save_dir, "training_progress".format(epoch + 1))
+                    os.path.join(save_dir,
+                                 "training_progress".format(epoch + 1))
                 )
 
             if (epoch + 1) % patience == 0 and (
