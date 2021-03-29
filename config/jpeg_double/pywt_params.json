@@ -5,7 +5,7 @@
   "filters": 32,
   "kernel": 5,
   "pool_size": 1,
-  "residual_type": "trainable",
+  "residual_type": "pywt",
   "dense_multiplier": 1,
   "filter_multiplier": 1
 }

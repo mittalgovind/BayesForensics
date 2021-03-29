@@ -17,6 +17,7 @@ from tensorflow.keras.models import Model
 # Internal libraries
 from models.layers import ConstrainedConv2D
 from models.bayes import BayesBaseModel
+from .residuals import _noise_extract
 
 
 class JPEGDoubleCompression(BayesBaseModel, ABC):
@@ -34,7 +35,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             activation='leaky_relu',
             trainable_residual=True,
             drop=0.1,
-            append_rgb=True,
+            residual_type='trainable',
             tensorboard=None,
             patch_size=64,
             **kwargs
@@ -61,8 +62,20 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         self.conv_layers = conv_layers
         self.trainable_residual = trainable_residual
         self.drop_rate = drop
-        self.append_rgb = append_rgb
-        self.residual = ConstrainedConv2D(trainable=self.trainable_residual)
+        if residual_type == 'trainable':
+            self.residual = ConstrainedConv2D(
+                trainable=self.trainable_residual)
+        elif residual_type == 'pywt':
+            self.residual = self.extract_pywt_residual
+            self._color_F = np.array(
+                [[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5],
+                 [128, 0.5, -0.418688, -0.081312]], dtype=np.float32)
+
+        elif residual_type == 'barni':
+            # TODO implement Barni filter
+            self.residual = None
+        else:
+            self.residual = None
         self.tensorboard = tensorboard
         self.patch_size = patch_size
         self.filter_multiplier = filter_multiplier
@@ -95,7 +108,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         layers.append(self.dense(2, activation=None))
         # make a custom keras model
         inputs = Input(shape=(self.patch_size, self.patch_size, 3))
-        if self.append_rgb:
+        if self.residual:
             # concatenate residual if append_rgb is true
             outputs = tf.keras.layers.concatenate(
                 [inputs, self.residual(inputs)])
@@ -106,6 +119,23 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             outputs = layer(outputs)
 
         self._model = tf.keras.models.Model(inputs, outputs)
-        print("Number of parameters in the model = {}".format(self.count_parameters()))
+        print("Number of parameters in the model = {}".format(
+            self.count_parameters()))
         if self.tensorboard:
             self.tensorboard.set_model(model=self._model)
+
+    def extract_pywt_residual(self, batch):
+        """Calculate and append an external filter to the batch."""
+        xc = tf.pad(255.0 * batch, [[0, 0], [0, 0], [0, 0], [1, 0]],
+                    'CONSTANT',
+                    constant_values=1)
+        ycbcrs = tf.nn.conv2d(xc,
+                             tf.reshape(tf.transpose(self._color_F),
+                                        [1, 1, 4, 3]),
+                             [1, 1, 1, 1], 'SAME')
+        ycbcrs = tf.cast(ycbcrs, dtype=tf.uint8)
+        l = list()
+        for im in ycbcrs:
+            l.append(_noise_extract(im))
+        residual = tf.tensor(l)
+        return residual

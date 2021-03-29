@@ -242,7 +242,7 @@ def main():
             "filters": 64,
             "kernel": 5,
             "pool_size": 1,
-            "append_rgb": False,
+            "residual_type": 'trainable',
             "dense_multiplier": 0.5,
             "filter_multiplier": 1,
         }
@@ -281,7 +281,7 @@ def main():
             qf=qf_train,
             cache=cache,
             codec=JPEG(codec="libjpeg"),
-            patience=int(0.1 * args.epochs),
+            patience=int(1.0 * args.epochs),
             **flags
         )
         # save the training performance

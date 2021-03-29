@@ -5,7 +5,7 @@
   "filters": 64,
   "kernel": 3,
   "pool_size": 2,
-  "append_rgb": true,
+  "residual_type": "trainable",
   "dense_multiplier": 0.5,
   "filter_multiplier": 1.5
 }

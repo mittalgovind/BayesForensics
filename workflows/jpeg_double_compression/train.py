@@ -25,8 +25,10 @@ def preprocess_batch(inputs, codec, qf, batch_wise=True):
         QF2 = np.random.uniform(low=qf[0], high=qf[1])
         batch_single_compressed = codec.process(inputs, int(QF2))
         # compressing with QF1 before QF2, to give compression history to batch.
-        batch_double_compressed = codec.process(codec.process(inputs, int(QF1)), int(QF2))
+        batch_double_compressed = codec.process(
+            codec.process(inputs, int(QF1)), int(QF2))
     else:
+        # TODO this is atleast 10x slower.
         QF1 = list(np.random.uniform(low=qf[0], high=qf[1], size=batch_size))
         QF2 = list(np.random.uniform(low=qf[0], high=qf[1], size=batch_size))
         batch_single_compressed = [codec.process(inputs[i], int(QF2[i])) for i
@@ -38,6 +40,7 @@ def preprocess_batch(inputs, codec, qf, batch_wise=True):
             for i in
             range(batch_size)]
 
+    # TODO should I be shuffling the dataset first?
     images = tf.concat((batch_single_compressed, batch_double_compressed),
                        axis=0)
     labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)), axis=0)
