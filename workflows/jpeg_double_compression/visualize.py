@@ -39,4 +39,4 @@ def qf_plot(qf, accuracies, save_dir):
     axes[0].set_xlabel("$Q_2$")
     axes[0].plot([0, n_factors - 1], [0, n_factors - 1], "r:")
 
-    fig.savefig(os.path.join(save_dir, "conf_matrix.pdf"))
+    fig.savefig(os.path.join(save_dir, "conf_matrix.png"))
