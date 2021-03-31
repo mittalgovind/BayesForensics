@@ -26,7 +26,7 @@ def qf_plot(qf, accuracies, save_dir):
 
     fig, axes = plots.sub(1)
     plots.image(
-        accuracies, f"accuracy={m_accuracy:.2f} : []", axes=axes[0], cmap="greys"
+        accuracies, f"accuracy={m_accuracy:.2f} : []", axes=axes[0], cmap="seismic"
     )
 
     axes[0].set_xticks(range(0, n_factors, 5))
