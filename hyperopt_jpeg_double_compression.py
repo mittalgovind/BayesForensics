@@ -12,6 +12,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import MaxPool2D, Dropout, Dense, Input, Conv2D
 from hyperopt import hp, fmin, tpe, Trials, tpe, partial
 import numpy as np
+import pickle
 from tensorflow.keras.callbacks import EarlyStopping, CSVLogger, \
     ModelCheckpoint
 
@@ -36,7 +37,6 @@ base_save_dir = "/scratch/gm2724/nip_runs/hyperopt"
 
 from pdb import set_trace
 
-
 if True:
     physical_devices = tf.config.list_physical_devices("GPU")
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
@@ -45,7 +45,7 @@ run = 1
 
 
 def train_network(parameters):
-    global run
+    global run, trials
     print("======RUN - {} ======".format(run))
     print(parameters)
     save_dir = os.path.join(base_save_dir, str(run))
@@ -67,19 +67,19 @@ def train_network(parameters):
             (75, 100),
             patch_size,
             5e-4,
-            JPEG(),
-            100,
+            JPEG("libjpeg"),
             save_dir,
+            patience=200,
         )
 
         print("finished training this model")
         # set_trace()
         fig = perf(performance)
-        fig.savefig(os.path.join(save_dir, 'train.pdf'))
+        fig.savefig(os.path.join(save_dir, 'train.png'))
         run += 1
         tf.keras.backend.clear_session()
         return min(performance["loss"]["training"])
-    except :
+    except:
         print("model cannot be trained!")
         return np.inf
 
@@ -94,23 +94,48 @@ data = Dataset(
 )
 
 parameter_space = {
-    'conv_layers': hp.choice('conv_layers', [2, 4, 6]),
-    'dense_layers': hp.choice('dense_layers', [0, 1, 2, 4]),
-    'dense_units': hp.choice('dense_units', [128, 256, 512]),
+    'conv_layers': hp.choice('conv_layers', [2, 3, 4, 5]),
     'filters': hp.choice('filters', [8, 16, 32, 64, 128]),
+    "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
     'kernel': hp.choice('kernel', [3, 5]),
     'pool_size': hp.choice('pool_size', [1, 2]),
-    "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
+
+    'dense_layers': hp.choice('dense_layers', [0, 1, 2, 4]),
+    'dense_units': hp.choice('dense_units', [128, 256, 512]),
     "dense_multiplier": hp.choice("dense_multiplier", [1, 0.5])
-    }
+}
 
-algo = partial(tpe.suggest,
-               n_EI_candidates=1000,
-               gamma=0.2,
-               n_startup_jobs=50)
 
-fmin(fn=train_network,
-     space=parameter_space,
-     algo=algo,
-     max_evals=300,
-     show_progressbar=True)
+def run_trials():
+    trials_step = 1  # how many additional trials to do after loading saved trials. 1 = save after iteration
+    max_trials = 5  # initial max_trials. put something small to not have to wait
+
+    try:  # try to load an already saved trials object, and increase the max
+        trials = pickle.load(open("my_model.hyperopt", "rb"))
+        x
+        print("Found saved Trials! Loading...")
+        max_trials = len(trials.trials) + trials_step
+        print("Rerunning from {} trials to {} (+{}) trials".format(
+            len(trials.trials), max_trials, trials_step))
+    except:  # create a new trials object and start searching
+        trials = Trials()
+
+    algo = partial(tpe.suggest,
+                   n_EI_candidates=1000,
+                   gamma=0.2,
+                   n_startup_jobs=20)
+
+    best = fmin(fn=train_network, space=parameter_space, algo=algo,
+                max_evals=max_trials, trials=trials)
+
+    print("Best:", best)
+
+    # save the trials object
+    with open("jpg_models.hyperopt", "wb") as f:
+        pickle.dump(trials, f)
+
+
+# loop indefinitely and stop whenever you like
+while True:
+    run_trials()
+
