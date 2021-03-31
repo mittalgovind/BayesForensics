@@ -27,9 +27,9 @@ from helpers.tf_helpers import activation_mapping
 
 v_images = 256
 t_images = 2048
-batch_size = 256
+batch_size = 1024
 patch_size = 64
-epochs = 2000
+epochs = 8000
 data_dir = "/scratch/gm2724/data/rgb/native12k"
 base_save_dir = "/scratch/gm2724/nip_runs/hyperopt_again"
 # data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
