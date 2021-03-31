@@ -23,6 +23,8 @@ def preprocess_batch(inputs, codec, qf, batch_wise=True):
     if batch_wise:
         QF1 = np.random.randint(low=qf[0], high=qf[1])
         QF2 = np.random.randint(low=qf[0], high=qf[1])
+        while QF1 == QF2:
+            QF2 = np.random.randint(low=qf[0], high=qf[1])
         batch_single_compressed = codec.process(inputs, QF2)
         # compressing with QF1 before QF2, to give compression history to batch.
         batch_double_compressed = codec.process(codec.process(inputs, QF1),
