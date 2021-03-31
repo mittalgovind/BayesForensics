@@ -71,6 +71,7 @@ def train_network(parameters):
             codec=JPEG(codec="libjpeg"),
             save_dir=save_dir,
             patience=200,
+            save_every=100,
         )
 
         # print("finished training this model")
