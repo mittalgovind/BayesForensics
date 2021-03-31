@@ -53,7 +53,6 @@ def train_network(parameters):
     try:
         model = JPEGDoubleCompression(method="vanilla", **parameters)
         model.summary()
-        set_trace()
     except:
         print("model cannot be created")
         return np.inf
