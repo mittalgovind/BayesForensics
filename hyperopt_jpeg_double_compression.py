@@ -29,7 +29,7 @@ v_images = 256
 t_images = 2048
 batch_size = 256
 patch_size = 64
-epochs = 1500
+epochs = 2000
 data_dir = "/scratch/gm2724/data/rgb/native12k"
 base_save_dir = "/scratch/gm2724/nip_runs/hyperopt"
 # data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
@@ -53,6 +53,7 @@ def train_network(parameters):
     try:
         model = JPEGDoubleCompression(method="vanilla", **parameters)
         model.summary()
+        set_trace()
     except:
         print("model cannot be created")
         return np.inf
@@ -64,7 +65,7 @@ def train_network(parameters):
             data,
             batch_size,
             cache,
-            (75, 100),
+            (70, 100),
             patch_size,
             5e-4,
             JPEG("libjpeg"),
@@ -72,13 +73,15 @@ def train_network(parameters):
             patience=200,
         )
 
-        print("finished training this model")
+        # print("finished training this model")
         # set_trace()
         fig = perf(performance)
         fig.savefig(os.path.join(save_dir, 'train.png'))
         run += 1
         tf.keras.backend.clear_session()
-        return min(performance["loss"]["training"])
+        loss = min(performance["loss"]["training"])
+        print("Loss = {:.3f}".format(loss))
+        return loss
     except:
         print("model cannot be trained!")
         return np.inf
@@ -95,13 +98,12 @@ data = Dataset(
 
 parameter_space = {
     'conv_layers': hp.choice('conv_layers', [2, 3, 4, 5]),
-    'filters': hp.choice('filters', [8, 16, 32, 64, 128]),
+    'filters': hp.choice('filters', [16, 32, 64, 128]),
     "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
     'kernel': hp.choice('kernel', [3, 5]),
     'pool_size': hp.choice('pool_size', [1, 2]),
-
     'dense_layers': hp.choice('dense_layers', [0, 1, 2, 4]),
-    'dense_units': hp.choice('dense_units', [128, 256, 512]),
+    'dense_units': hp.choice('dense_units', [128, 256, 384]),
     "dense_multiplier": hp.choice("dense_multiplier", [1, 0.5])
 }
 
@@ -111,7 +113,7 @@ def run_trials():
     max_trials = 5  # initial max_trials. put something small to not have to wait
 
     try:  # try to load an already saved trials object, and increase the max
-        trials = pickle.load(open("my_model.hyperopt", "rb"))
+        trials = pickle.load(open("jpg_model.hyperopt", "rb"))
         x
         print("Found saved Trials! Loading...")
         max_trials = len(trials.trials) + trials_step
