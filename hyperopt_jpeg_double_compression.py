@@ -31,7 +31,7 @@ batch_size = 256
 patch_size = 64
 epochs = 2000
 data_dir = "/scratch/gm2724/data/rgb/native12k"
-base_save_dir = "/scratch/gm2724/nip_runs/hyperopt"
+base_save_dir = "/scratch/gm2724/nip_runs/hyperopt_again"
 # data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
 # save_dir = "./outputs"
 
@@ -60,16 +60,16 @@ def train_network(parameters):
 
     try:
         performance = train(
-            model,
-            epochs,
-            data,
-            batch_size,
-            cache,
-            (70, 100),
-            patch_size,
-            5e-4,
-            JPEG(codec="libjpeg"),
-            save_dir,
+            model=model,
+            epochs=epochs,
+            data=data,
+            batch_size=batch_size,
+            cache=cache,
+            qf=(70, 100),
+            patch_size=patch_size,
+            lr=5e-4,
+            codec=JPEG(codec="libjpeg"),
+            save_dir=save_dir,
             patience=200,
         )
 
