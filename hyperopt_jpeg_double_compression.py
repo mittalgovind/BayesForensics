@@ -70,7 +70,7 @@ def train_network(parameters):
             lr=5e-4,
             codec=JPEG(codec="libjpeg"),
             save_dir=save_dir,
-            patience=200,
+            patience=800,
             save_every=100,
         )
 
