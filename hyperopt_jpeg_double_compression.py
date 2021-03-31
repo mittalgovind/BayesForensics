@@ -68,7 +68,7 @@ def train_network(parameters):
             (70, 100),
             patch_size,
             5e-4,
-            JPEG("libjpeg"),
+            JPEG(codec="libjpeg"),
             save_dir,
             patience=200,
         )
