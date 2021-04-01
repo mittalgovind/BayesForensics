@@ -6,6 +6,7 @@
 
 # Standard libraries
 import os
+from loguru import logger
 
 # External libraries
 import tensorflow as tf
@@ -34,6 +35,7 @@ data_dir = "/scratch/gm2724/data/rgb/native12k"
 base_save_dir = "/scratch/gm2724/nip_runs/hyperopt_again"
 # data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
 # save_dir = "./outputs"
+logger.add("/scratch/gm2724/nip_runs/hyperopt_again/thread_1.txt")
 
 from pdb import set_trace
 
@@ -43,15 +45,15 @@ tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 def train_network(parameters):
     global run, trials
-    print("======RUN - {} ======".format(run))
-    print(parameters)
+    logger.info("======RUN - {} ======".format(run))
+    logger.info(parameters)
     save_dir = os.path.join(base_save_dir, str(run))
     cache = ResultCache(["performance.npz"], prefix=save_dir)
     try:
         model = JPEGDoubleCompression(method="vanilla", **parameters)
         model.summary()
     except:
-        print("model cannot be created")
+        logger.info("model cannot be created")
         return np.inf
 
     try:
@@ -70,14 +72,12 @@ def train_network(parameters):
             save_every=100,
         )
 
-        # print("finished training this model")
-        # set_trace()
         fig = perf(performance)
         fig.savefig(os.path.join(save_dir, 'train.png'))
         run += 1
         tf.keras.backend.clear_session()
         loss = min(performance["loss"]["training"])
-        print("Loss = {:.3f}".format(loss))
+        logger.info("Loss = {:.3f}".format(loss))
         return loss
     except:
         print("model cannot be trained!")
@@ -108,7 +108,6 @@ run = 1
 
 
 def run_trials():
-    set_trace()
 
     global run
     trials_step = 1  # how many additional trials to do after loading saved trials. 1 = save after iteration
@@ -132,7 +131,7 @@ def run_trials():
     best = fmin(fn=train_network, space=parameter_space, algo=algo,
                 max_evals=max_trials, trials=trials)
 
-    print("Best:", best)
+    logger.info("Best:", best)
 
     # save the trials object
     with open("jpg_models.hyperopt", "wb") as f:
