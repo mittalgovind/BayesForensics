@@ -25,11 +25,11 @@ from models.jpeg import JPEG
 from workflows.jpeg_double_compression import train, JPEGDoubleCompression
 from helpers.tf_helpers import activation_mapping
 
-v_images = 256
-t_images = 2048
-batch_size = 1024
+v_images = 64
+t_images = 1024
+batch_size = 128
 patch_size = 64
-epochs = 8000
+epochs = 2000
 data_dir = "/scratch/gm2724/data/rgb/native12k"
 base_save_dir = "/scratch/gm2724/nip_runs/hyperopt_again"
 # data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
@@ -37,12 +37,11 @@ base_save_dir = "/scratch/gm2724/nip_runs/hyperopt_again"
 
 from pdb import set_trace
 
-if True:
-    physical_devices = tf.config.list_physical_devices("GPU")
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+physical_devices = tf.config.list_physical_devices("GPU")
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 run = 1
-
+set_trace()
 
 def train_network(parameters):
     global run, trials
@@ -69,7 +68,7 @@ def train_network(parameters):
             lr=5e-4,
             codec=JPEG(codec="libjpeg"),
             save_dir=save_dir,
-            patience=800,
+            patience=200,
             save_every=100,
         )
 
