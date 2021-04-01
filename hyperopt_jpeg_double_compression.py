@@ -26,8 +26,8 @@ from workflows.jpeg_double_compression import train, JPEGDoubleCompression
 from helpers.tf_helpers import activation_mapping
 
 v_images = 64
-t_images = 1024
-batch_size = 128
+t_images = 2048
+batch_size = 256
 patch_size = 64
 epochs = 2000
 data_dir = "/scratch/gm2724/data/rgb/native12k"
