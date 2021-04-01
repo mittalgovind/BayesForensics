@@ -115,7 +115,7 @@ def run_trials():
     max_trials = 5  # initial max_trials. put something small to not have to wait
 
     try:  # try to load an already saved trials object, and increase the max
-        trials = pickle.load(open("jpg_model.hyperopt", "rb"))
+        trials = pickle.load(open("jpg_models.hyperopt", "rb"))
         print("Found saved Trials! Loading...")
         max_trials = len(trials.trials) + trials_step
         run = max_trials
