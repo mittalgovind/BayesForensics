@@ -29,7 +29,7 @@ v_images = 64
 t_images = 2048
 batch_size = 256
 patch_size = 64
-epochs = 2000
+epochs = 20
 data_dir = "/scratch/gm2724/data/rgb/native12k"
 base_save_dir = "/scratch/gm2724/nip_runs/hyperopt_again"
 # data_dir = "/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k"
@@ -113,7 +113,6 @@ def run_trials():
 
     try:  # try to load an already saved trials object, and increase the max
         trials = pickle.load(open("jpg_model.hyperopt", "rb"))
-        x
         print("Found saved Trials! Loading...")
         max_trials = len(trials.trials) + trials_step
         print("Rerunning from {} trials to {} (+{}) trials".format(
