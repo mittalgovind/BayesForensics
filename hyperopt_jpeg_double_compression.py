@@ -40,8 +40,6 @@ from pdb import set_trace
 physical_devices = tf.config.list_physical_devices("GPU")
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-run = 1
-set_trace()
 
 def train_network(parameters):
     global run, trials
@@ -106,8 +104,13 @@ parameter_space = {
     "dense_multiplier": hp.choice("dense_multiplier", [1, 0.5])
 }
 
+run = 1
+
 
 def run_trials():
+    set_trace()
+
+    global run
     trials_step = 1  # how many additional trials to do after loading saved trials. 1 = save after iteration
     max_trials = 5  # initial max_trials. put something small to not have to wait
 
@@ -115,6 +118,7 @@ def run_trials():
         trials = pickle.load(open("jpg_model.hyperopt", "rb"))
         print("Found saved Trials! Loading...")
         max_trials = len(trials.trials) + trials_step
+        run = max_trials
         print("Rerunning from {} trials to {} (+{}) trials".format(
             len(trials.trials), max_trials, trials_step))
     except:  # create a new trials object and start searching
