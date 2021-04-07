@@ -30,6 +30,9 @@ class DeepEnsemble:
         self.models = [deepcopy(base_model) for _ in range(n_models)]
         self.n_models = n_models
 
+        for i in range(self.n_models):
+            self.models[i].create_model()
+
     def __call__(self, inputs, training=False):
         return tf.convert_to_tensor(
             [self.models[i](inputs, training=training) for i in range(self.n_models)]

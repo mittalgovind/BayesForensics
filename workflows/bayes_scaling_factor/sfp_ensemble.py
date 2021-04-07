@@ -33,6 +33,7 @@ class SFPDeepEnsemble(DeepEnsemble):
             random_method,
             methods,
             classes,
+            codec
     ):
         """
         Resize a batch with the desired scaling factor and sampling method.
@@ -76,11 +77,15 @@ class SFPDeepEnsemble(DeepEnsemble):
         class_id = quantize(sf.numpy(), classes, return_indices=True)
         batch_sf = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
 
+        # Convert to JPEG if a codec is passed.
+        if codec is not None:
+            batch_processed = codec.process(batch_processed)
+
         return batch_processed, batch_sf
 
-    def train(self, epochs, data, batch_size, cache, patch_size, scales,
-              classes, sampling_method, save_dir,
-              lr, methods, adversarial, **kwargs):
+    def train(self, epochs, data, batch_size, cache, codec,
+              patch_size, scales, classes, sampling_method,
+              save_dir, lr, methods, adversarial, **kwargs):
         """
         Trains models inside the Deep Ensemble.
 
@@ -94,7 +99,27 @@ class SFPDeepEnsemble(DeepEnsemble):
             Size of batch at every training step.
         cache : helpers.results_data.ResultCache
             Structure for naming performance files.
-        kwargs
+        codec : models.jpeg.JPEG
+            Codec for conversion of images into JPEG. Use None for no conversion.
+        patch_size : int
+            Patch size for the model.
+        scales : tuple
+            Min and max value for scaling factor classes.
+        classes : np.array
+            List of all the possible scaling factors to use.
+        save_dir : string
+            Path for the model to be saved.
+        lr : float
+            Learning rate.
+        sampling_method : string
+            Sampling method to use for training. Can be one of "random", "nearest", "bilinear",
+            "bicubic", or "lanczos3".
+        methods : list of string
+            List of sampling methods to be used if sampling_method is "random".
+        adversarial : bool
+            Whether or not to use adversarial training.
+        epsilon : float
+            Epsilon value for adversarial training.
         """
 
         random_method = sampling_method == "random"
@@ -128,18 +153,12 @@ class SFPDeepEnsemble(DeepEnsemble):
                         random_method,
                         methods,
                         classes,
+                        codec
                     )
 
                     for i in range(self.n_models):
                         # Create adversarial batch.
-                        # TODO (Marcelo) is this working?
                         if adversarial:
-                            ### Look into using a single Gradient Tape.
-                            ### Check with a single model.
-                            ### Check if the adv example actually works.
-                            ### Implement being able to stop and resume training.
-                            ### Schedule for adversarial training.
-
                             with tf.GradientTape() as tape:
                                 tape.watch(batch_yy)
                                 loss = loss_criterion(

@@ -17,7 +17,7 @@ import numpy as np
 import tensorflow as tf
 
 # Internal libraries
-
+from models.jpeg import JPEG
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
 from helpers.tf_helpers import disable_gpu
@@ -174,6 +174,10 @@ def parse_args():
         default=0.01,
         help="Epsilon value used when generating adversarial training examples.",
     )
+    parser.add_argument('--jpeg-compression', default=False, action="store_true",
+                        dest="jpeg_compression", help="Use JPEG compression")
+    parser.add_argument('--jpeg-quality', '-jq', default=100, action="store", type=int,
+                        dest="jpeg_quality", help="Quality factor for jpeg compression.")
     return parser.parse_args()
 
 
@@ -213,6 +217,11 @@ def main():
         randomize=69,
     )
 
+    if args.jpeg_compression:
+        codec = JPEG(quality=args.jpeg_quality, codec="libjpeg")
+    else:
+        codec = None
+
     if args.uncertainty_method == "ensemble":
         model = SFPDeepEnsemble(
             SFP(
@@ -227,9 +236,10 @@ def main():
             ),
             5,
         )
-        model.train(args.epochs, data, args.batch_size, cache, **flags)
+        model.train(args.epochs, data, args.batch_size, cache, codec, **flags)
         n_runs = 1
 
+    else:
         model = SFP(
             args.uncertainty_method,
             c_filters=(32, 32, 32, 32),
@@ -239,13 +249,6 @@ def main():
             trainable_residual=True,
             drop=0.1,
             append_rgb=False,
-        )
-    else:
-        model = BayarStammSFP(
-            method=args.uncertainty_method,
-            bayesian=False,
-            n_classes=args.n_classes,
-            patch_size=128,
         )
 
     if args.cont_model_path:
