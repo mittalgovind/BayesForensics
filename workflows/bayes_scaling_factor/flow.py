@@ -47,6 +47,8 @@ class SFP(BayesBaseModel):
         self.append_rgb = append_rgb
         self._residual = ConstrainedConv2D(trainable=self.trainable_residual)
 
+        self.create_model()
+
     def _create_model(self):
         """Need to override to specify model architecture."""
         # Setup conv layers
@@ -137,7 +139,7 @@ class BayarStammSFP(BayesBaseModel):
         self.optimizer = tf.keras.optimizers.Adam()
         self.loss = tf.keras.losses.SparseCategoricalCrossentropy()
         self.performance = dict()
-        
+
         self.create_model()
 
     def _create_model(self):

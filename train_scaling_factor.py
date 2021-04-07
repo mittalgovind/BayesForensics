@@ -239,6 +239,7 @@ def main():
         model.train(args.epochs, data, args.batch_size, cache, codec, **flags)
         n_runs = 1
 
+    else:
         model = SFP(
             args.uncertainty_method,
             c_filters=(32, 32, 32, 32),
@@ -248,13 +249,6 @@ def main():
             trainable_residual=True,
             drop=0.1,
             append_rgb=False,
-        )
-    else:
-        model = BayarStammSFP(
-            method=args.uncertainty_method,
-            bayesian=False,
-            n_classes=args.n_classes,
-            patch_size=128,
         )
 
     if args.cont_model_path:
