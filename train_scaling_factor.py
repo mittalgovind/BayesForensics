@@ -174,6 +174,10 @@ def parse_args():
         default=0.01,
         help="Epsilon value used when generating adversarial training examples.",
     )
+    parser.add_argument('--jpeg-compression', default=False, action="store_true",
+                        dest="jpeg_compression", help="Use JPEG compression")
+    parser.add_argument('--jpeg-quality', '-jq', default=100, action="store", type=int,
+                        dest="jpeg_quality", help="Quality factor for jpeg compression.")
     return parser.parse_args()
 
 
@@ -213,6 +217,11 @@ def main():
         randomize=69,
     )
 
+    if args.jpeg_compression:
+        codec = JPEG(quality=args.jpeg_quality, codec="libjpeg")
+    else:
+        codec = None
+
     if args.uncertainty_method == "ensemble":
         model = SFPDeepEnsemble(
             SFP(
@@ -227,7 +236,7 @@ def main():
             ),
             5,
         )
-        model.train(args.epochs, data, args.batch_size, cache, **flags)
+        model.train(args.epochs, data, args.batch_size, cache, codec, **flags)
         n_runs = 1
 
         model = SFP(
