@@ -260,6 +260,7 @@ def main():
 
     print(args.parameters)
 
+    # an untrained model
     model = JPEGDoubleCompression(
         method=args.uncertainty_method,
         tensorboard=tb_callback,
@@ -271,6 +272,7 @@ def main():
         model.load_model(os.path.abspath(args.cont_model_path))
     elif args.only_eval:
         logger.info("WARNING! No model given. Evaluating an untrained model.")
+
 
     # TODO there is still some hard-coding left, like codec below.
     if not args.only_eval:

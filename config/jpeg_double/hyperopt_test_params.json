@@ -1,11 +1,11 @@
 {
-  "conv_layers": 6,
-  "dense_layers": 0,
-  "dense_units": 256,
-  "filters": 32,
+  "conv_layers": 4,
+  "dense_layers": 2,
+  "dense_units": 128,
+  "filters": 16,
   "kernel": 5,
   "pool_size": 1,
   "residual_type": "trainable",
   "dense_multiplier": 1,
-  "filter_multiplier": 1
+  "filter_multiplier": 2
 }
