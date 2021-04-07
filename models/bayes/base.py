@@ -74,7 +74,7 @@ class BayesBaseModel(TFModel):
         self.use_own_dropout = use_own_dropout
 
         # hard-coded to False, because model will need to be created.
-        self.model_created = False
+        # self.model_created = False
 
         # Put all the layer instances used in the forward (call) pass
         # Depending on your choice of method, Conv2D, Dense and Dropout are chosen accordingly.
@@ -108,6 +108,8 @@ class BayesBaseModel(TFModel):
             self.conv2d = PaddedConv2D
             self.dropout = tf.keras.layers.Dropout
             self.dense = tf.keras.layers.Dense
+
+        self.create_model()
 
     def mc_dropout(self, x):
         """MC dropout forward pass"""
