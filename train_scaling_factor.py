@@ -17,7 +17,7 @@ import numpy as np
 import tensorflow as tf
 
 # Internal libraries
-
+from models.jpeg import JPEG
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
 from helpers.tf_helpers import disable_gpu
