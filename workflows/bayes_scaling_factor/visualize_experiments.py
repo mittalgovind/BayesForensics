@@ -1,5 +1,6 @@
 # Standard Libraries
 import argparse
+import os
 
 # External libraries
 import tensorflow as tf
@@ -16,9 +17,6 @@ from flow import SFP, BayarStammSFP
 from helpers.dataset import Dataset
 from helpers.uncertainty import variation_ratio, predictive_entropy, mutual_information, get_pred
 from helpers.plots import sub
-
-
-####### Change to use os.join and .npz
 
 
 def parse_args():
@@ -125,14 +123,14 @@ def acc_vs_uncertainty_graph(experiments):
 def plot_acc_graphs(results_dir, figs_dir):
     methods = ['random', 'nearest', 'bilinear', 'bicubic', 'lanczos3']
     for method in methods:
-        with open(f'{results_dir}/{method}.pkl', 'rb') as f:
+        with open(os.path.join(results_dir, f'{method}.pkl'), 'rb') as f:
             exp_list = pkl.load(f)
 
         fig, axes = acc_vs_uncertainty_graph(exp_list)
 
         fig.suptitle(f'Accuracy vs. Uncertainty - Method: {method}')
 
-        fig.savefig(f'{figs_dir}/acc_vs_unc_{method}.png')
+        fig.savefig(os.path.join(figs_dir, f'acc_vs_unc_{method}.png'))
 
         print(f'{method} done.')
 
@@ -142,7 +140,7 @@ def graph_uncertainties_by_method(results_dir, figs_dir):
     methods = ['random', 'nearest', 'bilinear', 'bicubic', 'lanczos3']
 
     for i in range(len(methods)):
-        with open(f'{results_dir}/{methods[i]}.pkl', 'rb') as f:
+        with open(os.path.join(results_dir, f'{methods[i]}.pkl'), 'rb') as f:
             exp_list = pkl.load(f)
         uncertainties = get_uncertainties_by_method(exp_list)
 
@@ -183,7 +181,7 @@ def graph_uncertainties_by_method(results_dir, figs_dir):
             axes[3 * i + 2].get_xaxis().set_visible(False)
 
     fig.suptitle('Uncertainties by scaling method in training and testing')
-    fig.savefig(f'{figs_dir}/uncertainties_by_method.png')
+    fig.savefig(os.path.join(figs_dir, 'uncertainties_by_method.png'))
 
 
 def get_quantiles(experiment_list, method, uncertainty, step=0.1):
@@ -257,7 +255,6 @@ def graph_quantiles(experiments_source, image_output, training_method, num_sampl
 
     fig, axes = sub(48, ncols=4, figwidth=12)
     for i in range(len(full_indices)):
-        print(exp_list[full_indices[i]]['logits'])
         sm_logits = softmax(np.squeeze(exp_list[full_indices[i]]['logits']), axis=1)
         data = pd.DataFrame(sm_logits, columns=classes)
         sns.boxplot(data=data,
@@ -305,8 +302,8 @@ def graph_quantiles(experiments_source, image_output, training_method, num_sampl
 def graph_all_quantiles(results_dir, figs_dir, num_samples):
     methods = ['nearest', 'bilinear', 'bicubic', 'lanczos3']
     for method in methods:
-        graph_quantiles(f'{results_dir}/{method}.pkl',
-                        f'{figs_dir}/{method}_softmax_quantiles.png',
+        graph_quantiles(os.path.join(results_dir, f'{method}.pkl'),
+                        os.path.join(figs_dir, f'{method}_softmax_quantiles.png'),
                         method, num_samples)
 
 
@@ -329,7 +326,7 @@ def graph_uncertainties_by_sf(results_dir, figs_dir):
     uncs = ['Variation Ratio', 'Predictive Entropy', 'Mutual Information']
 
     for method in methods:
-        with open(f'{results_dir}/{method}.pkl', 'rb') as f:
+        with open(os.path.join(results_dir, f'{method}.pkl'), 'rb') as f:
             exp_list = pkl.load(f)
 
         fig, axes = sub(3, ncols=1, figwidth=12)
@@ -360,7 +357,7 @@ def graph_uncertainties_by_sf(results_dir, figs_dir):
                 axes[i].set_xlabel('Scaling factor')
 
         fig.suptitle(f'Median Uncertainties by Scaling Factor - Model: {method}')
-        fig.savefig(f'{figs_dir}/unc_vs_sf_{method}.png')
+        fig.savefig(os.path.join(figs_dir, f'unc_vs_sf_{method}.png'))
 
         print(f'{method} done.')
 
@@ -488,7 +485,7 @@ def graph_quantiles_jpeg(results_dir, figs_dir, method, num_samples):
             axes[-4 + i].yaxis.set_label_text('Mutual Information')
 
     fig.suptitle(f'Uncertainty Quantiles - Trained on: {method}')
-    fig.savefig(f'{figs_dir}/{method}_softmax_quantiles.png')
+    fig.savefig(os.path.join(figs_dir, f'{method}_softmax_quantiles.png'))
 
 
 def main():

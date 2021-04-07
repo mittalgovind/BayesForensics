@@ -1,5 +1,6 @@
 # Standard Libraries
 import argparse
+import os
 
 # External libraries
 import tensorflow as tf
@@ -17,9 +18,6 @@ from helpers.dataset import Dataset
 from helpers.uncertainty import variation_ratio, predictive_entropy, mutual_information, get_pred
 from helpers.plots import sub
 from models.jpeg import JPEG
-
-
-####### Change to use os.join and .npz
 
 
 def parse_args():
@@ -173,9 +171,9 @@ def in_scales_experiment(model_type, models_dir, results_dir, num_samples):
     methods = ['random', 'nearest', 'bilinear', 'bicubic', 'lanczos3']
 
     for model_method in methods:
-        results = get_results(model, f'{models_dir}/{model_method}', classes, methods[1:], data, num_samples)
+        results = get_results(model, os.path.join(models_dir, model_method), classes, methods[1:], data, num_samples)
 
-        with open(f'{results_dir}/{model_method}.pkl', 'wb') as f:
+        with open(os.path.join(results_dir, f'{model_method}.pkl'), 'wb') as f:
             pkl.dump(results, f)
 
 
@@ -219,9 +217,9 @@ def out_scales_experiment(model_type, models_dir, results_dir, num_samples):
     methods = ['random', 'nearest', 'bilinear', 'bicubic', 'lanczos3']
 
     for model_method in methods:
-        results = get_results(model, f'{models_dir}/{model_method}', classes, methods[1:], data, num_samples)
+        results = get_results(model, os.path.join(models_dir, model_method), classes, methods[1:], data, num_samples)
 
-        with open(f'{results_dir}/{model_method}.pkl', 'wb') as f:
+        with open(os.path.join(results_dir, f'{model_method}.pkl'), 'wb') as f:
             pkl.dump(results, f)
 
 
@@ -263,10 +261,10 @@ def jpeg_experiment(model_type, model_method, models_dir, results_dir, num_sampl
     methods = ['random', 'nearest', 'bilinear', 'bicubic', 'lanczos3']
     qualities = [100, 90, 80, 70]
 
-    results = get_results_jpeg(model, model_type, model_method, f'{models_dir}/{model_method}', classes, data,
+    results = get_results_jpeg(model, model_type, model_method, os.path.join(models_dir, model_method), classes, data,
                                num_samples, qualities)
 
-    with open(f'{results_dir}/{model_method}.pkl', 'wb') as f:
+    with open(os.path.join(results_dir, f'{model_method}.pkl'), 'wb') as f:
         pkl.dump(results, f)
 
 
