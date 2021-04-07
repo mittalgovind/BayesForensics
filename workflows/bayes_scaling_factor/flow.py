@@ -138,7 +138,7 @@ class BayarStammSFP(BayesBaseModel):
         self.loss = tf.keras.losses.SparseCategoricalCrossentropy()
         self.performance = dict()
         
-        self._model.create_model()
+        self.create_model()
 
     def _create_model(self):
         # Constrained convolution with a learned residual filter
