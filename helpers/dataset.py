@@ -12,18 +12,19 @@ from loguru import logger
 
 class Dataset(object):
     def __init__(
-        self,
-        data_directory,
-        *,
-        randomize=2468,
-        load="xy",
-        n_images=120,
-        v_images=30,
-        val_rgb_patch_size=128,
-        val_n_patches=1,
-        val_discard="flat-aggressive",
-        presample_epochs=0,
-        train_rgb_patch_size=0,
+            self,
+            data_directory,
+            *,
+            randomize=2468,
+            load="xy",
+            n_images=120,
+            v_images=30,
+            c_images=50,
+            val_rgb_patch_size=128,
+            val_n_patches=1,
+            val_discard="flat-aggressive",
+            presample_epochs=0,
+            train_rgb_patch_size=0,
     ):
         """
         Represents a [RAW-]RGB dataset for training imaging pipelines. The class preloads full resolution images and
@@ -52,6 +53,7 @@ class Dataset(object):
         :param load: what data to load: 'xy' load RAW+RGB, 'x' load RAW only, 'y' load RGB only
         :param n_images: number of training images (full resolution)
         :param v_images: number of validation images (patches sampled upon creation)
+        :param c_images: number of calibration images (patches sampled upon creation)
         :param val_rgb_patch_size: validation patch size
         :param val_n_patches: number of validation patches to load per full-resolution image
         :param val_discard: patch discard mode (for validation data)
@@ -70,14 +72,18 @@ class Dataset(object):
 
         if not os.path.isdir(data_directory):
             if "/" in data_directory or "\\" in data_directory:
-                raise ValueError(f"Cannot find the data directory: {data_directory}")
+                raise ValueError(
+                    f"Cannot find the data directory: {data_directory}")
 
-            if os.path.isdir(os.path.join("data/raw/training_data/", data_directory)):
-                data_directory = os.path.join("data/raw/training_data/", data_directory)
+            if os.path.isdir(
+                    os.path.join("data/raw/training_data/", data_directory)):
+                data_directory = os.path.join("data/raw/training_data/",
+                                              data_directory)
             elif os.path.isdir(os.path.join("data/rgb/", data_directory)):
                 data_directory = os.path.join("data/rgb/", data_directory)
             else:
-                raise ValueError(f"Cannot find the data directory: {data_directory}")
+                raise ValueError(
+                    f"Cannot find the data directory: {data_directory}")
 
         self.files = {}
         self._loaded_data = load
@@ -85,16 +91,27 @@ class Dataset(object):
         self._counts = (
             n_images if presample_epochs == 0 else n_images * presample_epochs,
             v_images,
+            c_images,
             val_n_patches,
         )
         self._val_discard = "flat-aggressive"
-        self.files["training"], self.files["validation"] = loading.discover_images(
-            data_directory, randomize=randomize, n_images=n_images, v_images=v_images
+        self.files["training"], self.files["validation"], self.files[
+            "calibration"] = loading.discover_images(
+            data_directory, randomize=randomize, n_images=n_images,
+            v_images=v_images, c_images=c_images,
         )
 
         self.data = {}
         self.data["validation"] = loading.load_patches(
             self.files["validation"],
+            data_directory,
+            patch_size=val_rgb_patch_size // 2,
+            n_patches=val_n_patches,
+            load=load,
+            discard=val_discard,
+        )
+        self.data["calibration"] = loading.load_patches(
+            self.files["calibration"],
             data_directory,
             patch_size=val_rgb_patch_size // 2,
             n_patches=val_n_patches,
@@ -117,13 +134,14 @@ class Dataset(object):
             )
 
     def __getitem__(self, key):
-        if key in ["training", "validation"]:
+        if key in ["training", "validation", "calibration"]:
             return self.data[key]
         else:
             raise KeyError("Key: {} not found!".format(key))
 
     def next_training_batch(
-        self, batch_id, batch_size, rgb_patch_size=0, discard="flat", max_attempts=25
+            self, batch_id, batch_size, rgb_patch_size=0, discard="flat",
+            max_attempts=25
     ):
         """
         Sample a new batch of training patches.
@@ -138,7 +156,8 @@ class Dataset(object):
             rgb_patch_size = min(128, *self.train_image_shape_rgb[:2])
 
         if discard is not None and "y" not in self.data["training"]:
-            raise ValueError("Cannot discard patches if RGB data is not loaded.")
+            raise ValueError(
+                "Cannot discard patches if RGB data is not loaded.")
 
         if (batch_id + 1) * batch_size > self.count_training:
             raise ValueError(
@@ -151,12 +170,14 @@ class Dataset(object):
         has_raw = "x" in self._loaded_data
         has_rgb = "y" in self._loaded_data
         bx = (
-            np.zeros((batch_size, raw_patch_size, raw_patch_size, 4), dtype=np.float32)
+            np.zeros((batch_size, raw_patch_size, raw_patch_size, 4),
+                     dtype=np.float32)
             if has_raw
             else None
         )
         by = (
-            np.zeros((batch_size, rgb_patch_size, rgb_patch_size, 3), dtype=np.float32)
+            np.zeros((batch_size, rgb_patch_size, rgb_patch_size, 3),
+                     dtype=np.float32)
             if has_rgb
             else None
         )
@@ -184,13 +205,13 @@ class Dataset(object):
             if has_raw:
                 current_raw = self.data["training"]["x"][bid]
                 bx[b] = current_raw[
-                    ry : ry + raw_patch_size, rx : rx + raw_patch_size
-                ].astype(np.float) / (2 ** 16 - 1)
+                        ry: ry + raw_patch_size, rx: rx + raw_patch_size
+                        ].astype(np.float) / (2 ** 16 - 1)
 
             if has_rgb:
                 by[b] = current_rgb[
-                    yy : yy + rgb_patch_size, xx : xx + rgb_patch_size
-                ].astype(np.float) / (2 ** 8 - 1)
+                        yy: yy + rgb_patch_size, xx: xx + rgb_patch_size
+                        ].astype(np.float) / (2 ** 8 - 1)
 
         if has_rgb and has_raw:
             return bx, by
@@ -216,7 +237,8 @@ class Dataset(object):
         has_raw = "x" in self._loaded_data
         has_rgb = "y" in self._loaded_data
         bx = (
-            np.zeros((batch_size, rgb_patch // 2, rgb_patch // 2, 4), dtype=np.float32)
+            np.zeros((batch_size, rgb_patch // 2, rgb_patch // 2, 4),
+                     dtype=np.float32)
             if has_raw
             else None
         )
@@ -228,11 +250,60 @@ class Dataset(object):
 
         for b in range(batch_size):
             if has_raw:
-                bx[b] = self.data["validation"]["x"][batch_id * batch_size + b].astype(
+                bx[b] = self.data["validation"]["x"][
+                            batch_id * batch_size + b].astype(
                     np.float
                 ) / (2 ** 16 - 1)
             if has_rgb:
-                by[b] = self.data["validation"]["y"][batch_id * batch_size + b].astype(
+                by[b] = self.data["validation"]["y"][
+                            batch_id * batch_size + b].astype(
+                    np.float
+                ) / (2 ** 8 - 1)
+
+        if has_rgb and has_raw:
+            return bx, by
+        elif has_rgb:
+            return by
+        elif has_raw:
+            return bx
+
+    def next_calibration_batch(self, batch_id, batch_size):
+        """
+        Return a calibration batch.
+        :param batch_id: integer from 0 to (#calibration images // batch_size - 1)
+        :param batch_size: integer, self explanatory
+        :return: tuple of np arrays (RAW, RGB) or np array (RGB)
+        """
+        rgb_patch = self.calib_patch_size_rgb
+
+        if (batch_id + 1) * batch_size > self.count_calibration:
+            raise ValueError(
+                "Not enough images for the requested batch_id & batch_size"
+            )
+
+        has_raw = "x" in self._loaded_data
+        has_rgb = "y" in self._loaded_data
+        bx = (
+            np.zeros((batch_size, rgb_patch // 2, rgb_patch // 2, 4),
+                     dtype=np.float32)
+            if has_raw
+            else None
+        )
+        by = (
+            np.zeros((batch_size, rgb_patch, rgb_patch, 3), dtype=np.float32)
+            if has_rgb
+            else None
+        )
+
+        for b in range(batch_size):
+            if has_raw:
+                bx[b] = self.data["calibration"]["x"][
+                            batch_id * batch_size + b].astype(
+                    np.float
+                ) / (2 ** 16 - 1)
+            if has_rgb:
+                by[b] = self.data["calibration"]["y"][
+                            batch_id * batch_size + b].astype(
                     np.float
                 ) / (2 ** 8 - 1)
 
@@ -255,6 +326,14 @@ class Dataset(object):
         return patch_size
 
     @property
+    def calib_patch_size_rgb(self):
+        if "y" in self._loaded_data:
+            patch_size = self.data["calibration"]["y"].shape[1]
+        else:
+            patch_size = 2 * self.data["calibration"]["x"].shape[1]
+        return patch_size
+
+    @property
     def train_image_shape_rgb(self):
         if "y" in self._loaded_data:
             patch_size = self.data["training"]["y"].shape[1:]
@@ -273,13 +352,19 @@ class Dataset(object):
         key = self._loaded_data[0]
         return self.data["validation"][key].shape[0]
 
+    @property
+    def count_calibration(self):
+        key = self._loaded_data[0]
+        return self.data["calibration"][key].shape[0]
+
     def __repr__(self):
         args = [
             f'"{self._data_directory}"',
             f'load="{self._loaded_data}"',
             f"n_images={self._counts[0]}",
             f"v_images={self._counts[1]}",
-            f"val_rgb_patch_size={self._counts[2]}",
+            f"c_images={self._counts[2]}",
+            f"val_rgb_patch_size={self._counts[3]}",
             f"val_rgb_patch_size={self.valid_patch_size_rgb}",
             f'discard="{self._val_discard}"',
         ]
@@ -293,6 +378,7 @@ class Dataset(object):
         for k in self._loaded_data:
             stats["training/{}".format(k)] = self.data["training"][k].shape
             stats["validation/{}".format(k)] = self.data["validation"][k].shape
+            stats["calibration/{}".format(k)] = self.data["calibration"][k].shape
 
         return stats
 
@@ -312,6 +398,7 @@ class Dataset(object):
             f"Dataset[{os.path.split(self._data_directory)[-1]},{self.loaded_data}]: "
             f"{self.count_training} train. images ({np.prod(self.train_image_shape_rgb[:2]) / 1e6:.1f} Mpx) "
             f"+ {self.count_validation} valid. patches ({self.valid_patch_size_rgb} px{valid_label})"
+            f"+ {self.count_calibration} calib. patches ({self.calib_patch_size_rgb} px{valid_label})"
         )
 
     def details(self):
@@ -320,7 +407,7 @@ class Dataset(object):
         for k, l in zip("xy", ["RAW", "RGB"]):
             if k in self._loaded_data:
                 label.append(
-                    f'{l} -> training {self.data["training"][k].shape} + validation {self.data["validation"][k].shape}'
+                    f'{l} -> training {self.data["training"][k].shape} + validation {self.data["validation"][k].shape} + calibration {self.data["calibration"][k].shape}'
                 )
 
         return "\n".join(label)
@@ -331,7 +418,8 @@ class Dataset(object):
         """
         raise NotImplementedError
 
-    def get_training_generator(self, batch_size, rgb_patch_size, discard="flat", **kwargs):
+    def get_training_generator(self, batch_size, rgb_patch_size,
+                               discard="flat", **kwargs):
         """
         Get a generator for training data. Can be used to construct a data pipeline:
 
@@ -360,16 +448,32 @@ class Dataset(object):
                 images, labels = self.preprocess_batch(inputs=batch, **kwargs)
                 yield images, labels
 
-    def get_training_pipeline(self, batch_size, rgb_patch_size, discard="flat"):
+    def get_calibration_generator(self, batch_size, **kwargs):
+        """
+        Get a generator for calibration data. Can be used to construct a data pipeline:
+
+        dp = tf.data.Dataset.from_generator(lambda: data.get_calibration_generator(batch_size),
+            output_types=len(self._loaded_data) * (tf.float32, ))
+        """
+        while True:
+            for batch_id in range(self.count_calibration // batch_size):
+                batch = self.next_calibration_batch(batch_id, batch_size)
+                images, labels = self.preprocess_batch(inputs=batch, **kwargs)
+                yield images, labels
+
+    def get_training_pipeline(self, batch_size, rgb_patch_size,
+                              discard="flat"):
         import tensorflow as tf
 
-        types = (tf.float32, tf.float32) if self.is_raw_and_rgb() else tf.float32
+        types = (
+        tf.float32, tf.float32) if self.is_raw_and_rgb() else tf.float32
         shapes = (
             (batch_size, rgb_patch_size // 2, rgb_patch_size // 2, 4),
             (batch_size, rgb_patch_size, rgb_patch_size, 3),
         )
         return tf.data.Dataset.from_generator(
-            lambda: self.get_training_generator(batch_size, rgb_patch_size, discard),
+            lambda: self.get_training_generator(batch_size, rgb_patch_size,
+                                                discard),
             output_types=types,
             output_shapes=shapes,
         )
@@ -381,3 +485,12 @@ class Dataset(object):
             lambda: self.get_validation_generator(batch_size),
             output_types=len(self._loaded_data) * (tf.float32,),
         )
+
+    def get_calibration_pipeline(self, batch_size):
+        import tensorflow as tf
+
+        return tf.data.Dataset.from_generator(
+            lambda: self.get_calibration_generator(batch_size),
+            output_types=len(self._loaded_data) * (tf.float32,),
+        )
+

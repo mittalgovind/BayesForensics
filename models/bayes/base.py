@@ -145,9 +145,6 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         else:
             self._model.last_layer = IdentityLayer()
 
-        if self.method == "temp-scaling":
-            self._model.temperature = tf.Variable(1.0)
-
         self.model_created = True
         logger.info("Model created successfully.")
         logger.info("{}".format(self._model.layers))
