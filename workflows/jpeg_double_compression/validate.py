@@ -17,7 +17,7 @@ from loguru import logger
 from helpers.utils import progress_bar
 
 
-def run_tests(model, qf, data, batch_size, save_dir, codec, cache, **kwargs):
+def validate(model, qf, data, batch_size, codec, cache, **kwargs):
     """
 
     Parameters
@@ -49,9 +49,6 @@ def run_tests(model, qf, data, batch_size, save_dir, codec, cache, **kwargs):
                 "performance cache from training could not be loaded. Making a new one."
             )
 
-    from pdb import set_trace
-
-    # set_trace()
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
 
         # index of corresponding QF in the counters array.
@@ -89,8 +86,4 @@ def run_tests(model, qf, data, batch_size, save_dir, codec, cache, **kwargs):
         performance["accuracy"]["validation"].append(accuracies / n_batches)
         cache.save(performance, step="performance")
 
-    return (
-        tnr,
-        tpr,
-        accuracies,
-    )
+    return accuracies

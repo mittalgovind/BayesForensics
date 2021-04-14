@@ -23,7 +23,7 @@ from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu
 from workflows.jpeg_double_compression import (
     train,
-    run_tests,
+    validate,
     JPEGDoubleCompression,
     qf_plot,
 )
@@ -268,7 +268,7 @@ def main():
 
     print(args.parameters)
 
-    # an untrained model
+    # Build a model
     model = JPEGDoubleCompression(
         method=args.uncertainty_method,
         tensorboard=tb_callback,
@@ -276,14 +276,19 @@ def main():
         **args.parameters
     )
 
-    # TODO change this to loading model and evaluate
-    if args.cont_model_path:
-        model.load_model(os.path.abspath(args.cont_model_path))
-    elif args.only_eval:
-        logger.warning("No model given. Evaluating an untrained model.")
-
+    if args.load_model:
+        model.load_model(os.path.abspath(args.load_model))
     # TODO there is still some hard-coding left, like codec below.
-    if not args.only_eval:
+    else:
+        train_performance = model.fit(
+            x=data.get_training_generator(args.batch_size, args.patch_size),
+            validation_data=data.get_validation_generator(args.batch_size),
+            epochs=args.epochs,
+            batch_size=args.batch_size, verbose=0,
+            callbacks=callbacks_list,
+            steps_per_epoch=args.train_images // args.batch_size,
+            validation_steps=args.validation_images // args.batch_size
+        )
         train_performance = train(
             model=model,
             epochs=args.epochs,
@@ -305,8 +310,7 @@ def main():
         model.set_temp(data)
 
     logger.info("Started Testing")
-    # TODO refactor to validate
-    tnr, tpr, accuracies = run_tests(
+    accuracies = validate(
         model=model,
         data=data,
         qf=qf_test,
