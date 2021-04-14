@@ -16,6 +16,7 @@ from loguru import logger
 from models.tfmodel import TFModel
 from models.layers import PaddedConv2D
 import helpers.tf_helpers as tfh
+from temp_scaling import TemperatureScaling
 
 
 class MCDropoutLayer(tf.keras.layers.Dropout):
@@ -38,8 +39,8 @@ class IdentityLayer(tf.keras.layers.Layer):
     def call(self, inputs, training=None):
         return inputs
 
-# TODO include tempscaling here.
-class BayesBaseModel(TFModel):
+
+class BayesBaseModel(TFModel, TemperatureScaling):
     """Defines a Tensorflow model (keras or not)."""
 
     def __init__(
@@ -48,7 +49,6 @@ class BayesBaseModel(TFModel):
             activation: str,
             drop_rate=0.5,
             mc_num_samples=50,
-            temperature=False,
             bayesian=True,
             use_own_dropout=False,
     ):
@@ -104,6 +104,9 @@ class BayesBaseModel(TFModel):
                 self.conv2d = PaddedConv2D
                 self.dropout = tf.keras.layers.Dropout
                 self.dense = tf.keras.layers.Dense
+
+            if "temp" not in method:
+                self.temperature = None
         else:
             self.conv2d = PaddedConv2D
             self.dropout = tf.keras.layers.Dropout

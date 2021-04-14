@@ -325,8 +325,13 @@ class Dataset(object):
 
         return "\n".join(label)
 
-    # TODO (Govind) Update training_generator to endless loop.
-    def get_training_generator(self, batch_size, rgb_patch_size, discard="flat"):
+    def preprocess_batch(self, **kwargs):
+        """
+        Implement this method to return the processed batch and its labels.
+        """
+        raise NotImplementedError
+
+    def get_training_generator(self, batch_size, rgb_patch_size, discard="flat", **kwargs):
         """
         Get a generator for training data. Can be used to construct a data pipeline:
 
@@ -334,26 +339,26 @@ class Dataset(object):
             output_types=len(self._loaded_data) * (tf.float32, ))
         """
 
-        for batch_id in range(self.count_training // batch_size):
-            yield self.next_training_batch(
-                batch_id, batch_size, rgb_patch_size, discard
-            )
+        while True:
+            for batch_id in range(self.count_training // batch_size):
+                batch = self.next_training_batch(
+                    batch_id, batch_size, rgb_patch_size, discard
+                )
+                images, labels = self.preprocess_batch(inputs=batch, **kwargs)
+                yield images, labels
 
-        raise StopIteration()
-
-    # TODO (Govind) Update training_generator to endless loop.
-    def get_validation_generator(self, batch_size):
+    def get_validation_generator(self, batch_size, **kwargs):
         """
         Get a generator for validation data. Can be used to construct a data pipeline:
 
         dp = tf.data.Dataset.from_generator(lambda: data.get_validation_generator(batch_size),
             output_types=len(self._loaded_data) * (tf.float32, ))
         """
-
-        for batch_id in range(self.count_validation // batch_size):
-            yield self.next_validation_batch(batch_id, batch_size)
-
-        raise StopIteration()
+        while True:
+            for batch_id in range(self.count_validation // batch_size):
+                batch = self.next_validation_batch(batch_id, batch_size)
+                images, labels = self.preprocess_batch(inputs=batch, **kwargs)
+                yield images, labels
 
     def get_training_pipeline(self, batch_size, rgb_patch_size, discard="flat"):
         import tensorflow as tf
