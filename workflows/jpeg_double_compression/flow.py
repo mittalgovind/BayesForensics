@@ -66,6 +66,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             self.residual = ConstrainedConv2D(
                 trainable=self.trainable_residual)
         elif residual_type == 'pywt':
+            # TODO easy fix - push it to "main" dataset class.
             self.residual = self.extract_pywt_residual
             self._color_F = np.array(
                 [[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5],
@@ -124,6 +125,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         if self.tensorboard:
             self.tensorboard.set_model(model=self._model)
 
+    # TODO push to dataset class
     def extract_pywt_residual(self, batch):
         """Calculate and append an external filter to the batch."""
         xc = tf.pad(255.0 * batch, [[0, 0], [0, 0], [0, 0], [1, 0]],

@@ -325,6 +325,7 @@ class Dataset(object):
 
         return "\n".join(label)
 
+    # TODO (Govind) Update training_generator to endless loop.
     def get_training_generator(self, batch_size, rgb_patch_size, discard="flat"):
         """
         Get a generator for training data. Can be used to construct a data pipeline:
@@ -340,6 +341,7 @@ class Dataset(object):
 
         raise StopIteration()
 
+    # TODO (Govind) Update training_generator to endless loop.
     def get_validation_generator(self, batch_size):
         """
         Get a generator for validation data. Can be used to construct a data pipeline:

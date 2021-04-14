@@ -38,7 +38,7 @@ class IdentityLayer(tf.keras.layers.Layer):
     def call(self, inputs, training=None):
         return inputs
 
-
+# TODO include tempscaling here.
 class BayesBaseModel(TFModel):
     """Defines a Tensorflow model (keras or not)."""
 

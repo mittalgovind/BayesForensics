@@ -87,6 +87,7 @@ class TemperatureScaling(tf.keras.Model, ABC):
 
         # Before training
         for batch_id in range(n_batches):
+            # TODO change to calibration batch
             batch = data.next_validation_batch(batch_id, self.batch_size)
             batch, labels = self.preprocess(batch, return_labels=True)
             logits_list.append(self.model(batch, training=False))

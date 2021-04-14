@@ -142,3 +142,6 @@ def run_trials():
 while True:
     run_trials()
 
+
+# TODO make plots like in the fifty paper.
+# TODO how to make this distributed? Ray ML ..

@@ -33,6 +33,10 @@ setup_logging()
 # necessary here, as slurm executes a copy
 sys.path.append(os.path.abspath("/"))
 
+# TODO (put in notion) Refactor Workflows to Pipelines
+# TODO Refactor train_* scripts to run_* scripts
+# TODO put together every run scripts
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -198,6 +202,7 @@ def main():
     if args.memory_growth:
         physical_devices = tf.config.list_physical_devices("GPU")
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
     # Change json to npz
     if os.path.isdir(os.path.abspath(args.save_dir)) and not args.overwrite:
         raise IsADirectoryError(
@@ -233,8 +238,10 @@ def main():
         val_rgb_patch_size=args.patch_size,
     )
 
+    # TODO (Govind) Change to the new standard parameters from sensor branch.
     if args.parameters is None:
         # TODO change to a good config after hyperopt
+        # TODO put this in a default config file.
         args.parameters = {
             "conv_layers": 4,
             "dense_layers": 2,
@@ -255,8 +262,9 @@ def main():
                 'Model configuration loaded successfully from {}.'.format(
                     args.parameters))
             args.parameters = parameters
-        except:
-            logger.error("ERROR! cannot load parameter configuration.")
+        except RuntimeError:
+            logger.error("Cannot load parameter configuration.")
+            sys.exit()
 
     print(args.parameters)
 
@@ -268,10 +276,11 @@ def main():
         **args.parameters
     )
 
+    # TODO change this to loading model and evaluate
     if args.cont_model_path:
         model.load_model(os.path.abspath(args.cont_model_path))
     elif args.only_eval:
-        logger.info("WARNING! No model given. Evaluating an untrained model.")
+        logger.warning("No model given. Evaluating an untrained model.")
 
 
     # TODO there is still some hard-coding left, like codec below.
@@ -291,15 +300,13 @@ def main():
         fig.savefig(os.path.join(args.save_dir, "training_progress.pdf"))
 
     # TODO Add calibration
+    # TODO add a dataset for calibration specifically (extend class Dataset)
+    # TODO include calibration to the BayesBaseModel
     if args.calibrate:
-        temperature = 1.0
-        # temp_model = BayarStammCalibrated(model, batch_size=args.batch_size)
-        # temp_model.set_temp(data)
-        # temperature = temp_model.temperature
-    else:
-        temperature = 1.0
+        model.set_temp(data)
 
     logger.info("Started Testing")
+    # TODO refactor to validate
     tnr, tpr, accuracies = run_tests(
         model=model,
         data=data,
@@ -314,3 +321,11 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+"""
+ ACTIONS
+ - train
+ - validate 
+ - hyperopt
+ - calibrate
+"""
