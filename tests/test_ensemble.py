@@ -4,14 +4,14 @@ from copy import deepcopy
 
 import tensorflow as tf
 
-from workflows.bayes_scaling_factor.sfp_ensemble import SFPDeepEnsemble
+from models.bayes import DeepEnsemble
 from workflows.bayes_scaling_factor.model import SFP
 from helpers.dataset import Dataset
 
 
 @pytest.fixture
 def ensemble_model():
-    return SFPDeepEnsemble(
+    return DeepEnsemble(
         SFP(
             "vanilla",
             c_filters=(32, 32, 32, 32),

@@ -68,3 +68,5 @@ def run_tests(
                     pbar.update(1)
 
     cache.save(tests_summary, step="tests", sampling_method=sampling_method)
+
+    return tests_summary

@@ -12,7 +12,7 @@ from scipy.special import softmax
 import matplotlib.ticker as ticker
 
 # Internal libraries
-from sfp_ensemble import SFPDeepEnsemble
+from models.bayes import DeepEnsemble
 from flow import SFP, BayarStammSFP
 from helpers.dataset import Dataset
 from helpers.uncertainty import variation_ratio, predictive_entropy, mutual_information, get_pred

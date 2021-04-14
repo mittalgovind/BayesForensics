@@ -20,19 +20,22 @@ import tensorflow as tf
 from models.jpeg import JPEG
 from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
+from helpers.plots import perf
 from helpers.tf_helpers import disable_gpu
-from workflows.bayes_scaling_factor import SFPDeepEnsemble
+from models.bayes import DeepEnsemble
 from workflows.bayes_scaling_factor import (
-    train,
+    train_single,
+    train_ensemble,
     run_tests,
     SFP,
     BayarStammSFP,
     BayarStammCalibrated,
+    sf_plot,
 )
 
 # TODO (Govind) remove before merge. Set memory growth for personal GPU.
-physical_devices = tf.config.list_physical_devices("GPU")
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
+# physical_devices = tf.config.list_physical_devices("GPU")
+# tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 
 def parse_args():
@@ -223,7 +226,7 @@ def main():
         codec = None
 
     if args.uncertainty_method == "ensemble":
-        model = SFPDeepEnsemble(
+        model = DeepEnsemble(
             SFP(
                 args.uncertainty_method,
                 c_filters=(32, 32, 32, 32),
@@ -236,8 +239,8 @@ def main():
             ),
             5,
         )
-        model.train(args.epochs, data, args.batch_size, cache, codec, **flags)
-        n_runs = 1
+
+        train_function = train_ensemble
 
     else:
         model = SFP(
@@ -251,13 +254,18 @@ def main():
             append_rgb=False,
         )
 
+        train_function = train_single
+
     if args.cont_model_path:
         # train for an epoch so that model is built
-        model = train(model, 1, data, args.batch_size, cache=None, **flags)
+        model = train_function(model, 1, data, args.batch_size, cache=None, **flags)
         model.load_model(os.path.abspath(args.cont_model_path))
 
     if not args.only_eval:
-        model = train(model, args.epochs, data, args.batch_size, cache, **flags)
+        train_performance = train(model, args.epochs, data, args.batch_size, cache, codec, **flags)
+
+        # save the training performance
+        perf(train_performance)
 
     if args.calibrate:
         temp_model = BayarStammCalibrated(model, batch_size=args.batch_size)
@@ -266,8 +274,11 @@ def main():
     else:
         temperature = 1.0
 
+    logger.info("Started Testing")
+
+    tests_summaries = []
     for method in methods:
-        run_tests(
+        tests_summary = run_tests(
             model,
             method,
             data,
@@ -279,6 +290,10 @@ def main():
             cache,
             temperature,
         )
+
+        tests_summaries.append(tests_summary)
+
+    sf_plot(test_summaries, args.save_dir)
 
 
 if __name__ == "__main__":

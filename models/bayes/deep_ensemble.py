@@ -38,7 +38,7 @@ class DeepEnsemble:
             [self.models[i](inputs, training=training) for i in range(self.n_models)]
         )
 
-    def load_weights(self, weights_dir):
+    def load_model(self, weights_dir):
         """
         Load weights from the specified directory.
         The directory from which to get the weights should have the
@@ -60,7 +60,7 @@ class DeepEnsemble:
             path = os.path.join(weights_dir, f"ensemble_{i:03d}")
             self.models[i].load_model(path)
 
-    def save_weights(self, weights_dir):
+    def save_model(self, weights_dir):
         """
         Save weights to the specified directory.
         The resulting file structure is as follows:
@@ -80,19 +80,3 @@ class DeepEnsemble:
         for i in range(self.n_models):
             path = os.path.join(weights_dir, f"ensemble_{i:03d}")
             self.models[i].save_model(path)
-
-    @abstractmethod
-    def preprocess(self, **kwargs):
-        """
-        Preprocess a given batch of data.
-        Implement as needed.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def train(self, **kwargs):
-        """
-        Train the models.
-        Implement as needed.
-        """
-        raise NotImplementedError
