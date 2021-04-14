@@ -16,11 +16,11 @@ from loguru import logger
 from models.tfmodel import TFModel
 from models.layers import PaddedConv2D
 import helpers.tf_helpers as tfh
-from temp_scaling import TemperatureScaling
+from .temp_scaling import TemperatureScaling
 
 
 class MCDropoutLayer(tf.keras.layers.Dropout):
-    """Dropout layer with dropout always ."""
+    """Dropout layer with always drops."""
 
     def __init__(self, rate=0.5, **kwargs):
         super().__init__(rate, **kwargs)
@@ -31,7 +31,7 @@ class MCDropoutLayer(tf.keras.layers.Dropout):
 
 
 class IdentityLayer(tf.keras.layers.Layer):
-    """Identity layer"""
+    """Identity layer for unification of implementation."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -282,7 +282,6 @@ def main():
     elif args.only_eval:
         logger.warning("No model given. Evaluating an untrained model.")
 
-
     # TODO there is still some hard-coding left, like codec below.
     if not args.only_eval:
         train_performance = train(
@@ -312,7 +311,6 @@ def main():
         data=data,
         qf=qf_test,
         cache=cache,
-        temperature=temperature,
         codec=JPEG(codec="libjpeg"),
         **flags
     )
