@@ -242,8 +242,8 @@ def main():
     else:
         model = SFP(
             args.uncertainty_method,
-            c_filters=(32, 32, 32, 32),
-            d_filters=(32, 16, args.n_classes),
+            c_filters=(32, 32),
+            d_filters=(32, args.n_classes),
             kernel=5,
             activation="leaky_relu",
             trainable_residual=True,
