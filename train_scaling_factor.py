@@ -262,7 +262,7 @@ def main():
         model.load_model(os.path.abspath(args.cont_model_path))
 
     if not args.only_eval:
-        train_performance = train(model, args.epochs, data, args.batch_size, cache, codec, **flags)
+        train_performance = train_function(model, args.epochs, data, args.batch_size, cache, codec, **flags)
 
         # save the training performance
         perf(train_performance)
