@@ -155,8 +155,7 @@ def train_single(
                 model.save_model(dirname=save_dir)
                 fig = perf(performance, results="training")
                 fig.savefig(
-                    os.path.join(save_dir, f'model_{i:03d}',
-                                 "training_progress".format(epoch + 1)))
+                    os.path.join(save_dir, "training_progress".format(epoch + 1)))
 
         if cache:
             cache.save(performance, step="performance", sampling_method=sampling_method)
