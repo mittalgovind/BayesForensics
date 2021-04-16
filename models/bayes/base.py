@@ -130,14 +130,14 @@ class BayesBaseModel(TFModel):
         # configuring model for MC inference
         if "mc" in self.method:
             # make output layer as Identity and copy it to a variable
-            if "dense" in self._model.layers[-1].name.lower():
+            if "dense" in self._model._layers[-1].name.lower():
                 self._model.last_layer = self._model.layers[-1]
-                self._model.layers[-1] = IdentityLayer()
+                self._model._layers[-1] = IdentityLayer()
             else:
                 logger.error("Model not ending with a dense layer.")
 
             # if second last layer is not dropout then attach MCDropoutLayer
-            if "dropout" not in self._model.layers[-2].name.lower():
+            if "dropout" not in self._model._layers[-2].name.lower():
                 self.use_own_dropout = True
         else:
             self._model.last_layer = IdentityLayer()
@@ -185,5 +185,8 @@ class BayesBaseModel(TFModel):
         """Internal call method for model forward pass"""
         if not self.model_created:
             raise RuntimeError("The model needs to be created in the subclass constructor.")
+        # for l in self._model.layers:
+        #     inputs = l(inputs, training=training)
+        # logits = inputs
         logits = self._model(inputs, training=training)
         return self._model.last_layer(logits, training=training)

@@ -138,7 +138,8 @@ def train_single(
                 )
 
                 with tf.GradientTape() as tape:
-                    loss = loss_criterion(batch_sf, model(batch_yy, training=True))
+                    logits = model(batch_yy, training=True)
+                    loss = loss_criterion(batch_sf, logits)
 
                 grads = tape.gradient(loss, model._model.trainable_variables)
                 opt.apply_gradients(zip(grads, model._model.trainable_variables))
