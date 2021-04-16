@@ -86,6 +86,7 @@ def train_single(
     data,
     batch_size,
     cache,
+    codec,
     patch_size,
     scales,
     classes,
