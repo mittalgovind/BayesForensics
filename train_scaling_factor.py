@@ -293,7 +293,8 @@ def main():
 
         tests_summaries.append(tests_summary)
 
-    sf_plot(test_summaries, args.save_dir)
+    # TODO Marcelo: write up sf_plot function
+    # sf_plot(test_summaries, args.save_dir)
 
 
 if __name__ == "__main__":
