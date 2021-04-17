@@ -15,6 +15,7 @@ sys.path.append(os.path.abspath("/"))
 # External libraries
 import numpy as np
 import tensorflow as tf
+from loguru import logger
 
 # Internal libraries
 from models.jpeg import JPEG
