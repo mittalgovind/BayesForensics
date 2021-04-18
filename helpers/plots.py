@@ -422,7 +422,7 @@ def sub(n_plots, figwidth=6, figheight=None, ncols=-1, fig=None, transpose=False
         subplot_x, subplot_y = subplot_y, subplot_x
 
     fig = fig or get_figure(
-        tight_layout=True,
+        constrained_layout=True,
         figsize=(
             figwidth * subplot_x,
             subplot_y * (figheight or figwidth * (subplot_y / subplot_x)),
