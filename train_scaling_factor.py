@@ -290,12 +290,12 @@ def main():
             n_runs,
             cache,
             temperature,
+            codec
         )
 
         tests_summaries.append(tests_summary)
 
-    # TODO Marcelo: write up sf_plot function
-    # sf_plot(test_summaries, args.save_dir)
+    sf_plot(test_summaries, classes, args.sampling_method, args.save_dir)
 
 
 if __name__ == "__main__":

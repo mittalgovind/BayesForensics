@@ -11,6 +11,7 @@ import tensorflow as tf
 
 # Internal libraries
 from helpers.utils import progress_bar
+from .train import preprocess_batch
 
 
 def run_tests(
@@ -24,6 +25,7 @@ def run_tests(
     num_runs,
     cache,
     temperature,
+    codec,
 ):
     """
 
@@ -41,6 +43,7 @@ def run_tests(
     num_runs
     cache
     temperature
+    codec
 
     Returns
     -------
@@ -52,13 +55,16 @@ def run_tests(
     num_eval = n_val_batches * len(classes) * len(methods)
     sfs = tf.convert_to_tensor((classes * patch_size).astype(int))
 
+    random_method = sampling_method == "random"
+
     with progress_bar(num_eval, "Evaluation") as pbar:
         for batch_id in range(n_val_batches):
             test_batch = data.next_validation_batch(batch_id, batch_size)
 
             for m, method in enumerate(methods[:-1]):
                 for s, sf in enumerate(sfs):
-                    rescaled = tf.image.resize(test_batch, [sf, sf], method=method)
+                    rescaled = preprocess_batch(test_batch, scales, patch_size, sampling_method,
+                                                random_method, methods, classes, codec)
 
                     logits = model(rescaled, training=False) / temperature
 
