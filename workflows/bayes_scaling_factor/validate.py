@@ -64,7 +64,7 @@ def run_tests(
 
             for m, method in enumerate(methods[:-1]):
                 for s, sf in enumerate(sfs):
-                    rescaled = preprocess_batch(test_batch, scales, patch_size, sampling_method,
+                    rescaled = preprocess_batch(test_batch, classes, patch_size, sampling_method,
                                                 random_method, methods, classes, codec)
 
                     if uncertainty_method == 'ensemble':
