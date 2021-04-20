@@ -15,28 +15,47 @@ from loguru import logger
 # Internal libraries
 from helpers.utils import progress_bar
 from helpers.plots import perf
-
-# TODO make a customized dataset per workflow
-#  and use keras fit function for training
+from helpers.dataset import Dataset
 
 
-def preprocess_batch(inputs, codec, qf, batch_wise=True):
-    """To preprocess input batch before training"""
-    batch_size = len(inputs)
-    QF1 = np.random.randint(low=qf[0], high=qf[1])
-    QF2 = np.random.randint(low=qf[0], high=qf[1])
-    while QF1 == QF2:
+class JPEGDataset(Dataset):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def preprocess_batch(self, batch, codec, qf, **kwargs):
+        batch_size = len(batch)
+
+        # sample quality factors
+        QF1 = np.random.randint(low=qf[0], high=qf[1])
         QF2 = np.random.randint(low=qf[0], high=qf[1])
-    batch_single_compressed = codec.process(inputs, QF2)
-    # compressing with QF1 before QF2, to give compression history to batch.
-    batch_double_compressed = codec.process(codec.process(inputs, QF1),
-                                            QF2)
-    # TODO should I be shuffling the dataset first?
-    images = tf.concat((batch_single_compressed, batch_double_compressed),
-                       axis=0)
-    labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)), axis=0)
+        while QF1 == QF2:
+            QF2 = np.random.randint(low=qf[0], high=qf[1])
+        batch_single_compressed = codec.process(batch, QF2)
 
-    return images, labels
+        # compressing with QF1 before QF2, to give compression history.
+        batch_double_compressed = codec.process(codec.process(batch, QF1),
+                                                QF2)
+        images = tf.concat((batch_single_compressed, batch_double_compressed),
+                           axis=0)
+        labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)), axis=0)
+
+        return images, labels
+
+    def extract_pywt_residual(self, batch):
+        """Calculate and append an external filter to the batch."""
+        xc = tf.pad(255.0 * batch, [[0, 0], [0, 0], [0, 0], [1, 0]],
+                    'CONSTANT',
+                    constant_values=1)
+        ycbcrs = tf.nn.conv2d(xc,
+                             tf.reshape(tf.transpose(self._color_F),
+                                        [1, 1, 4, 3]),
+                             [1, 1, 1, 1], 'SAME')
+        ycbcrs = tf.cast(ycbcrs, dtype=tf.uint8)
+        l = list()
+        for im in ycbcrs:
+            l.append(_noise_extract(im))
+        residual = tf.tensor(l)
+        return residual
 
 
 def train(
@@ -115,4 +134,3 @@ def train(
         cache.save(performance, step="performance")
 
     return performance
-

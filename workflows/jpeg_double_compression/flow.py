@@ -119,20 +119,3 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             self.count_parameters()))
         if self.tensorboard:
             self.tensorboard.set_model(model=self._model)
-
-    # TODO push to dataset class
-    def extract_pywt_residual(self, batch):
-        """Calculate and append an external filter to the batch."""
-        xc = tf.pad(255.0 * batch, [[0, 0], [0, 0], [0, 0], [1, 0]],
-                    'CONSTANT',
-                    constant_values=1)
-        ycbcrs = tf.nn.conv2d(xc,
-                             tf.reshape(tf.transpose(self._color_F),
-                                        [1, 1, 4, 3]),
-                             [1, 1, 1, 1], 'SAME')
-        ycbcrs = tf.cast(ycbcrs, dtype=tf.uint8)
-        l = list()
-        for im in ycbcrs:
-            l.append(_noise_extract(im))
-        residual = tf.tensor(l)
-        return residual
