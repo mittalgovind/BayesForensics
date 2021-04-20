@@ -111,7 +111,7 @@ def parse_args():
         "--num-runs",
         dest="n_runs",
         action="store",
-        default=50,
+        default=10,
         type=int,
         help="Number of test runs per image in validation set",
     )
@@ -277,23 +277,22 @@ def main():
 
     logger.info("Started Testing")
 
-    tests_summaries = []
-    for method in methods:
-        tests_summary = run_tests(
-            model,
-            method,
-            data,
-            methods,
-            classes,
-            args.n_val_images,
-            patch_size,
-            n_runs,
-            cache,
-            temperature,
-            codec
-        )
+    tests_summary = run_tests(
+        model,
+        args.uncertainty_method,
+        args.sampling_method,
+        data,
+        methods,
+        classes,
+        args.n_val_images,
+        patch_size,
+        n_runs,
+        cache,
+        temperature,
+        codec
+    )
 
-        tests_summaries.append(tests_summary)
+    tests_summaries.append(tests_summary)
 
     sf_plot(test_summaries, classes, args.sampling_method, args.save_dir)
 

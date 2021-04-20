@@ -16,6 +16,7 @@ from .train import preprocess_batch
 
 def run_tests(
     model,
+    uncertainty_method,
     sampling_method,
     data,
     methods,
@@ -66,7 +67,10 @@ def run_tests(
                     rescaled = preprocess_batch(test_batch, scales, patch_size, sampling_method,
                                                 random_method, methods, classes, codec)
 
-                    logits = model(rescaled, training=False) / temperature
+                    if uncertainty_method == 'ensemble':
+                        logits = model(rescaled, training=False) / temperature
+                    else:
+                        logits = tf.convert_to_tensor([model(rescaled, training=False) for _ in range(num_runs)])
 
                     tests_summary["runs"].append(
                         {"sf": sf, "method": method, "logits": logits}

@@ -2,7 +2,7 @@ from helpers.uncertainty import variation_ratio, predictive_entropy, mutual_info
 import tensorflow as tf
 import numpy as np
 import pandas as pd
-from helpers.plots import sub
+from helpers.plots import sub, confusion_matrix
 import seaborn as sns
 import matplotlib.cm as cm
 import os
@@ -38,24 +38,37 @@ def get_uncertainties(data, classes):
 def sf_plot(data, classes, training_method, save_dir):
     data = get_uncertainties(data, classes)
 
-    classes = [f'{x:.2f}' for x in classes]
+    text_classes = [f'{x:.2f}' for x in classes]
     methods = ['nearest', 'bilinear', 'bicubic', 'lanczos3']
     method_titles = ['Nearest', 'Bilinear', 'Bicubic', 'Lanczos 3']
     measure_titles = ['Accuracy', 'Variation Ratio', 'Predictive Entropy', 'Mutual Information']
 
     acc = [np.zeros((len(classes), len(classes))) for _ in methods]
-    vr = [np.zeros((len(classes), len(classes))) for _ in methods]
-    pe = [np.zeros((len(classes), len(classes))) for _ in methods]
-    mi = [np.zeros((len(classes), len(classes))) for _ in methods]
+
+    vr = [{} for _ in methods]
+    pe = [{} for _ in methods]
+    mi = [{} for _ in methods]
 
     for elm in data:
         ind = methods.index(elm['method'])
 
         acc[ind][elm['correct'], elm['pred']] += 1 / (len(data) / len(classes) / len(methods))
-        vr[ind][elm['correct'], elm['pred']] += elm['variation_ratio'] / (len(data) / len(classes) / len(methods))
-        pe[ind][elm['correct'], elm['pred']] += elm['predictive_entropy'] / (len(data) / len(classes) / len(methods))
-        mi[ind][elm['correct'], elm['pred']] += np.abs(elm['mutual_information']) / (
-                    len(data) / len(classes) / len(methods))
+
+        err = np.abs(elm['correct'] - elm['pred'])
+        if err not in vr[ind].keys():
+            vr[ind][err] = []
+            pe[ind][err] = []
+            mi[ind][err] = []
+
+        vr[ind][err].append(elm['variation_ratio'])
+        pe[ind][err].append(elm['predictive_entropy'])
+        mi[ind][err].append(elm['mutual_information'])
+
+    for i in range(len(methods)):
+        for j in vr[i].keys():
+            vr[i][j] = np.mean(vr[i][j])
+            pe[i][j] = np.mean(pe[i][j])
+            mi[i][j] = np.mean(mi[i][j])
 
     acc_fig, acc_axes = sub(4, ncols=2, figwidth=12)
     vr_fig, vr_axes = sub(4, ncols=2, figwidth=12)
@@ -63,10 +76,18 @@ def sf_plot(data, classes, training_method, save_dir):
     mi_fig, mi_axes = sub(4, ncols=2, figwidth=12)
 
     for i in range(len(methods)):
-        sns.heatmap(pd.DataFrame(acc[i], columns=classes, index=classes), ax=acc_axes[i], cbar=False, cmap='Greys')
-        sns.heatmap(pd.DataFrame(vr[i], columns=classes, index=classes), ax=vr_axes[i], cbar=False, cmap='Greys')
-        sns.heatmap(pd.DataFrame(pe[i], columns=classes, index=classes), ax=pe_axes[i], cbar=False, cmap='Greys')
-        sns.heatmap(pd.DataFrame(mi[i], columns=classes, index=classes), ax=mi_axes[i], cbar=False, cmap='Greys')
+        confusion_matrix(
+            acc[i],
+            classes=text_classes,
+            axes=acc_axes[i],
+            title=f'Tested using {method_titles[i]}',
+            cbar=False,
+            cmap='Greys'
+        )
+
+        sns.lineplot(vr[i].keys(), vr[i].values(), ax=vr_axes[i])
+        sns.lineplot(pe[i].keys(), pe[i].values(), ax=pe_axes[i])
+        sns.lineplot(mi[i].keys(), mi[i].values(), ax=mi_axes[i])
 
     for axes in [acc_axes, vr_axes, pe_axes, mi_axes]:
         for i in range(len(axes)):
