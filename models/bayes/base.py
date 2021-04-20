@@ -185,8 +185,5 @@ class BayesBaseModel(TFModel):
         """Internal call method for model forward pass"""
         if not self.model_created:
             raise RuntimeError("The model needs to be created in the subclass constructor.")
-        # for l in self._model.layers:
-        #     inputs = l(inputs, training=training)
-        # logits = inputs
-        logits = self._model(inputs, training=training)
-        return self._model.last_layer(logits, training=training)
+        return self._model(inputs, training=training)
+        # return self._model.last_layer(logits, training=training)
