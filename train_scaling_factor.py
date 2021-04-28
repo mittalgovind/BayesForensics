@@ -117,7 +117,7 @@ def parse_args():
         action="store",
         default="mc-dropout",
         type=str,
-        help="Uncertainty method. Can be 'mc-dropout', 'flipout', 'vanilla'",
+        help="Uncertainty method. Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp', 'flipout', 'variational' or 'reparameterization'.",
     )
     parser.add_argument(
         "--calibrate",

@@ -12,12 +12,10 @@ from abc import ABC
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import Input, MaxPool2D
-from tensorflow.keras.models import Model
 
 # Internal libraries
 from models.layers import ConstrainedConv2D
 from models.bayes import BayesBaseModel
-from .residuals import _noise_extract
 
 
 class JPEGDoubleCompression(BayesBaseModel, ABC):
@@ -83,6 +81,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
     def _create_model(self):
         """Need to override to specify model architecture."""
         layers = []
+
         # Setup conv layers
         for i in range(self.conv_layers):
             filters = int(self.filters * self.filter_multiplier ** i)
@@ -94,14 +93,15 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
                 MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
 
         layers.append(tf.keras.layers.Flatten())
+
         # Setup dense layers
         for i in range(self.dense_layers):
             dense_units = int(self.dense_units * self.dense_multiplier ** i)
             layers.append(self.dense(dense_units, activation=self.activation))
             if self.drop_rate > 0:
                 layers.append(self.dropout(self.drop_rate))
-
         layers.append(self.dense(2, activation=None))
+
         # make a custom keras model
         inputs = Input(shape=(self.patch_size, self.patch_size, 3))
         if self.residual:
@@ -115,7 +115,3 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             outputs = layer(outputs)
 
         self._model = tf.keras.models.Model(inputs, outputs)
-        print("Number of parameters in the model = {}".format(
-            self.count_parameters()))
-        if self.tensorboard:
-            self.tensorboard.set_model(model=self._model)

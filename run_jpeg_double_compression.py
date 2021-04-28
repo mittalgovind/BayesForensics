@@ -33,6 +33,7 @@ setup_logging()
 # necessary here, as slurm executes a copy
 sys.path.append(os.path.abspath("/"))
 
+
 # TODO (put in notion) Refactor Workflows to Pipelines
 # TODO Refactor train_* scripts to run_* scripts
 # TODO put together every run scripts
@@ -43,12 +44,23 @@ def parse_args():
         description="Train a bayesian NN on different methods for downsampling"
     )
     parser.add_argument(
+        "-um",
+        "--uncertainty-method",
+        action="store",
+        default="mc-dropout",
+        type=str,
+        help="Uncertainty method."
+             " Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp',"
+             " 'flipout', 'variational' or 'reparameterization'.",
+    )
+    parser.add_argument(
         "--qf-train",
         dest="qf_train",
         action="store",
         default="75,100",
         type=str,
-        help="Comma separated values for lower and upper bound of Quality factor used for training, e.g. '75,100'",
+        help="Comma separated values for lower and upper bound of Quality "
+             "factor used for training, e.g. '75,100'",
     )
     parser.add_argument(
         "--qf-test",
@@ -56,7 +68,8 @@ def parse_args():
         action="store",
         default="60,100",
         type=str,
-        help="Comma separated values for lower and upper bound of Quality factor used for testing, e.g. '60,100'",
+        help="Comma separated values for lower and upper bound of Quality "
+             "factor used for testing, e.g. '60,100'",
     )
     parser.add_argument(
         "--patch-size",
@@ -206,7 +219,8 @@ def main():
     # Change json to npz
     if os.path.isdir(os.path.abspath(args.save_dir)) and not args.overwrite:
         raise IsADirectoryError(
-            "Output directory exists! Use --overwrite or provide another directory name."
+            "Output directory exists!"
+            " Use --overwrite or provide another directory name."
         )
 
     if args.tensorboard:
@@ -215,9 +229,9 @@ def main():
         tb_callback = None
 
     qf_train = (
-    int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
+        int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
     qf_test = (
-    int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
+        int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
     flags = {
