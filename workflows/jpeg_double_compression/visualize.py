@@ -16,21 +16,27 @@ import helpers.plots as plots
 
 def qf_plot(qf, accuracies, save_dir):
     """plotting function for confusion matrix between quality factors"""
-    n_factors = len(qf)
-    m_accuracy = np.mean(accuracies[np.tri(qf[1] - qf[0], dtype=np.bool)])
+    q_factors = np.arange(*qf)
+    n_factors = len(q_factors)
+    if n_factors < 0:
+        raise ValueError("Specify correct range of QF.")
+
+    n_tested_values = n_factors * (n_factors - 1) // 2
+    m_accuracy = np.sum(accuracies) / n_tested_values
 
     fig, axes = plots.sub(1)
-    plots.image(accuracies, f"accuracy={m_accuracy:.2f} : []", axes=axes[0])
-
-    axes[0].invert_yaxis()
+    plots.image(
+        accuracies, f"accuracy={m_accuracy:.2f} : []", axes=axes[0], cmap="seismic"
+    )
 
     axes[0].set_xticks(range(0, n_factors, 5))
-    axes[0].set_xticklabels(qf[::5])
-    axes[0].set_yticks(range(0, len(qf), 5))
-    axes[0].set_yticklabels(qf[::5])
+    axes[0].set_xticklabels(q_factors[::5])
 
-    axes[0].set_ylabel("$Q_2$")
-    axes[0].set_xlabel("$Q_1$")
+    axes[0].set_yticks(range(n_factors, 0, -5))
+    axes[0].set_yticklabels(q_factors[::5])
+
+    axes[0].set_ylabel("$Q_1$")
+    axes[0].set_xlabel("$Q_2$")
     axes[0].plot([0, n_factors - 1], [0, n_factors - 1], "r:")
 
-    fig.savefig(os.path.join(save_dir, "conf_matrix.pdf"))
+    fig.savefig(os.path.join(save_dir, "conf_matrix.png"))

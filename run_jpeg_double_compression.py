@@ -8,6 +8,7 @@
 import argparse
 import sys
 import os
+import json
 
 # External libraries
 import tensorflow as tf
@@ -22,7 +23,7 @@ from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu
 from workflows.jpeg_double_compression import (
     train,
-    run_tests,
+    validate,
     JPEGDoubleCompression,
     qf_plot,
 )
@@ -33,9 +34,24 @@ setup_logging()
 sys.path.append(os.path.abspath("/"))
 
 
+# TODO (put in notion) Refactor Workflows to Pipelines
+# TODO Refactor train_* scripts to run_* scripts
+# TODO put together every run scripts
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Train a bayesian NN on different methods for downsampling"
+    )
+    parser.add_argument(
+        "-um",
+        "--uncertainty-method",
+        action="store",
+        default="mc-dropout",
+        type=str,
+        help="Uncertainty method."
+             " Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp',"
+             " 'flipout', 'variational' or 'reparameterization'.",
     )
     parser.add_argument(
         "--qf-train",
@@ -43,7 +59,8 @@ def parse_args():
         action="store",
         default="75,100",
         type=str,
-        help="Comma separated values for lower and upper bound of Quality factor used for training, e.g. '75,100'",
+        help="Comma separated values for lower and upper bound of Quality "
+             "factor used for training, e.g. '75,100'",
     )
     parser.add_argument(
         "--qf-test",
@@ -51,7 +68,8 @@ def parse_args():
         action="store",
         default="60,100",
         type=str,
-        help="Comma separated values for lower and upper bound of Quality factor used for testing, e.g. '60,100'",
+        help="Comma separated values for lower and upper bound of Quality "
+             "factor used for testing, e.g. '60,100'",
     )
     parser.add_argument(
         "--patch-size",
@@ -115,7 +133,8 @@ def parse_args():
         help="Uncertainty method. Can be 'mc-dropout', 'flipout', 'vanilla'",
     )
     parser.add_argument(
-        "--save-dir", type=str, default="./output", help="Output save directory"
+        "--save-dir", type=str, default="./output",
+        help="Output save directory"
     )
     parser.add_argument(
         "--data-dir",
@@ -132,7 +151,8 @@ def parse_args():
         help="Number of epochs to log after.",
     )
     parser.add_argument(
-        "-lr", "--lr", action="store", default=1e-4, type=float, help="Learning_rate"
+        "-lr", "--lr", action="store", default=5e-4, type=float,
+        help="Learning_rate"
     )
     parser.add_argument(
         "--cont-model-path",
@@ -145,6 +165,12 @@ def parse_args():
         default=False,
         action="store_true",
         help="Only evaluate passed model",
+    )
+    parser.add_argument(
+        "--parameters",
+        type=str,
+        default=None,
+        help="path to a parameters JSON file."
     )
     parser.add_argument(
         "--overwrite",
@@ -189,10 +215,12 @@ def main():
     if args.memory_growth:
         physical_devices = tf.config.list_physical_devices("GPU")
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
     # Change json to npz
     if os.path.isdir(os.path.abspath(args.save_dir)) and not args.overwrite:
         raise IsADirectoryError(
-            "Output directory exists! Use --overwrite or provide another directory name."
+            "Output directory exists!"
+            " Use --overwrite or provide another directory name."
         )
 
     if args.tensorboard:
@@ -200,8 +228,10 @@ def main():
     else:
         tb_callback = None
 
-    qf_train = (int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
-    qf_test = (int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
+    qf_train = (
+        int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
+    qf_test = (
+        int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
     flags = {
@@ -221,58 +251,84 @@ def main():
         randomize=69,
         val_rgb_patch_size=args.patch_size,
     )
-    parameters = {
-        'filters': filters,
-        'conv_layers': conv_layers,
-        'dense_layers': dense_layers,
-        'dense_units': dense_units,
-        'kernel': kernel,
-        'pool_size': pool_size,
-        'activation': "leaky_relu",
-        'trainable_residua': True,
-        'drop': 0.1,
-        'append_rgb': True,
-    }
 
+    # TODO (Govind) Change to the new standard parameters from sensor branch.
+    if args.parameters is None:
+        # TODO change to a good config after hyperopt
+        # TODO put this in a default config file.
+        args.parameters = {
+            "conv_layers": 4,
+            "dense_layers": 2,
+            "dense_units": 512,
+            "filters": 64,
+            "kernel": 5,
+            "pool_size": 1,
+            "residual_type": 'trainable',
+            "dense_multiplier": 0.5,
+            "filter_multiplier": 1,
+        }
+    else:
+        try:
+            f = open(args.parameters, 'r')
+            parameters = json.load(f)
+            f.close()
+            logger.info(
+                'Model configuration loaded successfully from {}.'.format(
+                    args.parameters))
+            args.parameters = parameters
+        except RuntimeError:
+            logger.error("Cannot load parameter configuration.")
+            sys.exit()
+
+    print(args.parameters)
+
+    # Build a model
     model = JPEGDoubleCompression(
         method=args.uncertainty_method,
         tensorboard=tb_callback,
         patch_size=args.patch_size,
-        **parameters
+        **args.parameters
     )
 
-    if args.cont_model_path:
-        model.load_model(os.path.abspath(args.cont_model_path))
-
-    if not args.only_eval:
+    if args.load_model:
+        model.load_model(os.path.abspath(args.load_model))
+    # TODO there is still some hard-coding left, like codec below.
+    else:
+        train_performance = model.fit(
+            x=data.get_training_generator(args.batch_size, args.patch_size),
+            validation_data=data.get_validation_generator(args.batch_size),
+            epochs=args.epochs,
+            batch_size=args.batch_size, verbose=0,
+            callbacks=callbacks_list,
+            steps_per_epoch=args.train_images // args.batch_size,
+            validation_steps=args.validation_images // args.batch_size
+        )
         train_performance = train(
             model=model,
             epochs=args.epochs,
             data=data,
             qf=qf_train,
             cache=cache,
-            codec=JPEG(),
+            codec=JPEG(codec="libjpeg"),
+            patience=int(1.0 * args.epochs),
             **flags
         )
         # save the training performance
-        perf(train_performance)
+        fig = perf(train_performance)
+        fig.savefig(os.path.join(args.save_dir, "training_progress.pdf"))
 
     # TODO Add calibration
+    # TODO add a dataset for calibration specifically (extend class Dataset)
+    # TODO include calibration to the BayesBaseModel
     if args.calibrate:
-        temperature = 1.0
-        # temp_model = BayarStammCalibrated(model, batch_size=args.batch_size)
-        # temp_model.set_temp(data)
-        # temperature = temp_model.temperature
-    else:
-        temperature = 1.0
+        model.set_temp(data)
 
     logger.info("Started Testing")
-    tnr, tpr, accuracies = run_tests(
+    accuracies = validate(
         model=model,
         data=data,
         qf=qf_test,
         cache=cache,
-        temperature=temperature,
         codec=JPEG(codec="libjpeg"),
         **flags
     )
@@ -281,3 +337,11 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+"""
+ ACTIONS
+ - train
+ - validate 
+ - hyperopt
+ - calibrate
+"""

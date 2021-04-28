@@ -12,7 +12,6 @@ from abc import ABC
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import Input, MaxPool2D
-from tensorflow.keras.models import Model
 
 # Internal libraries
 from models.layers import ConstrainedConv2D
@@ -29,10 +28,12 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             dense_units,
             pool_size,
             kernel,
+            dense_multiplier,
+            filter_multiplier,
             activation='leaky_relu',
             trainable_residual=True,
             drop=0.1,
-            append_rgb=True,
+            residual_type='trainable',
             tensorboard=None,
             patch_size=64,
             **kwargs
@@ -59,10 +60,20 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         self.conv_layers = conv_layers
         self.trainable_residual = trainable_residual
         self.drop_rate = drop
-        self.append_rgb = append_rgb
-        self.residual = ConstrainedConv2D(trainable=self.trainable_residual)
+        if residual_type == 'trainable':
+            self.residual = ConstrainedConv2D(
+                trainable=self.trainable_residual)
+        elif residual_type == 'pywt':
+            # TODO easy fix - push it to "main" dataset class.
+            self.residual = self.extract_pywt_residual
+            self._color_F = np.array(
+                [[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5],
+                 [128, 0.5, -0.418688, -0.081312]], dtype=np.float32)
+
         self.tensorboard = tensorboard
         self.patch_size = patch_size
+        self.filter_multiplier = filter_multiplier
+        self.dense_multiplier = dense_multiplier
 
         # Needs to be called as the last line in the subclass.
         self.create_model()
@@ -70,28 +81,30 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
     def _create_model(self):
         """Need to override to specify model architecture."""
         layers = []
+
         # Setup conv layers
-        for _ in range(self.conv_layers):
+        for i in range(self.conv_layers):
+            filters = int(self.filters * self.filter_multiplier ** i)
             layers.append(
-                self.conv2d(self.filters, self.kernel,
+                self.conv2d(filters, self.kernel,
                             activation=self.activation)
             )
             layers.append(
                 MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
 
-        layers.append(tf.keras.layers.GlobalAveragePooling2D())
+        layers.append(tf.keras.layers.Flatten())
+
         # Setup dense layers
         for i in range(self.dense_layers):
-            last_layer = i == self.dense_layers - 1
-            act = self.activation if not last_layer else None
-            dense_units = self.dense_units // (1.5 ** i) if not last_layer else 2
-            layers.append(self.dense(dense_units, activation=act))
-            if self.drop_rate > 0 and not last_layer:
+            dense_units = int(self.dense_units * self.dense_multiplier ** i)
+            layers.append(self.dense(dense_units, activation=self.activation))
+            if self.drop_rate > 0:
                 layers.append(self.dropout(self.drop_rate))
+        layers.append(self.dense(2, activation=None))
 
         # make a custom keras model
         inputs = Input(shape=(self.patch_size, self.patch_size, 3))
-        if self.append_rgb:
+        if self.residual:
             # concatenate residual if append_rgb is true
             outputs = tf.keras.layers.concatenate(
                 [inputs, self.residual(inputs)])
@@ -102,5 +115,3 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             outputs = layer(outputs)
 
         self._model = tf.keras.models.Model(inputs, outputs)
-        if self.tensorboard:
-            self.tensorboard.set_model(model=self._model)

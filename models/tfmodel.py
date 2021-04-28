@@ -124,6 +124,7 @@ class TFModel(object):
     """
 
     def __init__(self, **kwargs):
+        super().__init__(None, None)
         self._model = None
         self.reset_performance_stats()
 

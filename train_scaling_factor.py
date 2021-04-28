@@ -37,7 +37,7 @@ from workflows.bayes_scaling_factor import (
 # physical_devices = tf.config.list_physical_devices("GPU")
 # tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-
+disable_gpu()
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Train a bayesian NN on different methods for downsampling"
@@ -120,7 +120,7 @@ def parse_args():
         action="store",
         default="mc-dropout",
         type=str,
-        help="Uncertainty method. Can be 'mc-dropout', 'flipout', 'vanilla'",
+        help="Uncertainty method. Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp', 'flipout', 'variational' or 'reparameterization'.",
     )
     parser.add_argument(
         "--calibrate",
