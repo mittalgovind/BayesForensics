@@ -20,7 +20,7 @@ from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
 from helpers.plots import perf
 from helpers.utils import setup_logging
-from helpers.tf_helpers import disable_gpu
+from helpers.tf_helpers import disable_gpu, get_callbacks
 from workflows.jpeg_double_compression import (
     train,
     validate,
@@ -299,7 +299,7 @@ def main():
             validation_data=data.get_validation_generator(args.batch_size),
             epochs=args.epochs,
             batch_size=args.batch_size, verbose=0,
-            callbacks=callbacks_list,
+            callbacks=get_callbacks(log_name),
             steps_per_epoch=args.train_images // args.batch_size,
             validation_steps=args.validation_images // args.batch_size
         )

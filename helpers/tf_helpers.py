@@ -476,3 +476,12 @@ def reset_layer(layer, alpha=0):
         logger.warning(f"No weights were updated for layer: {layer}")
 
     layer.set_weights(w)
+
+
+def get_callbacks(name):
+    """callbacks list for keras models."""
+    return [
+        tf.keras.callbacks.EarlyStopping(monitor='val_binary_crossentropy',
+                                         patience=200),
+        tf.keras.callbacks.TensorBoard(name),
+    ]

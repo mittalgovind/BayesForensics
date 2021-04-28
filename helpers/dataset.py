@@ -494,3 +494,6 @@ class Dataset(object):
             output_types=len(self._loaded_data) * (tf.float32,),
         )
 
+    def process_batch(self):
+        """For batch pre-processing, if needed."""
+        raise NotImplementedError

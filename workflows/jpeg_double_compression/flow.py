@@ -11,6 +11,7 @@ from abc import ABC
 
 import numpy as np
 import tensorflow as tf
+
 from tensorflow.keras.layers import Input, MaxPool2D
 
 # Internal libraries
@@ -115,3 +116,4 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             outputs = layer(outputs)
 
         self._model = tf.keras.models.Model(inputs, outputs)
+
