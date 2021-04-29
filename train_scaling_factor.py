@@ -15,6 +15,7 @@ sys.path.append(os.path.abspath("/"))
 # External libraries
 import numpy as np
 import tensorflow as tf
+from loguru import logger
 
 # Internal libraries
 from models.jpeg import JPEG
@@ -37,7 +38,7 @@ from workflows.bayes_scaling_factor import (
 # physical_devices = tf.config.list_physical_devices("GPU")
 # tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-disable_gpu()
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Train a bayesian NN on different methods for downsampling"
@@ -110,7 +111,7 @@ def parse_args():
         "--num-runs",
         dest="n_runs",
         action="store",
-        default=50,
+        default=10,
         type=int,
         help="Number of test runs per image in validation set",
     )
@@ -226,46 +227,53 @@ def main():
         codec = None
 
     if args.uncertainty_method == "ensemble":
-        model = DeepEnsemble(
-            SFP(
-                args.uncertainty_method,
-                c_filters=(32, 32, 32, 32),
-                d_filters=(32, 16, args.n_classes),
-                kernel=5,
-                activation="leaky_relu",
-                trainable_residual=True,
-                drop=0.1,
-                append_rgb=False,
-            ),
-            5,
+        model = DeepEnsemble([
+            BayarStammSFP(
+                method=args.uncertainty_method,
+                n_classes=args.n_classes,
+                patch_size=128,
+                dropout=0.1,
+            ) for _ in range(5)]
         )
 
         train_function = train_ensemble
 
     else:
+        '''
         model = SFP(
             args.uncertainty_method,
-            c_filters=(32, 32),
-            d_filters=(32, args.n_classes),
+            c_filters=(32, 32, 32, 32),
+            d_filters=(32, 16, args.n_classes),
             kernel=5,
             activation="leaky_relu",
             trainable_residual=True,
             drop=0.1,
             append_rgb=False,
         )
+        '''
+        model = BayarStammSFP(
+            method=args.uncertainty_method,
+            n_classes=args.n_classes,
+            patch_size=128,
+            dropout=0.1,
+        )
 
         train_function = train_single
 
     if args.cont_model_path:
         # train for an epoch so that model is built
-        model = train_function(model, 1, data, args.batch_size, cache=None, **flags)
+        _ = train_function(model, 1, data, args.batch_size, cache=None, codec=codec, **flags)
         model.load_model(os.path.abspath(args.cont_model_path))
 
     if not args.only_eval:
         train_performance = train_function(model, args.epochs, data, args.batch_size, cache, codec, **flags)
 
         # save the training performance
-        perf(train_performance)
+        if args.uncertainty_method == "ensemble":
+            for performance in train_performance:
+                perf(performance)
+        else:
+            perf(train_performance)
 
     if args.calibrate:
         temp_model = BayarStammCalibrated(model, batch_size=args.batch_size)
@@ -276,25 +284,23 @@ def main():
 
     logger.info("Started Testing")
 
-    tests_summaries = []
-    for method in methods:
-        tests_summary = run_tests(
-            model,
-            method,
-            data,
-            methods,
-            classes,
-            args.n_val_images,
-            patch_size,
-            n_runs,
-            cache,
-            temperature,
-        )
+    tests_summary = run_tests(
+        model,
+        args.uncertainty_method,
+        args.sampling_method,
+        data,
+        methods,
+        scales,
+        classes,
+        args.n_val_images,
+        patch_size,
+        n_runs,
+        cache,
+        temperature,
+        codec
+    )
 
-        tests_summaries.append(tests_summary)
-
-    # TODO Marcelo: write up sf_plot function
-    # sf_plot(test_summaries, args.save_dir)
+    sf_plot(tests_summary, classes, args.sampling_method, args.save_dir)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ sys.path.append("/scratch/jms1595/neural-imaging-dev/")
 from helpers.utils import progress_bar
 from helpers.stats import quantize
 from helpers.plots import perf
+from helpers.uncertainty import get_pred
 
 
 def preprocess_batch(
@@ -114,13 +115,14 @@ def train_single(
     random_method = sampling_method == "random"
     n_batches = data.count_training // batch_size
 
-    performance = {"loss": {"training": []}}
+    performance = {"loss": {"training": []}, "accuracy": {"training": []}}
     loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     opt = tf.keras.optimizers.Adam(lr)
 
     with progress_bar(epochs, "Training") as pbar:
         for epoch in range(epochs):
             losses = 0
+            accuracies = 0
 
             for batch_id in range(n_batches):
                 batch_y = data.next_training_batch(batch_id, batch_size,
@@ -143,11 +145,15 @@ def train_single(
 
                 grads = tape.gradient(loss, model._model.trainable_variables)
                 opt.apply_gradients(zip(grads, model._model.trainable_variables))
+                
+                predictions = get_pred(tf.convert_to_tensor([logits]))
 
                 # Update loss counter
                 losses += loss.numpy()
+                accuracies += np.mean(predictions == batch_sf)
 
             performance["loss"]["training"].append(losses / n_batches)
+            performance["accuracy"]["training"].append(accuracies / n_batches)
 
             pbar.set_postfix(loss=losses / n_batches)
             pbar.update(1)
@@ -156,8 +162,7 @@ def train_single(
                 model.save_model(dirname=save_dir)
                 fig = perf(performance, results="training")
                 fig.savefig(
-                    os.path.join(save_dir, f'model_{i:03d}',
-                                 "training_progress".format(epoch + 1)))
+                    os.path.join(save_dir, "training_progress".format(epoch + 1)))
 
         if cache:
             cache.save(performance, step="performance", sampling_method=sampling_method)
@@ -167,7 +172,7 @@ def train_single(
 
 def train_ensemble(model, epochs, data, batch_size, cache, codec,
                    patch_size, scales, classes, sampling_method,
-                   save_dir, lr, methods, adversarial, **kwargs):
+                   save_dir, lr, methods, save_every, adversarial, **kwargs):
     """
             Trains models inside the Deep Ensemble.
 
@@ -224,6 +229,7 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
         for epoch in range(epochs):
             # Tracking losses separately.
             losses = [0 for _ in model.models]
+            accuracies = [0 for _ in model.models]
 
             for batch_id in range(n_batches):
                 # Get next training batch.
@@ -246,10 +252,8 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
                     if adversarial:
                         with tf.GradientTape() as tape:
                             tape.watch(batch_yy)
-                            loss = loss_criterion(
-                                batch_sf,
-                                model.models[i](batch_yy, training=False)
-                            )
+                            logits = model.models[i](batch_yy, training=True)
+                            loss = loss_criterion(batch_sf, logits)
 
                         grad_adv = tape.gradient(loss, batch_yy)
                         sign_grads = tf.sign(grad_adv)
@@ -258,9 +262,10 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
                         )
 
                     with tf.GradientTape() as tape:
+                        logits = model.models[i](batch_yy, training=True)
                         loss = loss_criterion(
                             batch_sf,
-                            model.models[i](batch_yy, training=True)
+                            logits
                         )
 
                         # Loss becomes the sum of both adversarial loss and regular training loss.
@@ -270,17 +275,20 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
                                 model.models[i](batch_adv, training=True)
                             )
 
-                    grads = tape.gradient(loss, model.models[i].variables)
+                    grads = tape.gradient(loss, model.models[i]._model.trainable_variables)
                     opt.apply_gradients(
-                        zip(grads, model.models[i].variables))
-
+                        zip(grads, model.models[i]._model.trainable_variables))
+                    
+                    predictions = get_pred(tf.convert_to_tensor([logits]))
                     # Update loss counter.
                     losses[i] += loss.numpy()
+                    accuracies[i] += np.mean(predictions == batch_sf)
 
             # Save losses.
             for i in range(model.n_models):
                 performance[i]["loss"]["training"].append(
                     losses[i] / n_batches)
+                performance[i]["accuracy"]["training"].append(accuracies[i] / n_batches)
 
             pbar.set_postfix(loss=np.mean(losses) / n_batches)
             pbar.update(1)
@@ -288,9 +296,9 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
             if (epoch + 1) % save_every == 0:
                 model.save_model(dirname=save_dir)
                 for i in range(model.n_models):
-                    fig = perf(performance, results="training")
+                    fig = perf(performance[i], results="training")
                     fig.savefig(
-                        os.path.join(save_dir, f'model_{i:03d}',
+                        os.path.join(save_dir, f'ensemble_{i:03d}',
                                      "training_progress".format(epoch + 1)))
 
     return performance
