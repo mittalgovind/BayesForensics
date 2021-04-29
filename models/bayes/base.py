@@ -19,15 +19,11 @@ import helpers.tf_helpers as tfh
 from .temp_scaling import TemperatureScaling
 
 
-# inhereting and referencing does not go together.
-# Layer object helps the gradient descent to see the layer's trainable parameters.
 class MCDropoutLayer(tf.keras.layers.Layer):
     """Dropout layer which always drops some connections."""
 
-    # TODO argument for adding to a conv layer or dense layer
     def __init__(self, rate=0.5, **kwargs):
         super().__init__(rate, **kwargs)
-        # add convolution dropout layer
         self.dropout = tf.keras.layers.Dropout(rate, **kwargs)
 
     def call(self, inputs, training=None):
