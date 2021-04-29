@@ -18,11 +18,12 @@ from helpers.plots import perf
 from helpers.dataset import Dataset
 
 
-class JPEGDataset(Dataset):
+class DoubleCompressionDataset(Dataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        extract_filters(self.)
 
-    def preprocess_batch(self, batch, codec, qf, **kwargs):
+    def preprocess_batch(self, batch, codec: str, qf: tuple, **kwargs):
         batch_size = len(batch)
 
         # sample quality factors
@@ -47,9 +48,9 @@ class JPEGDataset(Dataset):
                     'CONSTANT',
                     constant_values=1)
         ycbcrs = tf.nn.conv2d(xc,
-                             tf.reshape(tf.transpose(self._color_F),
-                                        [1, 1, 4, 3]),
-                             [1, 1, 1, 1], 'SAME')
+                              tf.reshape(tf.transpose(self._color_F),
+                                         [1, 1, 4, 3]),
+                              [1, 1, 1, 1], 'SAME')
         ycbcrs = tf.cast(ycbcrs, dtype=tf.uint8)
         l = list()
         for im in ycbcrs:

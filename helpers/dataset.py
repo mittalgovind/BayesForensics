@@ -412,7 +412,7 @@ class Dataset(object):
 
         return "\n".join(label)
 
-    def preprocess_batch(self, **kwargs):
+    def preprocess_batch(self, batch, **kwargs):
         """
         Implement this method to return the processed batch and its labels.
         """
@@ -494,6 +494,3 @@ class Dataset(object):
             output_types=len(self._loaded_data) * (tf.float32,),
         )
 
-    def process_batch(self):
-        """For batch pre-processing, if needed."""
-        raise NotImplementedError

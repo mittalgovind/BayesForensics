@@ -116,6 +116,15 @@ def parse_args():
         help="Number of images for validation set",
     )
     parser.add_argument(
+        "-nc",
+        "--calibration-images",
+        dest="n_val_images",
+        action="store",
+        default=256,
+        type=int,
+        help="Number of images for calibration set",
+    )
+    parser.add_argument(
         "-nr",
         "--num-runs",
         dest="n_runs",
