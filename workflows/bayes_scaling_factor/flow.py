@@ -67,6 +67,7 @@ class SFP(BayesBaseModel):
                 self._layers.append(self.dropout(self.drop_rate))
 
         self._model = tf.keras.Sequential(self._layers)
+        self.model_created = True
 
     def _call(self, inputs, training=False):
         """Vanilla part of the forward pass for the model."""
@@ -190,6 +191,7 @@ class BayarStammSFP(BayesBaseModel):
         )
 
         self._model = tf.keras.Sequential(self._layers)
+        self.model_created = True
 
     def reset_performance_stats(self):
         self.performance = {
@@ -231,6 +233,9 @@ class BayarStammSFP(BayesBaseModel):
             gap="+ (GAP) " if self._h.use_gap else "",
             params=self.count_parameters(),
         )
+    
+    def __getattr__(self, name):
+        raise AttributeError(name)
 
 
 class BayarStammCalibrated(TemperatureScaling, BayarStammSFP, ABC):

@@ -26,19 +26,21 @@ class DeepEnsemble:
         The number of models contained within the Deep Ensemble.
     """
 
-    def __init__(self, base_model, n_models):
-        self.models = [deepcopy(base_model) for _ in range(n_models)]
-        self.n_models = n_models
-
+    def __init__(self, models):
+        self.models = models
+        self.n_models = len(models)
+        
+        '''
         for i in range(self.n_models):
-            self.models[i].create_model()
+            self.models[i]._create_model()
+        '''
 
     def __call__(self, inputs, training=False):
         return tf.convert_to_tensor(
             [self.models[i](inputs, training=training) for i in range(self.n_models)]
         )
 
-    def load_model(self, weights_dir):
+    def load_model(self, dirname):
         """
         Load weights from the specified directory.
         The directory from which to get the weights should have the
@@ -53,14 +55,14 @@ class DeepEnsemble:
 
         Parameters
         ----------
-        weights_dir : str
+        dirname : str
             Path to the directory where the weights are stored.
         """
         for i in range(self.n_models):
-            path = os.path.join(weights_dir, f"ensemble_{i:03d}")
+            path = os.path.join(dirname, f"ensemble_{i:03d}")
             self.models[i].load_model(path)
 
-    def save_model(self, weights_dir):
+    def save_model(self, dirname):
         """
         Save weights to the specified directory.
         The resulting file structure is as follows:
@@ -74,9 +76,9 @@ class DeepEnsemble:
 
         Parameters
         ----------
-        weights_dir : str
+        dirname : str
             Path to the directory where the weights will be saved.
         """
         for i in range(self.n_models):
-            path = os.path.join(weights_dir, f"ensemble_{i:03d}")
+            path = os.path.join(dirname, f"ensemble_{i:03d}")
             self.models[i].save_model(path)

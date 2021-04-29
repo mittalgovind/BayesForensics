@@ -14,14 +14,17 @@ def get_uncertainties(data, classes):
 
     for elm in data['runs']:
         correct = np.where(classes == elm['sf'])[0][0]
-
-        logits = tf.convert_to_tensor([elm['logits']])
+        
+        if len(elm['logits'].shape) == 2:
+            logits = tf.convert_to_tensor([elm['logits']])
+        else:
+            logits = elm['logits']
 
         pred = get_pred(logits)
         vr = variation_ratio(logits)
         pe = predictive_entropy(logits)
         mi = mutual_information(logits)
-
+        
         for i in range(len(pred)):
             results.append({
                 'method': elm['method'],
