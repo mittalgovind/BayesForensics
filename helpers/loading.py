@@ -40,14 +40,14 @@ def discover_images(
         n_images = len(files)
 
     if len(files) >= n_images + v_images + c_images:
+        train_files = files[0: n_images]
         val_files = files[n_images: (n_images + v_images)]
-        files = files[0: n_images]
         cal_files = files[
                     (n_images + v_images): (n_images + v_images + c_images)]
     else:
         raise ValueError("Not enough images!")
 
-    return files, val_files, cal_files
+    return train_files, val_files, cal_files
 
 
 def load_images(files, data_directory, extension="png", load="xy"):

@@ -17,36 +17,11 @@ import matplotlib.pyplot as plt
 # Internal libraries
 
 
-class TemperatureScaling(tf.keras.Model, ABC):
+class TemperatureScaling(ABC):
     """Decorator for wrapping a TensorFlow model with temperature scaling."""
 
     def __init__(self, model, batch_size):
         super().__init__()
-        self.model = model
-        self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
-        self.batch_size = batch_size
-
-    def forward(self, inputs, training):
-        logits = self.model(inputs, training=training)
-        return self.temperature_scale(logits)
-
-    def temperature_scale(self, logits):
-        """Perform temp scaling on logits"""
-        return logits / self.temperature
-
-    def preprocess(self, batch, return_labels=False):
-        """Override method to preprocess batch before forward pass."""
-        if return_labels:
-            try:
-                labels = batch.labels
-            except:
-                raise NotImplementedError(
-                    "The dataset has no labels attribute. "
-                    "Override this method to supply them."
-                )
-            return batch, labels
-        else:
-            return batch
 
     @staticmethod
     def plot_conf(ece, acc, conf, title="init"):
@@ -75,12 +50,12 @@ class TemperatureScaling(tf.keras.Model, ABC):
         fig.show()
         return fig, ax
 
-    def set_temp(self, data):
+    def set_temp(self, data, batch_size):
         """Use validation dataset to calibrate the model."""
         logits_list = []
         labels_list = []
         # TODO remove hard coding
-        n_batches = data.count_validation // self.batch_size
+        n_batches = data.count_validation // batch_size
         epochs = 100
         nll_loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
         opt = tf.optimizers.Adam(learning_rate=0.01)
@@ -88,13 +63,13 @@ class TemperatureScaling(tf.keras.Model, ABC):
         # Before training
         for batch_id in range(n_batches):
             # TODO change to calibration batch
-            batch = data.next_validation_batch(batch_id, self.batch_size)
-            batch, labels = self.preprocess(batch, return_labels=True)
+            batch = data.next_validation_batch(batch_id, batch_size)
+            batch, labels = data.preprocess(batch, return_labels=True)
             logits_list.append(self.model(batch, training=False))
             labels_list.append(labels)
 
-        logits = np.stack(logits_list).reshape((n_batches * self.batch_size, -1))
-        labels = np.stack(labels_list).reshape((n_batches * self.batch_size,))
+        logits = np.stack(logits_list).reshape((n_batches * batch_size, -1))
+        labels = np.stack(labels_list).reshape((n_batches * batch_size,))
 
         init_nll_loss = nll_loss(labels, logits)
         init_ece_loss, init_acc_list, init_conf_list = self.ece_loss(labels, logits)
@@ -102,8 +77,8 @@ class TemperatureScaling(tf.keras.Model, ABC):
         for epoch in range(epochs):
             print(self.temperature)
             for batch_id in range(n_batches):
-                batch = data.next_validation_batch(batch_id, self.batch_size)
-                batch, labels = self.preprocess(batch, return_labels=True)
+                batch = data.next_validation_batch(batch_id, batch_size)
+                batch, labels = data.preprocess(batch, return_labels=True)
                 logits = self.model(batch, training=False)
 
                 with tf.GradientTape() as tape:

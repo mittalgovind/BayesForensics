@@ -39,6 +39,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             activation: str,
             drop_rate=0.5,
             mc_num_samples=50,
+            **kwargs
     ):
         """
         method : str
@@ -51,7 +52,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         mc_num_samples : int
             Number of forward passes in MC-dropout.
         """
-        super().__init__()
+        super(BayesBaseModel, self).__init__()
 
         self.mc_num_samples = mc_num_samples
         self.drop_rate = min(max(drop_rate, 0.0), 1.0)
@@ -82,8 +83,8 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             self.dropout = tf.keras.layers.Dropout
             self.dense = tf.keras.layers.Dense
 
-        if "temp" not in method:
-            self.temperature = None
+        if "temp" in method:
+            self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
 
     def create_model(self):
         """Top-level model creator and corresponding modifier."""

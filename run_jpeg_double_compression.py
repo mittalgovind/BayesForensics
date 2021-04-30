@@ -16,7 +16,6 @@ from loguru import logger
 
 # Internal libraries
 from models.jpeg import JPEG
-from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
 from helpers.plots import perf
 from helpers.utils import setup_logging
@@ -153,19 +152,13 @@ def parse_args():
     )
     parser.add_argument(
         "-lr", "--lr", action="store", default=5e-4, type=float,
-        help="Learning_rate"
+        help="Learning rate."
     )
     parser.add_argument(
-        "--cont-model-path",
+        "--load-model",
         type=str,
-        help="Path to a partially trained model",
+        help="Path to a trained model.",
         default=None,
-    )
-    parser.add_argument(
-        "--only-eval",
-        default=False,
-        action="store_true",
-        help="Only evaluate passed model",
     )
     parser.add_argument(
         "--parameters",
@@ -244,7 +237,6 @@ def main():
         "n_runs": args.n_runs,
     }
 
-
     # TODO (Govind) Change to the new standard parameters from sensor branch.
     if args.parameters is None:
         # TODO change to a good config after hyperopt
@@ -285,7 +277,10 @@ def main():
         v_images=args.n_val_images,
         randomize=69,
         val_rgb_patch_size=args.patch_size,
-        calc_pywt_residual=calc_pywt_residual
+        calc_pywt_residual=calc_pywt_residual,
+        qf_train=qf_train,
+        qf_test=qf_test,
+        codec=JPEG(codec="libjpeg"),
     )
 
     # Build a model
@@ -305,20 +300,20 @@ def main():
             validation_data=data.get_validation_generator(args.batch_size),
             epochs=args.epochs,
             batch_size=args.batch_size, verbose=0,
-            callbacks=get_callbacks(log_name),
+            callbacks=get_callbacks(os.path.join(args.save_dir, )),
             steps_per_epoch=args.train_images // args.batch_size,
             validation_steps=args.validation_images // args.batch_size
         )
-        train_performance = train(
-            model=model,
-            epochs=args.epochs,
-            data=data,
-            qf=qf_train,
-            cache=cache,
-            codec=JPEG(codec="libjpeg"),
-            patience=int(1.0 * args.epochs),
-            **flags
-        )
+        # train_performance = train(
+        #     model=model,
+        #     epochs=args.epochs,
+        #     data=data,
+        #     qf=qf_train,
+        #     cache=cache,
+        #     codec=
+        #     patience=int(1.0 * args.epochs),
+        #     **flags
+        # )
         # save the training performance
         fig = perf(train_performance)
         fig.savefig(os.path.join(args.save_dir, "training_progress.pdf"))
@@ -333,9 +328,7 @@ def main():
     accuracies = validate(
         model=model,
         data=data,
-        qf=qf_test,
         cache=cache,
-        codec=JPEG(codec="libjpeg"),
         **flags
     )
     qf_plot(qf_test, accuracies, args.save_dir)
