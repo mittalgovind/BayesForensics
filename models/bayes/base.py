@@ -43,7 +43,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         """
         method : str
             Choice between 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp',
-                                'flipout', 'variational', 'reparameterization'.
+                                'flipout', 'reparameterization'.
         activation : str
             Name of the activation method to be used for model creation.
         drop_rate : float
@@ -76,11 +76,6 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             self.conv2d = tfp.layers.Convolution2DReparameterization
             self.dropout = tf.keras.layers.Dropout
             self.dense = tfp.layers.DenseReparameterization
-
-        elif method == "variational":
-            self.conv2d = tfp.layers.Convolution2DVariational
-            self.dropout = tf.keras.layers.Dropout
-            self.dense = tfp.layers.DenseVariational
 
         else:
             self.conv2d = PaddedConv2D

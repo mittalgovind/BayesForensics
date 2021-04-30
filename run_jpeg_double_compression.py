@@ -22,7 +22,7 @@ from helpers.plots import perf
 from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu, get_callbacks
 from workflows.jpeg_double_compression import (
-    train,
+    DoubleCompressionDataset,
     validate,
     JPEGDoubleCompression,
     qf_plot,
@@ -51,7 +51,7 @@ def parse_args():
         type=str,
         help="Uncertainty method."
              " Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp',"
-             " 'flipout', 'variational' or 'reparameterization'.",
+             " 'flipout', or 'reparameterization'.",
     )
     parser.add_argument(
         "--qf-train",
@@ -132,14 +132,6 @@ def parse_args():
         default=50,
         type=int,
         help="Number of test runs per image in validation set",
-    )
-    parser.add_argument(
-        "-um",
-        "--uncertainty-method",
-        action="store",
-        default="mc-dropout",
-        type=str,
-        help="Uncertainty method. Can be 'mc-dropout', 'flipout', 'vanilla'",
     )
     parser.add_argument(
         "--save-dir", type=str, default="./output",
@@ -252,14 +244,6 @@ def main():
         "n_runs": args.n_runs,
     }
 
-    data = Dataset(
-        data_directory=args.data_dir,
-        load="y",
-        n_images=args.n_train_images,
-        v_images=args.n_val_images,
-        randomize=69,
-        val_rgb_patch_size=args.patch_size,
-    )
 
     # TODO (Govind) Change to the new standard parameters from sensor branch.
     if args.parameters is None:
@@ -290,6 +274,19 @@ def main():
             sys.exit()
 
     print(args.parameters)
+
+    calc_pywt_residual = True \
+        if "pywt" in args.parameters["residual_type"] else False
+    # load the dataset
+    data = DoubleCompressionDataset(
+        data_directory=args.data_dir,
+        load="y",
+        n_images=args.n_train_images,
+        v_images=args.n_val_images,
+        randomize=69,
+        val_rgb_patch_size=args.patch_size,
+        calc_pywt_residual=calc_pywt_residual
+    )
 
     # Build a model
     model = JPEGDoubleCompression(

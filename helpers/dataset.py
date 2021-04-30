@@ -7,8 +7,6 @@ import numpy as np
 from helpers import loading
 from helpers.loading import sample_patch
 
-from loguru import logger
-
 
 class Dataset(object):
     def __init__(
@@ -118,7 +116,7 @@ class Dataset(object):
             load=load,
             discard=val_discard,
         )
-
+        self.presample_epochs = presample_epochs
         if presample_epochs == 0:
             self.data["training"] = loading.load_images(
                 self.files["training"], data_directory, load=load
@@ -192,26 +190,34 @@ class Dataset(object):
 
         for b in range(batch_size):
             bid = batch_id * batch_size + b
-            current_rgb = self.data["training"]["y"][bid] if has_rgb else None
-            xx, yy = sample_patch(
-                current_rgb,
-                rgb_patch_size,
-                discard,
-                max_attempts,
-                self.train_image_shape_rgb,
-            )
-            rx, ry = xx // 2, yy // 2
+            if self.presample_epochs:
+                if has_raw:
+                    bx[b] = self.data["training"]["x"][bid].astype(
+                        np.float) / (2 ** 16 - 1)
+                if has_rgb:
+                    by[b] = self.data["training"]["y"][bid].astype(
+                        np.float) / (2 ** 8 - 1)
+            else:
+                current_rgb = self.data["training"]["y"][bid] if has_rgb else None
+                xx, yy = sample_patch(
+                    current_rgb,
+                    rgb_patch_size,
+                    discard,
+                    max_attempts,
+                    self.train_image_shape_rgb,
+                )
+                rx, ry = xx // 2, yy // 2
 
-            if has_raw:
-                current_raw = self.data["training"]["x"][bid]
-                bx[b] = current_raw[
-                        ry: ry + raw_patch_size, rx: rx + raw_patch_size
-                        ].astype(np.float) / (2 ** 16 - 1)
+                if has_raw:
+                    current_raw = self.data["training"]["x"][bid]
+                    bx[b] = current_raw[
+                            ry: ry + raw_patch_size, rx: rx + raw_patch_size
+                            ].astype(np.float) / (2 ** 16 - 1)
 
-            if has_rgb:
-                by[b] = current_rgb[
-                        yy: yy + rgb_patch_size, xx: xx + rgb_patch_size
-                        ].astype(np.float) / (2 ** 8 - 1)
+                if has_rgb:
+                    by[b] = current_rgb[
+                            yy: yy + rgb_patch_size, xx: xx + rgb_patch_size
+                            ].astype(np.float) / (2 ** 8 - 1)
 
         if has_rgb and has_raw:
             return bx, by
