@@ -71,6 +71,13 @@ def parse_args():
              "factor used for testing, e.g. '60,100'",
     )
     parser.add_argument(
+        "--codec",
+        action="store",
+        default="soft",
+        type=str,
+        help="Type of codec. Possible choices - libjpeg, soft, sin, harmonic. (default: soft)",
+    )
+    parser.add_argument(
         "--patch-size",
         dest="patch_size",
         action="store",
@@ -267,8 +274,8 @@ def main():
 
     print(args.parameters)
 
-    calc_pywt_residual = True \
-        if "pywt" in args.parameters["residual_type"] else False
+    calc_pywt_residual = True if "pywt" in args.parameters["residual_type"] else False
+
     # load the dataset
     data = DoubleCompressionDataset(
         data_directory=args.data_dir,
@@ -280,7 +287,7 @@ def main():
         calc_pywt_residual=calc_pywt_residual,
         qf_train=qf_train,
         qf_test=qf_test,
-        codec=JPEG(codec="libjpeg"),
+        codec=JPEG(codec=args.codec),
     )
 
     # Build a model
@@ -300,7 +307,7 @@ def main():
             validation_data=data.get_validation_generator(args.batch_size),
             epochs=args.epochs,
             batch_size=args.batch_size, verbose=0,
-            callbacks=get_callbacks(os.path.join(args.save_dir, )),
+            callbacks=get_callbacks(os.path.join(args.save_dir, 'train.log')),
             steps_per_epoch=args.train_images // args.batch_size,
             validation_steps=args.validation_images // args.batch_size
         )
