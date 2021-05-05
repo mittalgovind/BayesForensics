@@ -196,6 +196,13 @@ def parse_args():
         default=False,
         help="Disables GPU utilization.",
     )
+    
+    parser.add_argument(
+        "--codec",
+        action="store",
+        default="libjpeg",
+        help="Codec for jpeg compression",
+    )
 
     return parser.parse_args()
 
@@ -280,7 +287,7 @@ def main():
         calc_pywt_residual=calc_pywt_residual,
         qf_train=qf_train,
         qf_test=qf_test,
-        codec=JPEG(codec="libjpeg"),
+        codec=JPEG(codec=args.codec),
     )
 
     # Build a model
@@ -295,14 +302,19 @@ def main():
         model.load_model(os.path.abspath(args.load_model))
     # TODO there is still some hard-coding left, like codec below.
     else:
-        train_performance = model.fit(
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        opt = tf.keras.optimizers.Adam(args.lr)
+        
+        model._model.compile(opt, loss_criterion)
+        
+        train_performance = model._model.fit(
             x=data.get_training_generator(args.batch_size, args.patch_size),
             validation_data=data.get_validation_generator(args.batch_size),
             epochs=args.epochs,
             batch_size=args.batch_size, verbose=0,
             callbacks=get_callbacks(os.path.join(args.save_dir, )),
-            steps_per_epoch=args.train_images // args.batch_size,
-            validation_steps=args.validation_images // args.batch_size
+            steps_per_epoch=args.n_train_images // args.batch_size,
+            validation_steps=args.n_val_images // args.batch_size
         )
         # train_performance = train(
         #     model=model,

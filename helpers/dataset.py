@@ -438,7 +438,7 @@ class Dataset(object):
                 batch = self.next_training_batch(
                     batch_id, batch_size, rgb_patch_size, discard
                 )
-                images, labels = self.preprocess_batch(inputs=batch, **kwargs)
+                images, labels = self.preprocess_batch(batch=batch, **kwargs)
                 yield images, labels
 
     def get_validation_generator(self, batch_size, **kwargs):
@@ -451,7 +451,7 @@ class Dataset(object):
         while True:
             for batch_id in range(self.count_validation // batch_size):
                 batch = self.next_validation_batch(batch_id, batch_size)
-                images, labels = self.preprocess_batch(inputs=batch, **kwargs)
+                images, labels = self.preprocess_batch(batch=batch, **kwargs)
                 yield images, labels
 
     def get_calibration_generator(self, batch_size, **kwargs):
@@ -464,7 +464,7 @@ class Dataset(object):
         while True:
             for batch_id in range(self.count_calibration // batch_size):
                 batch = self.next_calibration_batch(batch_id, batch_size)
-                images, labels = self.preprocess_batch(inputs=batch, **kwargs)
+                images, labels = self.preprocess_batch(batch=batch, **kwargs)
                 yield images, labels
 
     def get_training_pipeline(self, batch_size, rgb_patch_size,
