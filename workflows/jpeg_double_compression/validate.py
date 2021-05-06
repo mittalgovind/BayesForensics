@@ -56,9 +56,6 @@ def validate(model, data, batch_size, cache, **kwargs):
         qf2 = np.argmax(q_factors == QF2)
 
         # skipping if an image has a history of stronger or equal compression
-        if QF1 >= QF2:
-            counters[1, qf1, qf2] = counters[3, qf1, qf2] = np.inf
-            continue
 
         QF1, QF2 = int(QF1), int(QF2)
         for batch_id in range(n_batches):
