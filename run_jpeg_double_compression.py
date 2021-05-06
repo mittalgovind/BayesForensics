@@ -203,6 +203,12 @@ def parse_args():
         default=False,
         help="Disables GPU utilization.",
     )
+    parser.add_argument(
+        "--verbosity",
+        type=int,
+        default=1,
+        help="Controls verbosity of training.",
+    )
 
     return parser.parse_args()
 
@@ -311,7 +317,8 @@ def main():
             x=data.get_training_generator(args.batch_size, args.patch_size),
             validation_data=data.get_validation_generator(args.batch_size),
             epochs=args.epochs,
-            batch_size=args.batch_size, verbose=0,
+            batch_size=args.batch_size,
+            verbose=args.verbosity,
             callbacks=get_callbacks(os.path.join(args.save_dir, 'train.log')),
             steps_per_epoch=args.n_train_images // args.batch_size,
             validation_steps=args.n_val_images // args.batch_size
