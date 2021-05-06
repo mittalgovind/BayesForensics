@@ -64,19 +64,19 @@ def main():
 
     # TODO (Govind) Change to the new standard parameters from sensor branch.
     if args.parameters is None:
-        args.parameters = 'config/jpeg_double/default_params.json'
+        f = open('config/jpeg_double/default_params.json', 'r')
     else:
-        try:
-            f = open(args.parameters, 'r')
-            parameters = json.load(f)
-            f.close()
-            logger.info(
-                'Model configuration loaded successfully from {}.'.format(
-                    args.parameters))
-            args.parameters = parameters
-        except RuntimeError:
-            logger.error("Cannot load parameter configuration.")
-            sys.exit()
+        f = open(args.parameters, 'r')
+
+    try:
+        parameters = json.load(f)
+        f.close()
+        logger.info(
+            'Model configuration loaded successfully from {}.'.format(f))
+        args.parameters = parameters
+    except RuntimeError:
+        logger.error("Cannot load parameter configuration.")
+        sys.exit()
 
     print(args.parameters)
 

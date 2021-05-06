@@ -79,6 +79,12 @@ def parse_args():
         help="Batch size",
     )
     parser.add_argument(
+        "--seed",
+        default=69,
+        type=int,
+        help="Seed used for randomization. (default: 69)",
+    )
+    parser.add_argument(
         "-nt",
         "--train-images",
         dest="n_train_images",
