@@ -17,20 +17,17 @@ from loguru import logger
 from helpers.utils import progress_bar
 
 
-def validate(model, data, batch_size, cache, **kwargs):
+def validate(model, data, batch_size, cache):
     """
 
     Parameters
     ----------
     model : BayesModel()
         Bayes model for running tests
-    qf
     data
     batch_size
-    patch_size
     num_runs
     cache
-    temperature
     """
     q_factors = np.arange(*data.qf_test)
     n_factors = len(q_factors)
@@ -61,7 +58,11 @@ def validate(model, data, batch_size, cache, **kwargs):
         for batch_id in range(n_batches):
             batch = data.next_validation_batch(batch_id, batch_size)
             images, labels = data.preprocess_batch(batch, QF1=QF1, QF2=QF2)
-            predictions = model(images, training=False).numpy().argmax(axis=1)
+
+            # get logits, calibrate and calculate predictions.
+            logits = model(images, training=False)
+            calibrated_logits = logits / model.temperature
+            predictions = calibrated_logits.numpy().argmax(axis=1)
 
             # Counter for True negatives, negatives, True positives, positives.
             counters[0, qf1, qf2] += np.sum(predictions[:batch_size] == 0)

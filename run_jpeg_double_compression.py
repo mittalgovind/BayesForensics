@@ -57,30 +57,9 @@ def main():
         int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
-    flags = {
-        "batch_size": args.batch_size,
-        "lr": args.lr,
-        "patch_size": args.patch_size,
-        "save_dir": args.save_dir,
-        "save_every": args.save_every,
-        "n_runs": args.n_runs,
-    }
-
     # TODO (Govind) Change to the new standard parameters from sensor branch.
     if args.parameters is None:
-        # TODO change to a good config after hyperopt
-        # TODO put this in a default config file.
-        args.parameters = {
-            "conv_layers": 4,
-            "dense_layers": 2,
-            "dense_units": 512,
-            "filters": 64,
-            "kernel": 5,
-            "pool_size": 1,
-            "residual_type": 'trainable',
-            "dense_multiplier": 0.5,
-            "filter_multiplier": 1,
-        }
+        args.parameters = 'config/jpeg_double/default_params.json'
     else:
         try:
             f = open(args.parameters, 'r')
@@ -105,7 +84,7 @@ def main():
         load="y",
         n_images=args.n_train_images,
         v_images=args.n_val_images,
-        randomize=69,
+        randomize=args.seed,
         val_rgb_patch_size=args.patch_size,
         calc_pywt_residual=calc_pywt_residual,
         qf_train=qf_train,
@@ -122,7 +101,6 @@ def main():
 
     if args.load_model:
         model.load_model(os.path.abspath(args.load_model))
-    # TODO there is still some hard-coding left, like codec below.
     else:
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True)
@@ -163,8 +141,8 @@ def main():
     accuracies = validate(
         model=model,
         data=data,
-        cache=cache,
-        **flags
+        batch_size=args.batch_size,
+        cache=cache
     )
     qf_plot(qf_test, accuracies, args.save_dir)
 
