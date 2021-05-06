@@ -48,17 +48,18 @@ def main():
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     # Change json to npz
-    if os.path.isdir(os.path.abspath(args.save_dir)) and not args.overwrite:
-        raise IsADirectoryError(
-            "Output directory exists!"
-            " Use --overwrite or provide another directory name."
-        )
+    if os.path.isdir(os.path.abspath(args.save_dir)):
+        if not args.overwrite:
+            raise IsADirectoryError(
+                "Output directory exists!"
+                " Use --overwrite or provide another directory name."
+            )
+        else:
+            logger.warning("Overwriting output directory.")
+    else:
+        os.mkdir(args.save_dir)
 
-    scales = (
-        float(args.scales.split(",")[0]), float(args.scales.split(",")[1]))
-    methods = ["nearest", "bilinear", "bicubic", "lanczos3", "random"]
     cache = ResultCache(["{step}_{sampling_method}.npz"], prefix=args.save_dir)
-    classes = np.linspace(*scales, num=args.n_classes)
 
     flags = {
         "lr": args.lr,
