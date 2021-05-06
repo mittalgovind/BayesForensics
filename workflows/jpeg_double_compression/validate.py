@@ -17,7 +17,7 @@ from loguru import logger
 from helpers.utils import progress_bar
 
 
-def validate(model, qf, data, batch_size, codec, cache, **kwargs):
+def validate(model, data, batch_size, cache, **kwargs):
     """
 
     Parameters
@@ -32,7 +32,7 @@ def validate(model, qf, data, batch_size, codec, cache, **kwargs):
     cache
     temperature
     """
-    q_factors = np.arange(*qf)
+    q_factors = np.arange(*data.qf_test)
     n_factors = len(q_factors)
     batch_size //= 2
     n_batches = data.count_validation // batch_size
@@ -63,13 +63,7 @@ def validate(model, qf, data, batch_size, codec, cache, **kwargs):
         QF1, QF2 = int(QF1), int(QF2)
         for batch_id in range(n_batches):
             batch = data.next_validation_batch(batch_id, batch_size)
-            batch_single_compressed = codec.process(batch, QF2)
-            batch_double_compressed = codec.process(codec.process(batch, QF1), QF2)
-
-            images = tf.concat(
-                (batch_single_compressed, batch_double_compressed), axis=0
-            )
-            del batch, batch_single_compressed, batch_double_compressed
+            images, labels = data.preprocess_batch(batch, QF1=QF1, QF2=QF2)
             predictions = model(images, training=False).numpy().argmax(axis=1)
 
             # Counter for True negatives, negatives, True positives, positives.

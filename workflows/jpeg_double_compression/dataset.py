@@ -45,10 +45,18 @@ class DoubleCompressionDataset(Dataset):
         batch_size = len(batch)
 
         # sample quality factors
-        QF1 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
-        QF2 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
+        if 'QF1' in kwargs:
+            QF1 = int(kwargs['QF1'])
+        else:
+            QF1 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
+        if 'QF2' in kwargs:
+            QF2 = int(kwargs['QF2'])
+        else:
+            QF2 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
+
         while QF1 == QF2:
             QF2 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
+
         batch_single_compressed = self.codec.process(batch, QF2)
 
         # compressing with QF1 before QF2, to give compression history.

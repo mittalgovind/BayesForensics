@@ -478,10 +478,10 @@ def reset_layer(layer, alpha=0):
     layer.set_weights(w)
 
 
-def get_callbacks(name):
+def get_callbacks(name, monitor='val_loss', patience=200):
     """callbacks list for keras models."""
     return [
-        tf.keras.callbacks.EarlyStopping(monitor='val_binary_crossentropy',
-                                         patience=200),
+        tf.keras.callbacks.EarlyStopping(monitor=monitor,
+                                         patience=patience),
         tf.keras.callbacks.TensorBoard(name),
     ]

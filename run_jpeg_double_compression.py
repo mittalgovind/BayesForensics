@@ -297,39 +297,34 @@ def main():
         patch_size=args.patch_size,
         **args.parameters
     )
+    optimizer = tf.keras.optimizers.Adam(learning_rate=args.lr)
+    loss = tf.keras.losses.SparseCategoricalCrossentropy(
+        from_logits=True)
+    model._model.compile(optimizer, loss=loss, metrics=["accuracy"])
 
     if args.load_model:
         model.load_model(os.path.abspath(args.load_model))
     # TODO there is still some hard-coding left, like codec below.
     else:
-        train_performance = model.fit(
+        train_performance = model._model.fit(
             x=data.get_training_generator(args.batch_size, args.patch_size),
             validation_data=data.get_validation_generator(args.batch_size),
             epochs=args.epochs,
             batch_size=args.batch_size, verbose=0,
             callbacks=get_callbacks(os.path.join(args.save_dir, 'train.log')),
-            steps_per_epoch=args.train_images // args.batch_size,
-            validation_steps=args.validation_images // args.batch_size
+            steps_per_epoch=args.n_train_images // args.batch_size,
+            validation_steps=args.n_val_images // args.batch_size
         )
-        # train_performance = train(
-        #     model=model,
-        #     epochs=args.epochs,
-        #     data=data,
-        #     qf=qf_train,
-        #     cache=cache,
-        #     codec=
-        #     patience=int(1.0 * args.epochs),
-        #     **flags
-        # )
+
         # save the training performance
-        fig = perf(train_performance)
+        fig = perf(train_performance.history)
         fig.savefig(os.path.join(args.save_dir, "training_progress.pdf"))
 
     # TODO Add calibration
     # TODO add a dataset for calibration specifically (extend class Dataset)
     # TODO include calibration to the BayesBaseModel
-    if args.calibrate:
-        model.set_temp(data)
+    # if args.calibrate:
+    #     model.set_temp(data)
 
     logger.info("Started Testing")
     accuracies = validate(
