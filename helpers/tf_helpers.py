@@ -488,11 +488,13 @@ def reset_layer(layer, alpha=0):
 
 
 def get_callbacks(path, save_freq=0, monitor='val_loss', patience=200,
-                  tensorboard=False):
+                  tensorboard=False, verbose=0, save_best_only=False):
     """callbacks list for keras models."""
+    verbose = 1 if verbose != 1 else 0
     callbacks = [
         tf.keras.callbacks.EarlyStopping(monitor=monitor,
-                                         patience=patience),
+                                         patience=patience,
+                                         verbose=verbose),
     ]
 
     if save_freq != 0:
@@ -500,9 +502,10 @@ def get_callbacks(path, save_freq=0, monitor='val_loss', patience=200,
             filepath=os.path.join(path, 'model.h5'),
             save_weights_only=True,
             monitor=monitor, mode='auto',
-            save_best_only=True,
-            save_freq=save_freq)
-        )
+            save_best_only=save_best_only,
+            save_freq=save_freq,
+            verbose=verbose
+        ))
 
     if tensorboard:
         callbacks.append(tf.keras.callbacks.TensorBoard(

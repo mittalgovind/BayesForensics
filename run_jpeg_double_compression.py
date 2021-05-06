@@ -308,13 +308,14 @@ def main():
         optimizer = tf.keras.optimizers.Adam(args.lr)
 
         model._model.compile(optimizer, loss=loss_criterion,
-                             metrics=["accuracy", "val_loss"])
+                             metrics=["accuracy"])
         save_freq = args.save_every * args.n_train_images // args.batch_size
         callbacks = get_callbacks(
             args.save_dir,
             save_freq=save_freq,
             tensorboard=args.tensorboard,
-            patience=int(args.epochs * args.patience_percent)
+            patience=int(args.epochs * args.patience_percent),
+            verbose=args.verbosity
         ),
         train_performance = model._model.fit(
             x=data.get_training_generator(args.batch_size, args.patch_size),
