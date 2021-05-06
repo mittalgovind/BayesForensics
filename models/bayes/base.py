@@ -97,8 +97,6 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         logger.info("Model created successfully.")
         logger.info("Number of parameters in the model = {}".format(
             self.count_parameters()))
-        if self.tensorboard:
-            self.tensorboard.set_model(model=self._model)
         logger.info("Layers : {}".format(self._model.layers))
 
     @abstractmethod
