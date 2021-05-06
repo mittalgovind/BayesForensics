@@ -230,11 +230,6 @@ def main():
             " Use --overwrite or provide another directory name."
         )
 
-    if args.tensorboard:
-        tb_callback = tf.keras.callbacks.TensorBoard(args.save_dir)
-    else:
-        tb_callback = None
-
     qf_train = (
         int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
     qf_test = (
@@ -319,7 +314,7 @@ def main():
             epochs=args.epochs,
             batch_size=args.batch_size,
             verbose=args.verbosity,
-            callbacks=get_callbacks(os.path.join(args.save_dir, 'train.log')),
+            callbacks=get_callbacks(args.save_dir, tensorboard=args.tensorboard),
             steps_per_epoch=args.n_train_images // args.batch_size,
             validation_steps=args.n_val_images // args.batch_size
         )
