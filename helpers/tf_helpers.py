@@ -286,7 +286,7 @@ def residual_norm(rgb_src, src_batch=0, shuffle=True):
     res_src = residual(rgb_src)
     res_src = tf.reduce_mean(res_src, axis=0, keepdims=True)
     res_src = (res_src - tf.reduce_mean(res_src)) / (
-                1e-9 + tf.math.reduce_std(res_src))
+            1e-9 + tf.math.reduce_std(res_src))
     return res_src
 
 
@@ -294,7 +294,7 @@ def soft_saturation(x, t=30, alpha=0.01):
     t = tf.abs(tf.cast(t, tf.float32))
     excess = tf.cast(tf.abs(x) > t, tf.float32)
     return x * (1 - excess) + excess * (
-                tf.sign(x) * t + alpha * (x - tf.sign(x) * t))
+            tf.sign(x) * t + alpha * (x - tf.sign(x) * t))
 
 
 def _strip_consts(graph_def, max_const_size=32):
@@ -487,19 +487,25 @@ def reset_layer(layer, alpha=0):
     layer.set_weights(w)
 
 
-def get_callbacks(path, monitor='val_loss', patience=200, tensorboard=False):
+def get_callbacks(path, save_freq=0, monitor='val_loss', patience=200,
+                  tensorboard=False):
     """callbacks list for keras models."""
     callbacks = [
         tf.keras.callbacks.EarlyStopping(monitor=monitor,
                                          patience=patience),
-        tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join(path, 'model.h5'),
-                                           save_weights_only=True,
-                                           monitor=monitor, mode='auto',
-                                           save_best_only=True)
     ]
+
+    if save_freq != 0:
+        callbacks.append(tf.keras.callbacks.ModelCheckpoint(
+            filepath=os.path.join(path, 'model.h5'),
+            save_weights_only=True,
+            monitor=monitor, mode='auto',
+            save_best_only=True,
+            save_freq=save_freq)
+        )
 
     if tensorboard:
         callbacks.append(tf.keras.callbacks.TensorBoard(
-            os.path.join(path, 'tensorboard.log')),)
+            os.path.join(path, 'tensorboard.log')))
 
     return callbacks

@@ -206,7 +206,7 @@ def parse_args():
     parser.add_argument(
         "--verbosity",
         type=int,
-        default=1,
+        default=2,
         help="Controls verbosity of training.",
     )
 
@@ -306,14 +306,16 @@ def main():
         optimizer = tf.keras.optimizers.Adam(args.lr)
         
         model._model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
-        
+        save_freq = args.save_every * args.n_train_images // args.batch_size
+        callbacks = get_callbacks(args.save_dir, save_freq=save_freq,
+                                  tensorboard=args.tensorboard),
         train_performance = model._model.fit(
             x=data.get_training_generator(args.batch_size, args.patch_size),
             validation_data=data.get_validation_generator(args.batch_size),
             epochs=args.epochs,
             batch_size=args.batch_size,
             verbose=args.verbosity,
-            callbacks=get_callbacks(args.save_dir, tensorboard=args.tensorboard),
+            callbacks=callbacks,
             steps_per_epoch=args.n_train_images // args.batch_size,
             validation_steps=args.n_val_images // args.batch_size
         )
