@@ -209,7 +209,12 @@ def parse_args():
         default=2,
         help="Controls verbosity of training.",
     )
-
+    parser.add_argument(
+        "--patience-percent",
+        type=float,
+        default=0.1,
+        help="Percentage of total epochs to use as patience. (def : 0.1 or 10%).",
+    )
     return parser.parse_args()
 
 
@@ -275,7 +280,8 @@ def main():
 
     print(args.parameters)
 
-    calc_pywt_residual = True if "pywt" in args.parameters["residual_type"] else False
+    calc_pywt_residual = True if "pywt" in args.parameters[
+        "residual_type"] else False
 
     # load the dataset
     data = DoubleCompressionDataset(
@@ -302,13 +308,19 @@ def main():
         model.load_model(os.path.abspath(args.load_model))
     # TODO there is still some hard-coding left, like codec below.
     else:
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True)
         optimizer = tf.keras.optimizers.Adam(args.lr)
-        
-        model._model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
+
+        model._model.compile(optimizer, loss=loss_criterion,
+                             metrics=["accuracy"])
         save_freq = args.save_every * args.n_train_images // args.batch_size
-        callbacks = get_callbacks(args.save_dir, save_freq=save_freq,
-                                  tensorboard=args.tensorboard),
+        callbacks = get_callbacks(
+            args.save_dir,
+            save_freq=save_freq,
+            tensorboard=args.tensorboard,
+            patience=int(args.epochs * args.patience_percent)
+        ),
         train_performance = model._model.fit(
             x=data.get_training_generator(args.batch_size, args.patch_size),
             validation_data=data.get_validation_generator(args.batch_size),

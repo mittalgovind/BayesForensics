@@ -9,13 +9,10 @@
 # External libraries
 import tensorflow as tf
 import numpy as np
-import os
 from loguru import logger
 import pywt
 
 # Internal libraries
-from helpers.utils import progress_bar
-from helpers.plots import perf
 from helpers.dataset import Dataset
 
 
@@ -78,9 +75,7 @@ class DoubleCompressionDataset(Dataset):
         :param sigma: estimated noise power
         :return: noise residual
         """
-
         im = im.astype(np.float32)
-
         noise_var = sigma ** 2
 
         if im.ndim == 2:
@@ -138,81 +133,3 @@ class DoubleCompressionDataset(Dataset):
             residuals = tf.tensor([self._noise_extract(ycbcr) for ycbcr in ycbcrs])
             self.data[split] = tf.concat(self.data[split], residuals, axis=-1)
         logger.info("Residuals appended to each patch.")
-
-
-def train(
-        model,
-        epochs,
-        data,
-        batch_size,
-        cache,
-        qf,
-        patch_size,
-        lr,
-        codec,
-        save_every,
-        save_dir,
-        patience=150,
-        min_delta=0.01,
-        **kwargs
-):
-    performance = {"loss": {"training": []}, "accuracy": {"training": []}}
-    # using half the batch size as it will be doubled after pre-processing batch
-    batch_size //= 2
-    n_batches = data.count_training // batch_size
-    optimizer = tf.keras.optimizers.Adam(lr)
-    # TODO make loss a argument
-    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-        from_logits=True)
-
-    with progress_bar(epochs, "Training") as pbar:
-        for epoch in range(epochs):
-            losses = 0.0
-            accuracies = 0.0
-
-            for batch_id in range(n_batches):
-                batch = data.next_training_batch(batch_id, batch_size,
-                                                 patch_size)
-                batch, labels = preprocess_batch(batch, codec, qf)
-                with tf.GradientTape() as tape:
-                    predictions = model(batch, training=True)
-                    loss = loss_criterion(labels, predictions)
-
-                grads = tape.gradient(loss, model._model.trainable_variables)
-                optimizer.apply_gradients(
-                    zip(grads, model._model.trainable_variables))
-
-                losses += loss.numpy()
-                accuracies += np.mean(
-                    predictions.numpy().argmax(axis=-1) == labels)
-
-            performance["loss"]["training"].append(losses / n_batches)
-            performance["accuracy"]["training"].append(accuracies / n_batches)
-
-            pbar.set_postfix(loss=losses / n_batches)
-            pbar.update(1)
-
-            if (epoch + 1) % save_every == 0:
-                model.save_model(dirname=save_dir)
-                fig = perf(performance, results="training")
-                fig.savefig(
-                    os.path.join(save_dir,
-                                 "training_progress".format(epoch + 1))
-                )
-
-            if (epoch + 1) % patience == 0 and (
-                    performance["loss"]["training"][-patience]
-                    - performance["loss"]["training"][-1]
-            ) < min_delta:
-                logger.log(
-                    1,
-                    "Loss did not decrease by {} in {} epochs. Stopping training.".format(
-                        min_delta, patience
-                    ),
-                )
-                break
-
-    if cache:
-        cache.save(performance, step="performance")
-
-    return performance
