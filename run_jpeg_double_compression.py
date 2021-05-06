@@ -33,11 +33,6 @@ setup_logging()
 sys.path.append(os.path.abspath("/"))
 
 
-# TODO (put in notion) Refactor Workflows to Pipelines
-# TODO Refactor train_* scripts to run_* scripts
-# TODO put together every run scripts
-
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Train a bayesian NN on different methods for downsampling"
@@ -313,7 +308,7 @@ def main():
         optimizer = tf.keras.optimizers.Adam(args.lr)
 
         model._model.compile(optimizer, loss=loss_criterion,
-                             metrics=["accuracy"])
+                             metrics=["accuracy", "val_loss"])
         save_freq = args.save_every * args.n_train_images // args.batch_size
         callbacks = get_callbacks(
             args.save_dir,
