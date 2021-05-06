@@ -297,15 +297,16 @@ def main():
         patch_size=args.patch_size,
         **args.parameters
     )
-    optimizer = tf.keras.optimizers.Adam(learning_rate=args.lr)
-    loss = tf.keras.losses.SparseCategoricalCrossentropy(
-        from_logits=True)
-    model._model.compile(optimizer, loss=loss, metrics=["accuracy"])
 
     if args.load_model:
         model.load_model(os.path.abspath(args.load_model))
     # TODO there is still some hard-coding left, like codec below.
     else:
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        optimizer = tf.keras.optimizers.Adam(args.lr)
+        
+        model._model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
+        
         train_performance = model._model.fit(
             x=data.get_training_generator(args.batch_size, args.patch_size),
             validation_data=data.get_validation_generator(args.batch_size),
