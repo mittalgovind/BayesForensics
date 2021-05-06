@@ -294,7 +294,6 @@ def main():
     # Build a model
     model = JPEGDoubleCompression(
         method=args.uncertainty_method,
-        tensorboard=tb_callback,
         patch_size=args.patch_size,
         **args.parameters
     )
