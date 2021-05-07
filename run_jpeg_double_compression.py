@@ -28,14 +28,13 @@ from workflows.jpeg_double_compression import (
     qf_plot,
 )
 
-setup_logging()
-
 # necessary here, as slurm executes a copy
 sys.path.append(os.path.abspath("/"))
 
 
 def main():
     args = parse_args()
+    setup_logging()
 
     if args.cpu:
         disable_gpu()
@@ -95,6 +94,7 @@ def main():
         qf_train=qf_train,
         qf_test=qf_test,
         codec=JPEG(codec=args.codec),
+        presample_epochs=args.batch_size
     )
 
     # Build a model
@@ -137,8 +137,6 @@ def main():
         fig.savefig(os.path.join(args.save_dir, "training_progress.pdf"))
 
     # TODO Add calibration
-    # TODO add a dataset for calibration specifically (extend class Dataset)
-    # TODO include calibration to the BayesBaseModel
     # if args.calibrate:
     #     model.set_temp(data)
 
