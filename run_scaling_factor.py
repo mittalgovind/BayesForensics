@@ -22,8 +22,9 @@ from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu
 from models.bayes import DeepEnsemble
 from workflows.bayes_scaling_factor import (
-    train_single,
-    train_ensemble,
+    # train_single,
+    # train_ensemble,
+    ScalingFactorDataset,
     run_tests,
     parse_args,
     SFP,
@@ -63,29 +64,25 @@ def main():
 
     flags = {
         "lr": args.lr,
-        "patch_size": args.patch_size,
-        "scales": scales,
-        "sampling_method": args.sampling_method,
-        "classes": classes,
         "save_dir": args.save_dir,
-        "methods": methods,
         "adversarial": args.adversarial,
         "epsilon": args.epsilon,
         "save_every": args.save_every,
     }
 
-    data = Dataset(
+    data = ScalingFactorDataset(
         data_directory=args.data_dir,
         load="y",
         n_images=args.n_train_images,
         v_images=args.n_val_images,
-        randomize=69,
+        randomize=args.seed,
+        scales=args.scales,
+        patch_size=args.patch_size,
+        sampling_method=args.sampling_method,
+        n_classes=args.n_classes,
+        codec=args.codec if args.jpeg_compression else None,
+        jpeg_quality=args.jpeg_quality
     )
-
-    if args.jpeg_compression:
-        codec = JPEG(quality=args.jpeg_quality, codec="libjpeg")
-    else:
-        codec = None
 
     if args.uncertainty_method == "ensemble":
         model = DeepEnsemble([

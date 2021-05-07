@@ -47,10 +47,10 @@ def parse_args():
     parser.add_argument(
         "--codec",
         action="store",
-        default="soft",
+        default="libjpeg",
         type=str,
         help="Type of codec. Possible choices - libjpeg, soft, sin, harmonic."
-             " (default: soft)",
+             " (default: libjpeg)",
     )
     parser.add_argument(
         "--patch-size",
