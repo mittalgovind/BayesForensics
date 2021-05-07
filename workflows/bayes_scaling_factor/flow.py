@@ -238,7 +238,7 @@ class BayarStammSFP(BayesBaseModel):
         raise AttributeError(name)
 
 
-class BayarStammCalibrated(TemperatureScaling, BayarStammSFP, ABC):
+class BayarStammCalibrated(BayarStammSFP, ABC):
     """Temperature Scaling subclass for Bayar Stamm model."""
 
     def __init__(
