@@ -83,8 +83,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             self.dropout = tf.keras.layers.Dropout
             self.dense = tf.keras.layers.Dense
 
-        if "temp" in method:
-            self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
+        self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
 
     def create_model(self):
         """Top-level model creator and corresponding modifier."""
@@ -97,8 +96,6 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         logger.info("Model created successfully.")
         logger.info("Number of parameters in the model = {}".format(
             self.count_parameters()))
-        if self.tensorboard:
-            self.tensorboard.set_model(model=self._model)
         logger.info("Layers : {}".format(self._model.layers))
 
     @abstractmethod

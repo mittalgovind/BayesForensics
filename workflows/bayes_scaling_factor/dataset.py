@@ -12,91 +12,104 @@ import os
 import tensorflow as tf
 import numpy as np
 
-# Hacky fix
-sys.path.append("/scratch/jms1595/neural-imaging-dev/")
-
 # Internal libraries
 from helpers.utils import progress_bar
 from helpers.stats import quantize
 from helpers.plots import perf
 from helpers.uncertainty import get_pred
+from helpers.dataset import Dataset
+
+# Hacky fix
+sys.path.append("/scratch/jms1595/neural-imaging-dev/")
 
 
-def preprocess_batch(
-        batch,
-        scales,
-        patch_size,
-        sampling_method,
-        random_method,
-        methods,
-        classes,
-        codec=None
-):
-    """
-    Resize a batch with the desired scaling factor and sampling method.
-    Includes JPEG compression when required.
-    Returns the resized batch and their corresponding labels.
+class ScalingFactorDataset(Dataset):
+    def __init__(self, scales, patch_size, sampling_method, random_method,
+                 n_classes, codec=None, **kwargs):
+        """
+        Subclass of helpers.dataset.Dataset class.
 
-    Parameters
-    ----------
-    batch : list of np.array
-        Batch to be preprocessed.
-    scales : tuple
-        Range of values for scaling factor.
-    patch_size : int
-        Side length in pixels of the square patch.
-    sampling_method : str
-        Method to be used for sampling.
-        Can be one of 'nearest', 'bilinear', 'bicubic', 'lanczos3', or 'random'.
-    random_method : bool
-        Whether sampling_method is 'random' or not.
+        Attributes
+        ----------
+        scales : tuple
+            Range of values for scaling factor.
+        patch_size : int
+            Side length in pixels of the square patch.
+        sampling_method : str
+            Method to be used for sampling. Can be one of 'nearest',
+             'bilinear', 'bicubic', 'lanczos3', or 'random'.
+        random_method : bool
+            Whether sampling_method is 'random' or not.
+        n_classes : int
+            Number of classes to split the scales range into.
+        """
+        super().__init__(**kwargs)
+        self.scales = (
+            float(scales.split(",")[0]), float(scales.split(",")[1]))
+        self.patch_size = patch_size
+        self.sampling_method = sampling_method
+        self.random_method = random_method
+        self.methods = ["nearest", "bilinear", "bicubic", "lanczos3", "random"]
+        self.classes = np.linspace(*scales, num=n_classes)
+        self.codec = codec
 
-    Returns
-    -------
-    batch_processed : tf.Tensor
-        Tensor containing the resized batch.
-    batch_sf : tf.Tensor
-        Tensor containing the target labels.
-    """
-    sf = tf.random.uniform((1,), *scales)
-    resized_size = int(sf * patch_size)
+    def preprocess_batch(self, batch, **kwargs):
+        """
+        Resize a batch with the desired scaling factor and sampling method.
+        Includes JPEG compression when required.
+        Returns the resized batch and their corresponding labels.
 
-    # Choose sampling method.
-    if random_method:
-        method_idx = tf.random.shuffle([0, 1, 2, 3])[0]
-        m = methods[method_idx]
-    else:
-        m = sampling_method
+        Parameters
+        ----------
+        batch : list of np.array
+            Batch to be preprocessed.
 
-    # Resize batch.
-    batch_processed = tf.image.resize(batch, [resized_size, resized_size],
-                                      method=m)
-    class_id = quantize(sf.numpy(), classes, return_indices=True)
-    batch_sf = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
+        Returns
+        -------
+        batch_processed : tf.Tensor
+            Tensor containing the resized batch.
+        batch_sf : tf.Tensor
+            Tensor containing the target labels.
+        """
+        sf = tf.random.uniform((1,), *self.scales)
+        resized_size = int(sf * self.patch_size)
 
-    # Convert to JPEG if a codec is passed.
-    if codec is not None:
-        batch_processed = codec.process(batch_processed)
+        # Choose sampling method.
+        if self.random_method:
+            method_idx = tf.random.shuffle([0, 1, 2, 3])[0]
+            m = self.methods[method_idx]
+        else:
+            m = self.sampling_method
 
-    return batch_processed, batch_sf
+        # Resize batch.
+        batch_processed = tf.image.resize(batch, [resized_size, resized_size],
+                                          method=m)
+        class_id = quantize(sf.numpy(), self.classes, return_indices=True)
+        batch_sf = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
+
+        # Convert to JPEG if a codec is passed.
+        if self.codec is not None:
+            batch_processed = self.codec.process(batch_processed)
+
+        return batch_processed, batch_sf
 
 
 def train_single(
-    model,
-    epochs,
-    data,
-    batch_size,
-    cache,
-    codec,
-    patch_size,
-    scales,
-    classes,
-    sampling_method,
-    save_dir,
-    lr,
-    methods,
-    save_every,
-    **kwargs
+        model,
+        epochs,
+        data,
+        batch_size,
+        cache,
+        codec,
+        patch_size,
+        scales,
+        classes,
+        sampling_method,
+        save_dir,
+        lr,
+        methods,
+        save_every,
+        **kwargs
 ):
     """Scaling factor training
     Parameters
@@ -116,7 +129,8 @@ def train_single(
     n_batches = data.count_training // batch_size
 
     performance = {"loss": {"training": []}, "accuracy": {"training": []}}
-    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+        from_logits=True)
     opt = tf.keras.optimizers.Adam(lr)
 
     with progress_bar(epochs, "Training") as pbar:
@@ -144,8 +158,9 @@ def train_single(
                     loss = loss_criterion(batch_sf, logits)
 
                 grads = tape.gradient(loss, model._model.trainable_variables)
-                opt.apply_gradients(zip(grads, model._model.trainable_variables))
-                
+                opt.apply_gradients(
+                    zip(grads, model._model.trainable_variables))
+
                 predictions = get_pred(tf.convert_to_tensor([logits]))
 
                 # Update loss counter
@@ -162,10 +177,12 @@ def train_single(
                 model.save_model(dirname=save_dir)
                 fig = perf(performance, results="training")
                 fig.savefig(
-                    os.path.join(save_dir, "training_progress".format(epoch + 1)))
+                    os.path.join(save_dir,
+                                 "training_progress".format(epoch + 1)))
 
         if cache:
-            cache.save(performance, step="performance", sampling_method=sampling_method)
+            cache.save(performance, step="performance",
+                       sampling_method=sampling_method)
 
     return performance
 
@@ -219,7 +236,8 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
     n_batches = data.count_training // batch_size
 
     # Different performance dictionary for each model.
-    performance = [{"loss": {"training": []}, "accuracy": {"training": []}} for _ in model.models]
+    performance = [{"loss": {"training": []}, "accuracy": {"training": []}} for
+                   _ in model.models]
     n_batches = data.count_training // batch_size
     opt = tf.keras.optimizers.Adam(lr)
     loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
@@ -275,10 +293,11 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
                                 model.models[i](batch_adv, training=True)
                             )
 
-                    grads = tape.gradient(loss, model.models[i]._model.trainable_variables)
+                    grads = tape.gradient(loss, model.models[
+                        i]._model.trainable_variables)
                     opt.apply_gradients(
                         zip(grads, model.models[i]._model.trainable_variables))
-                    
+
                     predictions = get_pred(tf.convert_to_tensor([logits]))
                     # Update loss counter.
                     losses[i] += loss.numpy()
@@ -288,7 +307,8 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
             for i in range(model.n_models):
                 performance[i]["loss"]["training"].append(
                     losses[i] / n_batches)
-                performance[i]["accuracy"]["training"].append(accuracies[i] / n_batches)
+                performance[i]["accuracy"]["training"].append(
+                    accuracies[i] / n_batches)
 
             pbar.set_postfix(loss=np.mean(losses) / n_batches)
             pbar.update(1)

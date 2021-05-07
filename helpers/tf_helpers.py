@@ -54,10 +54,10 @@ def ssim(a, b):
 
 def corr(a, b):
     a = (a - tf.reduce_mean(a, axis=[1, 2, 3], keepdims=True)) / (
-        1e-9 + tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True)
+            1e-9 + tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True)
     )
     b = (b - tf.reduce_mean(b, axis=[1, 2, 3], keepdims=True)) / (
-        1e-9 + tf.math.reduce_std(b, axis=[1, 2, 3], keepdims=True)
+            1e-9 + tf.math.reduce_std(b, axis=[1, 2, 3], keepdims=True)
     )
     c = tf.reduce_mean(a * b, axis=[1, 2, 3])
     return c
@@ -91,7 +91,6 @@ def instance_normalization(x):
 
 
 def manipulation_resample(x, factor=50, method="bilinear"):
-
     if 0 < factor <= 1:
         factor = 100 * factor
 
@@ -122,7 +121,8 @@ def manipulation_median(x, kernel=3):
         kernel += 1
     kernel = max(kernel, 1)
 
-    xp = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], "REFLECT")
+    xp = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]],
+                "REFLECT")
     patches = tf.image.extract_patches(
         xp, [1, kernel, kernel, 1], [1, 1, 1, 1], 4 * [1], "VALID"
     )
@@ -156,7 +156,8 @@ def manipulation_gaussian(x, kernel, std, skip_clip=False):
     for r in range(x.shape[-1]):
         gfilter[:, :, r, r] = gk
     gkk = tf.constant(gfilter, tf.float32)
-    xp = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], "REFLECT")
+    xp = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]],
+                "REFLECT")
     y = tf.nn.conv2d(xp, gkk, [1, 1, 1, 1], "VALID")
     if skip_clip:
         return y
@@ -187,7 +188,8 @@ def residual(x, hsv=False):
 
         gkk = tf.constant(gfilter, tf.float32)
 
-        y = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], "REFLECT")
+        y = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]],
+                   "REFLECT")
 
         if hsv:
             y = tf.image.rgb_to_hsv(y)
@@ -244,7 +246,6 @@ def residual(x, hsv=False):
 
 
 def residual(x, hsv=False):
-
     # Prepare the residual filter
     gk = np.array(
         [
@@ -266,7 +267,8 @@ def residual(x, hsv=False):
 
     gkk = tf.constant(gfilter, tf.float32)
 
-    y = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], "REFLECT")
+    y = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]],
+               "REFLECT")
 
     y = tf.image.rgb_to_hsv(y) if hsv else y
     y = tf.nn.conv2d(y, gkk, [1, 1, 1, 1], "VALID")
@@ -283,14 +285,16 @@ def residual_norm(rgb_src, src_batch=0, shuffle=True):
         rgb_src = rgb_src[:src_batch]
     res_src = residual(rgb_src)
     res_src = tf.reduce_mean(res_src, axis=0, keepdims=True)
-    res_src = (res_src - tf.reduce_mean(res_src)) / (1e-9 + tf.math.reduce_std(res_src))
+    res_src = (res_src - tf.reduce_mean(res_src)) / (
+            1e-9 + tf.math.reduce_std(res_src))
     return res_src
 
 
 def soft_saturation(x, t=30, alpha=0.01):
     t = tf.abs(tf.cast(t, tf.float32))
     excess = tf.cast(tf.abs(x) > t, tf.float32)
-    return x * (1 - excess) + excess * (tf.sign(x) * t + alpha * (x - tf.sign(x) * t))
+    return x * (1 - excess) + excess * (
+            tf.sign(x) * t + alpha * (x - tf.sign(x) * t))
 
 
 def _strip_consts(graph_def, max_const_size=32):
@@ -303,7 +307,8 @@ def _strip_consts(graph_def, max_const_size=32):
             tensor = n.attr["value"].tensor
             size = len(tensor.tensor_content)
             if size > max_const_size:
-                tensor.tensor_content = bytes("<stripped %d bytes>" % size, "ascii")
+                tensor.tensor_content = bytes("<stripped %d bytes>" % size,
+                                              "ascii")
     return strip_def
 
 
@@ -315,7 +320,8 @@ def show_model(model, show_shapes=True, expand_nested=False):
 
 
 def show_graph(
-    graph_def=None, width=1200, height=800, max_const_size=32, ungroup_gradients=False
+        graph_def=None, width=1200, height=800, max_const_size=32,
+        ungroup_gradients=False
 ):
     """ Generate a dynamic visualization of a tf.keras.Model using Tensorboard. """
 
@@ -402,15 +408,18 @@ def entropy(values, codebook, v=50, gamma=25):
 
     # Compute soft-quantization
     if v <= 0:
-        dff = tf.cast(values, dtype=prec_dtype) - tf.cast(codebook, dtype=prec_dtype)
+        dff = tf.cast(values, dtype=prec_dtype) - tf.cast(codebook,
+                                                          dtype=prec_dtype)
         weights = tf.exp(-gamma * tf.pow(dff, 2))
     else:
         # t-Student-like distance measure with heavy tails
-        dff = tf.cast(values, dtype=prec_dtype) - tf.cast(codebook, dtype=prec_dtype)
+        dff = tf.cast(values, dtype=prec_dtype) - tf.cast(codebook,
+                                                          dtype=prec_dtype)
         dff = gamma * dff
         weights = tf.pow((1 + tf.pow(dff, 2) / v), -(v + 1) / 2)
 
-    weights = (weights + eps) / (tf.reduce_sum(weights + eps, axis=1, keepdims=True))
+    weights = (weights + eps) / (
+        tf.reduce_sum(weights + eps, axis=1, keepdims=True))
     assert weights.shape[1] == np.prod(codebook.shape)
 
     # Compute soft histogram
@@ -418,7 +427,7 @@ def entropy(values, codebook, v=50, gamma=25):
     histogram = tf.clip_by_value(histogram, 1e-9, tf.float32.max)
     histogram = histogram / tf.reduce_sum(histogram)
     entropy = (
-        -tf.reduce_sum(histogram * tf.math.log(histogram)) / 0.6931
+            -tf.reduce_sum(histogram * tf.math.log(histogram)) / 0.6931
     )  # 0.6931 - log(2)
     entropy = tf.cast(entropy, tf.float32)
 
@@ -478,10 +487,28 @@ def reset_layer(layer, alpha=0):
     layer.set_weights(w)
 
 
-def get_callbacks(name):
+def get_callbacks(path, save_freq=0, monitor='val_loss', patience=200,
+                  tensorboard=False, verbose=0, save_best_only=False):
     """callbacks list for keras models."""
-    return [
-        tf.keras.callbacks.EarlyStopping(monitor='val_binary_crossentropy',
-                                         patience=200),
-        tf.keras.callbacks.TensorBoard(name),
+    verbose = 1 if verbose != 1 else 0
+    callbacks = [
+        tf.keras.callbacks.EarlyStopping(monitor=monitor,
+                                         patience=patience,
+                                         verbose=verbose),
     ]
+
+    if save_freq != 0:
+        callbacks.append(tf.keras.callbacks.ModelCheckpoint(
+            filepath=os.path.join(path, 'model.h5'),
+            save_weights_only=True,
+            monitor=monitor, mode='auto',
+            save_best_only=save_best_only,
+            save_freq=save_freq,
+            verbose=verbose
+        ))
+
+    if tensorboard:
+        callbacks.append(tf.keras.callbacks.TensorBoard(
+            os.path.join(path, 'tensorboard.log')))
+
+    return callbacks

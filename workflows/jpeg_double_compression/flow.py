@@ -35,7 +35,6 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             trainable_residual=True,
             drop=0.1,
             residual_type='trainable',
-            tensorboard=None,
             patch_size=64,
             **kwargs
     ):
@@ -71,7 +70,6 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
                 [[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5],
                  [128, 0.5, -0.418688, -0.081312]], dtype=np.float32)
 
-        self.tensorboard = tensorboard
         self.patch_size = patch_size
         self.filter_multiplier = filter_multiplier
         self.dense_multiplier = dense_multiplier
