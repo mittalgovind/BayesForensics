@@ -100,16 +100,15 @@ def main():
 
     print(args.parameters)
 
-    if args.uncertainty_method == "ensemble":
-        model = DeepEnsemble([
-            ScalingFactor(
+    model = ScalingFactor(
                 method=args.uncertainty_method,
                 n_classes=args.n_classes,
                 patch_size=128,
                 dropout=0.1,
-            ) for _ in range(5)]
-        )
+            )
 
+    if args.uncertainty_method == "ensemble":
+        model = DeepEnsemble([model for _ in range(5)])
         train_function = train_ensemble
 
     else:
@@ -125,13 +124,6 @@ def main():
             append_rgb=False,
         )
         '''
-        model = ScalingFactor(
-            method=args.uncertainty_method,
-            n_classes=args.n_classes,
-            patch_size=128,
-            dropout=0.1,
-        )
-
         train_function = train_single
 
     if args.cont_model_path:
