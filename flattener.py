@@ -4,6 +4,8 @@
 # New York University
 # By: Govind (mittal@nyu.edu)
 
+# TODO (Marcelo) Don't remember me making this file.
+
 # Standard libraries
 import os
 

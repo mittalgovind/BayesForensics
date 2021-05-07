@@ -114,12 +114,6 @@ def parse_args():
         help="Seed used for randomization. (default: 69)",
     )
     parser.add_argument(
-        "--calibrate",
-        action="store_true",
-        default=False,
-        help="Calibrate model using temperature scaling.",
-    )
-    parser.add_argument(
         "--save-dir", type=str, default="./output",
         help="Output save directory"
     )
@@ -128,6 +122,12 @@ def parse_args():
         type=str,
         default="/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k",
         help="Data directory for getting images from.",
+    )
+    parser.add_argument(
+        "--parameters",
+        type=str,
+        default=None,
+        help="path to a parameters JSON file."
     )
     parser.add_argument(
         "-se",

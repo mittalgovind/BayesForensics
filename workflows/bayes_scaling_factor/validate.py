@@ -11,8 +11,6 @@ import tensorflow as tf
 
 # Internal libraries
 from helpers.utils import progress_bar
-from .train import preprocess_batch
-from helpers.uncertainty import get_pred
 
 
 def run_tests(

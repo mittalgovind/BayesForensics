@@ -63,10 +63,10 @@ def main():
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
     # TODO (Govind) Change to the new standard parameters from sensor branch.
-    if args.parameters is None:
-        f = open('config/jpeg_double/default_params.json', 'r')
-    else:
+    if args.parameters:
         f = open(args.parameters, 'r')
+    else:
+        f = open('config/jpeg_double/default_params.json', 'r')
 
     try:
         parameters = json.load(f)

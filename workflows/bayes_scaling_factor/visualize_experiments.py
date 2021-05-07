@@ -13,7 +13,7 @@ import matplotlib.ticker as ticker
 
 # Internal libraries
 from models.bayes import DeepEnsemble
-from flow import SFP, BayarStammSFP
+from flow import SFP, ScalingFactor
 from helpers.dataset import Dataset
 from helpers.uncertainty import variation_ratio, predictive_entropy, mutual_information, get_pred
 from helpers.plots import sub

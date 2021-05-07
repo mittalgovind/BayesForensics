@@ -53,7 +53,7 @@ class ScalingFactorDataset(Dataset):
         self.sampling_method = sampling_method
         self.methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
         self.random_method = self.sampling_method == "random"
-        self.classes = np.linspace(*scales, num=n_classes)
+        self.classes = np.linspace(*self.scales, num=n_classes)
         if codec:
             self.codec = JPEG(quality=jpeg_quality, codec=codec)
 

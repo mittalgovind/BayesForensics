@@ -7,101 +7,36 @@
 # Standard libraries
 
 # External libraries
-from abc import ABC
-import numpy as np
 import tensorflow as tf
 
 # Internal libraries
-from helpers.stats import quantize
 from helpers.paramspec import ParamSpec
 from helpers.tf_helpers import activation_mapping
 from models.layers import ConstrainedConv2D
 from models.bayes import BayesBaseModel
-from models.bayes.temp_scaling import TemperatureScaling
 from models.bayes import DeepEnsemble
-from helpers.utils import progress_bar
-from helpers.stats import quantize
 
 
-class SFP(BayesBaseModel):
-    def __init__(
-        self,
-        method,
-        c_filters,
-        d_filters,
-        kernel,
-        trainable_residual,
-        drop,
-        append_rgb,
-        **kwargs
-    ):
-
-        super().__init__(method=method, **kwargs)
-
-        self._layers = []
-        self.c_filters = c_filters
-        self.d_filters = d_filters
-        self.kernel = kernel
-        self.trainable_residual = trainable_residual
-        self.drop_rate = drop
-        self.append_rgb = append_rgb
-        self._residual = ConstrainedConv2D(trainable=self.trainable_residual)
-
-        self._create_model()
-
-    def _create_model(self):
-        """Need to override to specify model architecture."""
-        # Setup conv layers
-        for n_filters in self.c_filters:
-            self._layers.append(
-                self.conv2d(n_filters, self.kernel, activation=self.activation)
-            )
-
-        self._layers.append(tf.keras.layers.GlobalAvgPool2D())
-
-        # Setup dense layers
-        for n, n_filters in enumerate(self.d_filters):
-            act = None if n == len(self.d_filters) - 1 else self.activation
-            self._layers.append(self.dense(n_filters, activation=act))
-            if self.drop_rate > 0 and n < len(self.d_filters) - 1:
-                self._layers.append(self.dropout(self.drop_rate))
-
-        self._model = tf.keras.Sequential(self._layers)
-        self.model_created = True
-
-    def _call(self, inputs, training=False):
-        """Vanilla part of the forward pass for the model."""
-        x = inputs
-        r = self._residual(x)
-
-        if self.append_rgb:
-            f = tf.keras.layers.concatenate([x, r])
-        else:
-            f = r
-
-        return self._model(f, training=training)
-
-
-class BayarStammSFP(BayesBaseModel):
+class ScalingFactor(BayesBaseModel):
     """Model taken from Bayar & Stamm.
     Ref: Constrained convolutional neural networks: A new approach towards
      general purpose image manipulation detection.
      IEEE Transactions on Information Forensics and Security, 13 (11), 2018."""
 
     def __init__(
-        self,
-        method,
-        n_classes,
-        patch_size=None,
-        n_filters=32,
-        n_fscale=2,
-        n_convolutions=4,
-        kernel=5,
-        dropout=0.0,
-        use_gap=True,
-        n_dense=0,
-        activation="leaky_relu",
-        **kwargs
+            self,
+            method,
+            n_classes,
+            patch_size=None,
+            n_filters=32,
+            n_fscale=2,
+            n_convolutions=4,
+            kernel=5,
+            dropout=0.0,
+            use_gap=True,
+            n_dense=0,
+            activation="leaky_relu",
+            **kwargs
     ):
         """
         Creates a forensic analysis network (see class docstring for details).
@@ -129,7 +64,8 @@ class BayarStammSFP(BayesBaseModel):
                 "dropout": (0, float, (0, 1)),
                 "use_gap": (False, bool, None),
                 "n_dense": (2, int, (0, 16)),
-                "activation": ("leaky_relu", str, set(activation_mapping.keys())),
+                "activation": (
+                "leaky_relu", str, set(activation_mapping.keys())),
             }
         )
         params = locals()
@@ -141,7 +77,7 @@ class BayarStammSFP(BayesBaseModel):
         self.loss = tf.keras.losses.SparseCategoricalCrossentropy()
         self.performance = dict()
 
-        self._create_model()
+        self.create_model()
 
     def _create_model(self):
         # Constrained convolution with a learned residual filter
@@ -191,7 +127,6 @@ class BayarStammSFP(BayesBaseModel):
         )
 
         self._model = tf.keras.Sequential(self._layers)
-        self.model_created = True
 
     def reset_performance_stats(self):
         self.performance = {
@@ -222,7 +157,8 @@ class BayarStammSFP(BayesBaseModel):
         if learning_rate is not None:
             self.optimizer.lr.assign(learning_rate)
         grads = tape.gradient(loss, self._model.trainable_weights)
-        self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
+        self.optimizer.apply_gradients(
+            zip(grads, self._model.trainable_weights))
         return loss
 
     def summary(self):
@@ -233,42 +169,6 @@ class BayarStammSFP(BayesBaseModel):
             gap="+ (GAP) " if self._h.use_gap else "",
             params=self.count_parameters(),
         )
-    
+
     def __getattr__(self, name):
         raise AttributeError(name)
-
-
-class BayarStammCalibrated(BayarStammSFP, ABC):
-    """Temperature Scaling subclass for Bayar Stamm model."""
-
-    def __init__(
-        self,
-        model,
-        batch_size,
-        patch_size=128,
-        scales=(0.25, 1),
-        num_classes=31,
-    ):
-        super().__init__(model, batch_size)
-        self.patch_size = patch_size
-        self.scales = scales
-        self.num_classes = num_classes
-
-    def preprocess(
-        self,
-        batch,
-        return_labels=False,
-    ):
-        """Resizes a batch of images and returns resized images and their labels."""
-        sf = np.random.uniform((1,), *self.scales)
-        classes = np.linspace(*self.scales, num=self.num_classes)
-        batch_resized = tf.image.resize(
-            batch, [int(sf * self.patch_size), int(sf * self.patch_size)]
-        )
-        class_id = quantize(sf, classes, return_indices=True)
-        labels = np.repeat(class_id, len(batch)).reshape((-1, 1))
-        labels = tf.convert_to_tensor(labels)
-        return batch_resized, labels
-
-    def __call__(self, batch, training, *args, **kwargs):
-        super(BayarStammCalibrated, self)._call(batch, training)

@@ -7,6 +7,7 @@
 # Standard libraries
 import sys
 import os
+import json
 
 # External libraries
 import numpy as np
@@ -14,8 +15,6 @@ import tensorflow as tf
 from loguru import logger
 
 # Internal libraries
-from models.jpeg import JPEG
-from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
 from helpers.plots import perf
 from helpers.utils import setup_logging
@@ -27,8 +26,7 @@ from workflows.bayes_scaling_factor import (
     ScalingFactorDataset,
     run_tests,
     parse_args,
-    SFP,
-    BayarStammSFP,
+    ScalingFactor,
     sf_plot,
 )
 
@@ -84,9 +82,27 @@ def main():
         jpeg_quality=args.jpeg_quality
     )
 
+    # TODO (Govind) Change to the new standard parameters from sensor branch.
+    if args.parameters:
+        f = open(args.parameters, 'r')
+    else:
+        f = open('config/scaling_factor/default_params.json', 'r')
+
+    try:
+        parameters = json.load(f)
+        f.close()
+        logger.info(
+            'Model configuration loaded successfully from {}.'.format(f))
+        args.parameters = parameters
+    except RuntimeError:
+        logger.error("Cannot load parameter configuration.")
+        sys.exit()
+
+    print(args.parameters)
+
     if args.uncertainty_method == "ensemble":
         model = DeepEnsemble([
-            BayarStammSFP(
+            ScalingFactor(
                 method=args.uncertainty_method,
                 n_classes=args.n_classes,
                 patch_size=128,
@@ -109,7 +125,7 @@ def main():
             append_rgb=False,
         )
         '''
-        model = BayarStammSFP(
+        model = ScalingFactor(
             method=args.uncertainty_method,
             n_classes=args.n_classes,
             patch_size=128,
