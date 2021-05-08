@@ -191,6 +191,12 @@ def parse_args():
         help="Controls verbosity of training.",
     )
     parser.add_argument(
+        "--presample",
+        type=int,
+        default=0,
+        help="Number of patches to presample per training image (default :0).",
+    )
+    parser.add_argument(
         "--patience-percent",
         type=float,
         default=0.1,

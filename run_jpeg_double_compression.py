@@ -94,7 +94,7 @@ def main():
         qf_train=qf_train,
         qf_test=qf_test,
         codec=JPEG(codec=args.codec),
-        presample_epochs=args.batch_size
+        presample_epochs=args.presample_epochs,
     )
 
     # Build a model
