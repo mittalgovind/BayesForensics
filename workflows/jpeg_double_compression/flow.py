@@ -113,8 +113,8 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
 
 class EnsembleJPEGDoubleCompression(JPEGDoubleCompression):
     def __init__(self, num_models, method, activation, **kwargs):
-        super().__init__(method=method, activation=activation, **kwargs)
         self.n_models = num_models
+        super().__init__(method=method, activation=activation, **kwargs)
 
     def _create_model(self):
         layers = []
