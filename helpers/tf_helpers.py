@@ -487,7 +487,7 @@ def reset_layer(layer, alpha=0):
     layer.set_weights(w)
 
 
-def get_callbacks(path, save_freq=0, monitor='val_loss', patience=200,
+def get_callbacks(path, model_name=None, save_freq=0, monitor='val_loss', patience=200,
                   tensorboard=False, verbose=0, save_best_only=False,
                   min_delta=0.001):
     """callbacks list for keras models."""
@@ -498,10 +498,12 @@ def get_callbacks(path, save_freq=0, monitor='val_loss', patience=200,
                                          min_delta=min_delta,
                                          verbose=verbose),
     ]
+    if not model_name:
+        model_name = 'model.h5'
 
     if save_freq != 0:
         callbacks.append(tf.keras.callbacks.ModelCheckpoint(
-            filepath=os.path.join(path, 'model.h5'),
+            filepath=os.path.join(path, model_name),
             save_weights_only=True,
             monitor=monitor, mode='auto',
             save_best_only=save_best_only,

@@ -87,7 +87,7 @@ def main():
     data = DoubleCompressionDataset(
         data_directory=args.data_dir,
         load="y",
-        n_images=args.n_train_images,
+        n_images=args.n_train_images if not args.load_model else 0,
         v_images=args.n_val_images,
         randomize=args.seed,
         val_rgb_patch_size=args.patch_size,
@@ -125,6 +125,7 @@ def main():
         save_freq = args.save_every * args.n_train_images // args.batch_size
         callbacks = get_callbacks(
             args.save_dir,
+            model_name=model.model_filename,
             save_freq=save_freq,
             tensorboard=args.tensorboard,
             patience=int(args.epochs * args.patience_percent),
@@ -138,7 +139,7 @@ def main():
             verbose=args.verbosity,
             callbacks=callbacks,
             steps_per_epoch=args.n_train_images // args.batch_size,
-            validation_steps=args.n_val_images // args.batch_size
+            validation_steps=args.n_vfmoal_images // args.batch_size
         )
 
         # save the training performance
