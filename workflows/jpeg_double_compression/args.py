@@ -139,9 +139,16 @@ def parse_args():
         help="Number of epochs to log after.",
     )
     parser.add_argument(
-        "-lr", "--lr", action="store", default=5e-4, type=float,
+        "-lr", "--lr", action="store", default=1e-3, type=float,
         help="Learning rate."
     )
+    parser.add_argument(
+        "--validation-freq",
+        default=50,
+        type=int,
+        help="Number of training epochs to run before a new validation run.",
+    )
+
     parser.add_argument(
         "--load-model",
         type=str,
