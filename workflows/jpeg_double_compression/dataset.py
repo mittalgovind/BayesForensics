@@ -42,12 +42,12 @@ class DoubleCompressionDataset(Dataset):
         batch_size = len(batch)
 
         # sample quality factors
-        if 'QF1' in kwargs:
-            QF1 = int(kwargs['QF1'])
+        if "QF1" in kwargs:
+            QF1 = int(kwargs["QF1"])
         else:
             QF1 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
-        if 'QF2' in kwargs:
-            QF2 = int(kwargs['QF2'])
+        if "QF2" in kwargs:
+            QF2 = int(kwargs["QF2"])
         else:
             QF2 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
 
@@ -58,16 +58,15 @@ class DoubleCompressionDataset(Dataset):
 
         # compressing with QF1 before QF2, to give compression history.
         batch_double_compressed = self.codec.process(
-            self.codec.process(batch, QF1), QF2)
-        images = tf.concat((batch_single_compressed, batch_double_compressed),
-                           axis=0)
+            self.codec.process(batch, QF1), QF2
+        )
+        images = tf.concat((batch_single_compressed, batch_double_compressed), axis=0)
         labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)), axis=0)
 
         return images, labels
 
     @staticmethod
-    def _noise_extract(im: np.ndarray, levels: int = 4,
-                       sigma: float = 4) -> np.ndarray:
+    def _noise_extract(im: np.ndarray, levels: int = 4, sigma: float = 4) -> np.ndarray:
         """
         NoiseExtract as from Binghamton toolbox.
         :param im: grayscale or color image, np.uint8
@@ -88,7 +87,7 @@ class DoubleCompressionDataset(Dataset):
 
         for ch in range(im.shape[2]):
 
-            wlet = pywt.wavedec2(im[:, :, ch], 'db4', level=levels)
+            wlet = pywt.wavedec2(im[:, :, ch], "db4", level=levels)
             wlet_details = wlet[1:]
 
             wlet_details_filter = [None] * len(wlet_details)
@@ -97,9 +96,9 @@ class DoubleCompressionDataset(Dataset):
                 # Cycle over H,V,D components
                 level_coeff_filt = [None] * 3
                 for wlet_coeff_idx, wlet_coeff in enumerate(wlet_level):
-                    level_coeff_filt[
-                        wlet_coeff_idx] = commons._wiener_adaptive(wlet_coeff,
-                                                                   noise_var)
+                    level_coeff_filt[wlet_coeff_idx] = commons._wiener_adaptive(
+                        wlet_coeff, noise_var
+                    )
                 wlet_details_filter[wlet_level_idx] = tuple(level_coeff_filt)
 
             # Set filtered detail coefficients for Levels > 0 ---
@@ -109,11 +108,11 @@ class DoubleCompressionDataset(Dataset):
             wlet[0][...] = 0
 
             # Invert wavelet transform ---
-            wrec = pywt.waverec2(wlet, 'db4')
+            wrec = pywt.waverec2(wlet, "db4")
             W[:, :, ch] = wrec
 
         W = W.squeeze()
-        W = W[:im.shape[0], :im.shape[1]]
+        W = W[: im.shape[0], : im.shape[1]]
 
         return W
 
@@ -121,14 +120,18 @@ class DoubleCompressionDataset(Dataset):
         """Calculate and append an external filter to all the patches."""
         logger.info("Calculating PyWavelet residuals ...")
         for split in ["training", "validation", "calibration"]:
-            xc = tf.pad(255.0 * self.data[split],
-                        [[0, 0], [0, 0], [0, 0], [1, 0]],
-                        'CONSTANT',
-                        constant_values=1)
-            ycbcrs = tf.nn.conv2d(xc,
-                                  tf.reshape(tf.transpose(self._color_F),
-                                             [1, 1, 4, 3]),
-                                  [1, 1, 1, 1], 'SAME')
+            xc = tf.pad(
+                255.0 * self.data[split],
+                [[0, 0], [0, 0], [0, 0], [1, 0]],
+                "CONSTANT",
+                constant_values=1,
+            )
+            ycbcrs = tf.nn.conv2d(
+                xc,
+                tf.reshape(tf.transpose(self._color_F), [1, 1, 4, 3]),
+                [1, 1, 1, 1],
+                "SAME",
+            )
             ycbcrs = tf.cast(ycbcrs, dtype=tf.uint8)
             residuals = tf.tensor([self._noise_extract(ycbcr) for ycbcr in ycbcrs])
             self.data[split] = tf.concat(self.data[split], residuals, axis=-1)

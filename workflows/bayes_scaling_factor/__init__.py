@@ -15,4 +15,3 @@ from .validate import run_tests
 from .flow import ScalingFactor
 from .visualize import sf_plot
 from .args import parse_args
-

@@ -21,22 +21,22 @@ from models.bayes import BayesBaseModel
 
 class JPEGDoubleCompression(BayesBaseModel, ABC):
     def __init__(
-            self,
-            conv_layers,
-            dense_layers,
-            method,
-            filters,
-            dense_units,
-            pool_size,
-            kernel,
-            dense_multiplier,
-            filter_multiplier,
-            activation='leaky_relu',
-            trainable_residual=True,
-            drop=0.1,
-            residual_type='trainable',
-            patch_size=64,
-            **kwargs
+        self,
+        conv_layers,
+        dense_layers,
+        method,
+        filters,
+        dense_units,
+        pool_size,
+        kernel,
+        dense_multiplier,
+        filter_multiplier,
+        activation="leaky_relu",
+        trainable_residual=True,
+        drop=0.1,
+        residual_type="trainable",
+        patch_size=64,
+        **kwargs
     ):
         """
         c_filters: int
@@ -60,10 +60,9 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         self.conv_layers = conv_layers
         self.trainable_residual = trainable_residual
         self.drop_rate = drop
-        if residual_type == 'trainable':
-            self.residual = ConstrainedConv2D(
-                trainable=self.trainable_residual)
-        elif residual_type == 'pywt':
+        if residual_type == "trainable":
+            self.residual = ConstrainedConv2D(trainable=self.trainable_residual)
+        elif residual_type == "pywt":
             self.residual = None
         self.patch_size = patch_size
         self.filter_multiplier = filter_multiplier
@@ -79,12 +78,8 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         # Setup conv layers
         for i in range(self.conv_layers):
             filters = int(self.filters * self.filter_multiplier ** i)
-            layers.append(
-                self.conv2d(filters, self.kernel,
-                            activation=self.activation)
-            )
-            layers.append(
-                MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
+            layers.append(self.conv2d(filters, self.kernel, activation=self.activation))
+            layers.append(MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
 
         layers.append(tf.keras.layers.Flatten())
 
@@ -100,8 +95,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         inputs = Input(shape=(self.patch_size, self.patch_size, 3))
         if self.residual:
             # concatenate residual if append_rgb is true
-            outputs = tf.keras.layers.concatenate(
-                [inputs, self.residual(inputs)])
+            outputs = tf.keras.layers.concatenate([inputs, self.residual(inputs)])
         else:
             outputs = inputs
 
@@ -125,11 +119,9 @@ class EnsembleJPEGDoubleCompression(JPEGDoubleCompression):
             for i in range(self.conv_layers):
                 filters = int(self.filters * self.filter_multiplier ** i)
                 layers[j].append(
-                    self.conv2d(filters, self.kernel,
-                                activation=self.activation)
+                    self.conv2d(filters, self.kernel, activation=self.activation)
                 )
-                layers[j].append(
-                    MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
+                layers[j].append(MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
 
             layers[j].append(tf.keras.layers.Flatten())
 
@@ -148,8 +140,7 @@ class EnsembleJPEGDoubleCompression(JPEGDoubleCompression):
             inputs = Input(shape=(self.patch_size, self.patch_size, 3))
             if self.residual:
                 # concatenate residual if append_rgb is true
-                outputs = tf.keras.layers.concatenate(
-                    [inputs, self.residual(inputs)])
+                outputs = tf.keras.layers.concatenate([inputs, self.residual(inputs)])
             else:
                 outputs = inputs
 

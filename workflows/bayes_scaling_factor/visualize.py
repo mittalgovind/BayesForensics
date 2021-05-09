@@ -1,4 +1,9 @@
-from helpers.uncertainty import variation_ratio, predictive_entropy, mutual_information, get_pred
+from helpers.uncertainty import (
+    variation_ratio,
+    predictive_entropy,
+    mutual_information,
+    get_pred,
+)
 import tensorflow as tf
 import numpy as np
 import pandas as pd
@@ -12,28 +17,30 @@ def get_uncertainties(data, classes):
     results = []
     classes = (classes * 128).astype(int)
 
-    for elm in data['runs']:
-        correct = np.where(classes == elm['sf'])[0][0]
-        
-        if len(elm['logits'].shape) == 2:
-            logits = tf.convert_to_tensor([elm['logits']])
+    for elm in data["runs"]:
+        correct = np.where(classes == elm["sf"])[0][0]
+
+        if len(elm["logits"].shape) == 2:
+            logits = tf.convert_to_tensor([elm["logits"]])
         else:
-            logits = elm['logits']
+            logits = elm["logits"]
 
         pred = get_pred(logits)
         vr = variation_ratio(logits)
         pe = predictive_entropy(logits)
         mi = mutual_information(logits)
-        
+
         for i in range(len(pred)):
-            results.append({
-                'method': elm['method'],
-                'correct': correct,
-                'pred': pred[i][0],
-                'variation_ratio': vr[i],
-                'predictive_entropy': pe[i],
-                'mutual_information': mi[i]
-            })
+            results.append(
+                {
+                    "method": elm["method"],
+                    "correct": correct,
+                    "pred": pred[i][0],
+                    "variation_ratio": vr[i],
+                    "predictive_entropy": pe[i],
+                    "mutual_information": mi[i],
+                }
+            )
 
     return results
 
@@ -41,10 +48,15 @@ def get_uncertainties(data, classes):
 def sf_plot(data, classes, training_method, save_dir):
     data = get_uncertainties(data, classes)
 
-    text_classes = [f'{x:.2f}' for x in classes]
-    methods = ['nearest', 'bilinear', 'bicubic', 'lanczos3']
-    method_titles = ['Nearest', 'Bilinear', 'Bicubic', 'Lanczos 3']
-    measure_titles = ['Accuracy', 'Variation Ratio', 'Predictive Entropy', 'Mutual Information']
+    text_classes = [f"{x:.2f}" for x in classes]
+    methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
+    method_titles = ["Nearest", "Bilinear", "Bicubic", "Lanczos 3"]
+    measure_titles = [
+        "Accuracy",
+        "Variation Ratio",
+        "Predictive Entropy",
+        "Mutual Information",
+    ]
 
     acc = [np.zeros((len(classes), len(classes))) for _ in methods]
 
@@ -53,19 +65,21 @@ def sf_plot(data, classes, training_method, save_dir):
     mi = [{} for _ in methods]
 
     for elm in data:
-        ind = methods.index(elm['method'])
+        ind = methods.index(elm["method"])
 
-        acc[ind][elm['correct'], elm['pred']] += 1 / (len(data) / len(classes) / len(methods))
+        acc[ind][elm["correct"], elm["pred"]] += 1 / (
+            len(data) / len(classes) / len(methods)
+        )
 
-        err = np.abs(elm['correct'] - elm['pred'])
+        err = np.abs(elm["correct"] - elm["pred"])
         if err not in vr[ind].keys():
             vr[ind][err] = []
             pe[ind][err] = []
             mi[ind][err] = []
 
-        vr[ind][err].append(elm['variation_ratio'])
-        pe[ind][err].append(elm['predictive_entropy'])
-        mi[ind][err].append(elm['mutual_information'])
+        vr[ind][err].append(elm["variation_ratio"])
+        pe[ind][err].append(elm["predictive_entropy"])
+        mi[ind][err].append(elm["mutual_information"])
 
     for i in range(len(methods)):
         for j in vr[i].keys():
@@ -83,9 +97,9 @@ def sf_plot(data, classes, training_method, save_dir):
             acc[i],
             classes=text_classes,
             axes=acc_axes[i],
-            title=f'Tested using {method_titles[i]}',
+            title=f"Tested using {method_titles[i]}",
             cbar=False,
-            cmap='Greys'
+            cmap="Greys",
         )
 
         sns.lineplot(vr[i].keys(), vr[i].values(), ax=vr_axes[i])
@@ -96,20 +110,22 @@ def sf_plot(data, classes, training_method, save_dir):
         for i in range(len(axes)):
             if i < 2:
                 axes[i].xaxis.tick_top()
-                axes[i].xaxis.set_label_position('top')
+                axes[i].xaxis.set_label_position("top")
 
             if (i % 2) == 1:
                 axes[i].yaxis.tick_right()
-                axes[i].yaxis.set_label_position('right')
+                axes[i].yaxis.set_label_position("right")
 
-            axes[i].set_yticklabels(axes[i].get_yticklabels(), rotation='horizontal')
-            axes[i].set_title(f'Tested using {method_titles[i]}')
+            axes[i].set_yticklabels(axes[i].get_yticklabels(), rotation="horizontal")
+            axes[i].set_title(f"Tested using {method_titles[i]}")
 
     figs = [acc_fig, vr_fig, pe_fig, mi_fig]
     for i in range(len(figs)):
-        figs[i].suptitle(f'{measure_titles[i]} for model trained on {training_method}', size=24)
+        figs[i].suptitle(
+            f"{measure_titles[i]} for model trained on {training_method}", size=24
+        )
 
-    acc_fig.savefig(os.path.join(save_dir, 'acc_matrix.pdf'))
-    vr_fig.savefig(os.path.join(save_dir, 'vr_matrix.pdf'))
-    pe_fig.savefig(os.path.join(save_dir, 'pe_matrix.pdf'))
-    mi_fig.savefig(os.path.join(save_dir, 'mi_matrix.pdf'))
+    acc_fig.savefig(os.path.join(save_dir, "acc_matrix.pdf"))
+    vr_fig.savefig(os.path.join(save_dir, "vr_matrix.pdf"))
+    pe_fig.savefig(os.path.join(save_dir, "pe_matrix.pdf"))
+    mi_fig.savefig(os.path.join(save_dir, "mi_matrix.pdf"))

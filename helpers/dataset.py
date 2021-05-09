@@ -130,6 +130,7 @@ class Dataset(object):
                 load=load,
                 discard=val_discard,
             )
+            np.savez_compressed(data_directory + 'patches_1M.npz', x=self.data["training"]["x"], y=self.data["training"]["y"])
 
     def __getitem__(self, key):
         if key in ["training", "validation", "calibration"]:

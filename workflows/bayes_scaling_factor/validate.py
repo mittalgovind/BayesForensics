@@ -64,22 +64,37 @@ def run_tests(
 
             for m, method in enumerate(methods[:-1]):
                 for s, sf in enumerate(sfs):
-                    rescaled = tf.image.resize(test_batch, [sf, sf],
-                                               method=method)
+                    rescaled = tf.image.resize(test_batch, [sf, sf], method=method)
                     if codec is not None:
                         rescaled = codec.process(rescaled)
 
-                    if uncertainty_method == 'ensemble':
+                    if uncertainty_method == "ensemble":
                         logits = model(rescaled, training=False) / temperature
-                    elif uncertainty_method == 'mc_dropout':
-                        logits = tf.convert_to_tensor([model(rescaled, training=True) for _ in range(num_runs)]) / temperature
+                    elif uncertainty_method == "mc_dropout":
+                        logits = (
+                            tf.convert_to_tensor(
+                                [
+                                    model(rescaled, training=True)
+                                    for _ in range(num_runs)
+                                ]
+                            )
+                            / temperature
+                        )
                     else:
-                        logits = tf.convert_to_tensor([model(rescaled, training=False) for _ in range(num_runs)]) / temperature
+                        logits = (
+                            tf.convert_to_tensor(
+                                [
+                                    model(rescaled, training=False)
+                                    for _ in range(num_runs)
+                                ]
+                            )
+                            / temperature
+                        )
 
                     tests_summary["runs"].append(
                         {"sf": sf, "method": method, "logits": logits}
                     )
-                    
+
                     pbar.update(1)
 
     cache.save(tests_summary, step="tests", sampling_method=sampling_method)

@@ -24,19 +24,19 @@ class ScalingFactor(BayesBaseModel):
      IEEE Transactions on Information Forensics and Security, 13 (11), 2018."""
 
     def __init__(
-            self,
-            method,
-            n_classes,
-            patch_size=None,
-            filters=32,
-            filter_multiplier=2,
-            conv_layers=4,
-            kernel=5,
-            dropout=0.0,
-            use_gap=True,
-            dense_layers=0,
-            activation="leaky_relu",
-            **kwargs
+        self,
+        method,
+        n_classes,
+        patch_size=None,
+        filters=32,
+        filter_multiplier=2,
+        conv_layers=4,
+        kernel=5,
+        dropout=0.0,
+        use_gap=True,
+        dense_layers=0,
+        activation="leaky_relu",
+        **kwargs
     ):
         """
         Creates a forensic analysis network (see class docstring for details).
@@ -78,8 +78,7 @@ class ScalingFactor(BayesBaseModel):
                 "dropout": (0, float, (0, 1)),
                 "use_gap": (False, bool, None),
                 "dense_layers": (2, int, (0, 16)),
-                "activation":
-                    ("leaky_relu", str, set(activation_mapping.keys())),
+                "activation": ("leaky_relu", str, set(activation_mapping.keys())),
             }
         )
         params = locals()
@@ -115,9 +114,7 @@ class ScalingFactor(BayesBaseModel):
 
         # Final 1 x 1 convolution
         self._layers.append(
-            self.conv2D(
-                int(self._h.n_filters), [1, 1], activation=self.activation
-            )
+            self.conv2D(int(self._h.n_filters), [1, 1], activation=self.activation)
         )
 
         # GAP / Feature formation
@@ -165,7 +162,7 @@ class ScalingFactor(BayesBaseModel):
 
     def training_step(self, batch_x, target_labels, learning_rate=None):
         """Make a single training step and return the current loss
-         (Use class numbers for target labels)."""
+        (Use class numbers for target labels)."""
         with tf.GradientTape() as tape:
             class_probabilities = self._model(batch_x)
             loss = self.loss(target_labels, class_probabilities)
@@ -173,19 +170,20 @@ class ScalingFactor(BayesBaseModel):
         if learning_rate is not None:
             self.optimizer.lr.assign(learning_rate)
         grads = tape.gradient(loss, self._model.trainable_weights)
-        self.optimizer.apply_gradients(
-            zip(grads, self._model.trainable_weights))
+        self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
         return loss
 
     def summary(self):
-        return "{kernel}x{kernel} CNN: 1+{conv}+1 conv layers {gap}+ {fc} " \
-               "fc layers [{params:,} parameters]".format(
+        return (
+            "{kernel}x{kernel} CNN: 1+{conv}+1 conv layers {gap}+ {fc} "
+            "fc layers [{params:,} parameters]".format(
                 kernel=self._h.kernel,
                 conv=self._h.n_convolutions,
                 fc=self._h.n_dense,
                 gap="+ (GAP) " if self._h.use_gap else "",
                 params=self.count_parameters(),
-                )
+            )
+        )
 
     def __getattr__(self, name):
         raise AttributeError(name)

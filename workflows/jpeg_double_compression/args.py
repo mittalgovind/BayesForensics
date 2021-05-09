@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# New York University 
+# New York University
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
@@ -23,8 +23,8 @@ def parse_args():
         default="mc-dropout",
         type=str,
         help="Uncertainty method."
-             " Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp',"
-             " 'flipout', or 'reparameterization'.",
+        " Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp',"
+        " 'flipout', or 'reparameterization'.",
     )
     parser.add_argument(
         "--qf-train",
@@ -33,7 +33,7 @@ def parse_args():
         default="75,100",
         type=str,
         help="Comma separated values for lower and upper bound of Quality "
-             "factor used for training, e.g. '75,100'",
+        "factor used for training, e.g. '75,100'",
     )
     parser.add_argument(
         "--qf-test",
@@ -42,7 +42,7 @@ def parse_args():
         default="60,100",
         type=str,
         help="Comma separated values for lower and upper bound of Quality "
-             "factor used for testing, e.g. '60,100'",
+        "factor used for testing, e.g. '60,100'",
     )
     parser.add_argument(
         "--codec",
@@ -50,7 +50,7 @@ def parse_args():
         default="libjpeg",
         type=str,
         help="Type of codec. Possible choices - libjpeg, soft, sin, harmonic."
-             " (default: libjpeg)",
+        " (default: libjpeg)",
     )
     parser.add_argument(
         "--patch-size",
@@ -121,8 +121,7 @@ def parse_args():
         help="Number of test runs per image in validation set",
     )
     parser.add_argument(
-        "--save-dir", type=str, default="./output",
-        help="Output save directory"
+        "--save-dir", type=str, default="./output", help="Output save directory"
     )
     parser.add_argument(
         "--data-dir",
@@ -139,8 +138,7 @@ def parse_args():
         help="Number of epochs to log after.",
     )
     parser.add_argument(
-        "-lr", "--lr", action="store", default=1e-3, type=float,
-        help="Learning rate."
+        "-lr", "--lr", action="store", default=1e-3, type=float, help="Learning rate."
     )
     parser.add_argument(
         "--validation-freq",
@@ -156,10 +154,7 @@ def parse_args():
         default=None,
     )
     parser.add_argument(
-        "--parameters",
-        type=str,
-        default=None,
-        help="path to a parameters JSON file."
+        "--parameters", type=str, default=None, help="path to a parameters JSON file."
     )
     parser.add_argument(
         "--overwrite",
