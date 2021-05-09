@@ -491,8 +491,6 @@ def get_callbacks(path, model_name=None, save_freq=0, monitor='loss', patience=2
                   tensorboard=False, verbose=0, save_best_only=False,
                   min_delta=0.001):
     """callbacks list for keras models."""
-    verbose = 1 if verbose != 1 else 0
-
     callbacks = [
         tf.keras.callbacks.EarlyStopping(monitor=monitor,
                                          patience=patience,
