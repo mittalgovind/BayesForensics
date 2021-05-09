@@ -192,7 +192,6 @@ def parse_args():
     )
     parser.add_argument(
         "--presample",
-        dest="presample_epochs",
         type=int,
         default=0,
         help="Number of patches to presample per training image (default :0).",

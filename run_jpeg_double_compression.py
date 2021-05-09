@@ -95,7 +95,7 @@ def main():
         qf_train=qf_train,
         qf_test=qf_test,
         codec=JPEG(codec=args.codec),
-        presample_epochs=args.presample_epochs,
+        presample_epochs=args.presample,
     )
 
     if args.uncertainty_method == "ensemble":
