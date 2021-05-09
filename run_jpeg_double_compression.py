@@ -25,6 +25,7 @@ from workflows.jpeg_double_compression import (
     parse_args,
     validate,
     JPEGDoubleCompression,
+    EnsembleJPEGDoubleCompression,
     qf_plot,
 )
 
@@ -97,12 +98,20 @@ def main():
         presample_epochs=args.presample_epochs,
     )
 
-    # Build a model
-    model = JPEGDoubleCompression(
-        method=args.uncertainty_method,
-        patch_size=args.patch_size,
-        **args.parameters
-    )
+    if args.uncertainty_method == "ensemble":
+        model = EnsembleJPEGDoubleCompression(
+            num_models=5,
+            method=args.uncertainty_method,
+            patch_size=args.patch_size,
+            **args.parameters,
+        )
+
+    else:
+        model = JPEGDoubleCompression(
+            method=args.uncertainty_method,
+            patch_size=args.patch_size,
+            **args.parameters,
+        )
 
     if args.load_model:
         model.load_model(os.path.abspath(args.load_model))

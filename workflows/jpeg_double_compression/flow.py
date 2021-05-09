@@ -110,3 +110,53 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
 
         self._model = tf.keras.models.Model(inputs, outputs)
 
+
+class EnsembleJPEGDoubleCompression(JPEGDoubleCompression):
+    def __init__(self, num_models=5, method=method, activation=activation, **kwargs):
+        super().__init__(method=method, activation=activation, **kwargs)
+        self.n_models = num_models
+
+    def _create_model(self):
+        layers = []
+
+        for j in range(self.n_models):
+            layers.append([])
+            # Setup conv layers
+            for i in range(self.conv_layers):
+                filters = int(self.filters * self.filter_multiplier ** i)
+                layers[j].append(
+                    self.conv2d(filters, self.kernel,
+                                activation=self.activation)
+                )
+                layers[j].append(
+                    MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
+
+            layers[j].append(tf.keras.layers.Flatten())
+
+            # Setup dense layers
+            for i in range(self.dense_layers):
+                dense_units = int(self.dense_units * self.dense_multiplier ** i)
+                layers[j].append(self.dense(dense_units, activation=self.activation))
+                if self.drop_rate > 0:
+                    layers[j].append(self.dropout(self.drop_rate))
+            layers[j].append(self.dense(2, activation=None))
+
+        inputs_list = []
+        outputs_list = []
+
+        for i in range(self.n_models):
+            inputs = Input(shape=(self.patch_size, self.patch_size, 3))
+            if self.residual:
+                # concatenate residual if append_rgb is true
+                outputs = tf.keras.layers.concatenate(
+                    [inputs, self.residual(inputs)])
+            else:
+                outputs = inputs
+
+            for layer in layers[i]:
+                outputs = layer(outputs)
+
+            inputs_list.append(inputs)
+            outputs_list.append(outputs)
+
+        self._model = tf.keras.models.Model(inputs_list, outputs_list)
