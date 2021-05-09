@@ -139,7 +139,7 @@ def main():
             verbose=args.verbosity,
             callbacks=callbacks,
             steps_per_epoch=args.n_train_images // args.batch_size,
-            validation_steps=args.n_vfmoal_images // args.batch_size,
+            validation_steps=args.n_val_images // args.batch_size,
             validation_freq=args.validation_freq,
         )
 
