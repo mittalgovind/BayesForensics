@@ -13,7 +13,7 @@ import matplotlib.ticker as ticker
 
 # Internal libraries
 from models.bayes import DeepEnsemble
-from flow import SFP, BayarStammSFP
+from flow import SFP, ScalingFactor
 from helpers.dataset import Dataset
 from helpers.uncertainty import variation_ratio, predictive_entropy, mutual_information, get_pred
 from helpers.plots import sub
@@ -160,7 +160,7 @@ def in_scales_experiment(model_type, models_dir, results_dir, num_samples):
             5
         )
     else:
-        model = BayarStammSFP(
+        model = ScalingFactor(
             method=model_type,
             n_classes=31,
             patch_size=128
@@ -201,7 +201,7 @@ def out_scales_experiment(model_type, models_dir, results_dir, num_samples):
             5
         )
     else:
-        model = BayarStammSFP(
+        model = ScalingFactor(
             method=model_type,
             n_classes=31,
             patch_size=128
@@ -247,7 +247,7 @@ def jpeg_experiment(model_type, model_method, models_dir, results_dir, num_sampl
             5
         )
     else:
-        model = BayarStammSFP(
+        model = ScalingFactor(
             method=model_type,
             n_classes=31,
             patch_size=128

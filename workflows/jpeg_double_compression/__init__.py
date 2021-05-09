@@ -10,7 +10,7 @@
 
 # Internal libraries
 
-from .flow import JPEGDoubleCompression
+from .flow import JPEGDoubleCompression, EnsembleJPEGDoubleCompression
 from .dataset import DoubleCompressionDataset
 from .validate import validate
 from .visualize import qf_plot

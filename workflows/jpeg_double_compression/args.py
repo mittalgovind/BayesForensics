@@ -47,10 +47,10 @@ def parse_args():
     parser.add_argument(
         "--codec",
         action="store",
-        default="soft",
+        default="libjpeg",
         type=str,
         help="Type of codec. Possible choices - libjpeg, soft, sin, harmonic."
-             " (default: soft)",
+             " (default: libjpeg)",
     )
     parser.add_argument(
         "--patch-size",
@@ -189,6 +189,12 @@ def parse_args():
         type=int,
         default=2,
         help="Controls verbosity of training.",
+    )
+    parser.add_argument(
+        "--presample",
+        type=int,
+        default=0,
+        help="Number of patches to presample per training image (default :0).",
     )
     parser.add_argument(
         "--patience-percent",

@@ -488,12 +488,14 @@ def reset_layer(layer, alpha=0):
 
 
 def get_callbacks(path, save_freq=0, monitor='val_loss', patience=200,
-                  tensorboard=False, verbose=0, save_best_only=False):
+                  tensorboard=False, verbose=0, save_best_only=False,
+                  min_delta=0.001):
     """callbacks list for keras models."""
     verbose = 1 if verbose != 1 else 0
     callbacks = [
         tf.keras.callbacks.EarlyStopping(monitor=monitor,
                                          patience=patience,
+                                         min_delta=min_delta,
                                          verbose=verbose),
     ]
 

@@ -18,14 +18,15 @@ from helpers.stats import quantize
 from helpers.plots import perf
 from helpers.uncertainty import get_pred
 from helpers.dataset import Dataset
+from models.jpeg import JPEG
 
 # Hacky fix
 sys.path.append("/scratch/jms1595/neural-imaging-dev/")
 
 
 class ScalingFactorDataset(Dataset):
-    def __init__(self, scales, patch_size, sampling_method, random_method,
-                 n_classes, codec=None, **kwargs):
+    def __init__(self, scales, patch_size, sampling_method,
+                 n_classes, codec=None, jpeg_quality=100, **kwargs):
         """
         Subclass of helpers.dataset.Dataset class.
 
@@ -38,20 +39,23 @@ class ScalingFactorDataset(Dataset):
         sampling_method : str
             Method to be used for sampling. Can be one of 'nearest',
              'bilinear', 'bicubic', 'lanczos3', or 'random'.
-        random_method : bool
-            Whether sampling_method is 'random' or not.
         n_classes : int
             Number of classes to split the scales range into.
+        codec : str or None
+            JPEG Compression type to preprocess batch with. None = no compression.
+        jpeg_quality : int
+            JPEG quality to compress with.
         """
         super().__init__(**kwargs)
         self.scales = (
             float(scales.split(",")[0]), float(scales.split(",")[1]))
         self.patch_size = patch_size
         self.sampling_method = sampling_method
-        self.random_method = random_method
-        self.methods = ["nearest", "bilinear", "bicubic", "lanczos3", "random"]
-        self.classes = np.linspace(*scales, num=n_classes)
-        self.codec = codec
+        self.methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
+        self.random_method = self.sampling_method == "random"
+        self.classes = np.linspace(*self.scales, num=n_classes)
+        if codec:
+            self.codec = JPEG(quality=jpeg_quality, codec=codec)
 
     def preprocess_batch(self, batch, **kwargs):
         """
@@ -61,7 +65,7 @@ class ScalingFactorDataset(Dataset):
 
         Parameters
         ----------
-        batch : list of np.array
+        batch : np.array
             Batch to be preprocessed.
 
         Returns
@@ -76,8 +80,7 @@ class ScalingFactorDataset(Dataset):
 
         # Choose sampling method.
         if self.random_method:
-            method_idx = tf.random.shuffle([0, 1, 2, 3])[0]
-            m = self.methods[method_idx]
+            m = tf.random.choice(self.methods)
         else:
             m = self.sampling_method
 

@@ -7,6 +7,7 @@
 # Standard libraries
 import sys
 import os
+import json
 
 # External libraries
 import numpy as np
@@ -14,20 +15,18 @@ import tensorflow as tf
 from loguru import logger
 
 # Internal libraries
-from models.jpeg import JPEG
-from helpers.dataset import Dataset
 from helpers.results_data import ResultCache
 from helpers.plots import perf
 from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu
 from models.bayes import DeepEnsemble
 from workflows.bayes_scaling_factor import (
-    train_single,
-    train_ensemble,
+    # train_single,
+    # train_ensemble,
+    ScalingFactorDataset,
     run_tests,
     parse_args,
-    SFP,
-    BayarStammSFP,
+    ScalingFactor,
     sf_plot,
 )
 
@@ -63,40 +62,53 @@ def main():
 
     flags = {
         "lr": args.lr,
-        "patch_size": args.patch_size,
-        "scales": scales,
-        "sampling_method": args.sampling_method,
-        "classes": classes,
         "save_dir": args.save_dir,
-        "methods": methods,
         "adversarial": args.adversarial,
         "epsilon": args.epsilon,
         "save_every": args.save_every,
     }
 
-    data = Dataset(
+    data = ScalingFactorDataset(
         data_directory=args.data_dir,
         load="y",
         n_images=args.n_train_images,
         v_images=args.n_val_images,
-        randomize=69,
+        randomize=args.seed,
+        scales=args.scales,
+        patch_size=args.patch_size,
+        sampling_method=args.sampling_method,
+        n_classes=args.n_classes,
+        codec=args.codec if args.jpeg_compression else None,
+        jpeg_quality=args.jpeg_quality
     )
 
-    if args.jpeg_compression:
-        codec = JPEG(quality=args.jpeg_quality, codec="libjpeg")
+    # TODO (Govind) Change to the new standard parameters from sensor branch.
+    if args.parameters:
+        f = open(args.parameters, 'r')
     else:
-        codec = None
+        f = open('config/scaling_factor/default_params.json', 'r')
 
-    if args.uncertainty_method == "ensemble":
-        model = DeepEnsemble([
-            BayarStammSFP(
+    try:
+        parameters = json.load(f)
+        f.close()
+        logger.info(
+            'Model configuration loaded successfully from {}.'.format(f))
+        args.parameters = parameters
+    except RuntimeError:
+        logger.error("Cannot load parameter configuration.")
+        sys.exit()
+
+    print(args.parameters)
+
+    model = ScalingFactor(
                 method=args.uncertainty_method,
                 n_classes=args.n_classes,
                 patch_size=128,
                 dropout=0.1,
-            ) for _ in range(5)]
-        )
+            )
 
+    if args.uncertainty_method == "ensemble":
+        model = DeepEnsemble([model for _ in range(5)])
         train_function = train_ensemble
 
     else:
@@ -112,13 +124,6 @@ def main():
             append_rgb=False,
         )
         '''
-        model = BayarStammSFP(
-            method=args.uncertainty_method,
-            n_classes=args.n_classes,
-            patch_size=128,
-            dropout=0.1,
-        )
-
         train_function = train_single
 
     if args.cont_model_path:

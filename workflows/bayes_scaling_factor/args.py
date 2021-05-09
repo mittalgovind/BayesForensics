@@ -108,10 +108,10 @@ def parse_args():
              "'temp-scaling', 'mc-temp', 'flipout', 'reparameterization'.",
     )
     parser.add_argument(
-        "--calibrate",
-        action="store_true",
-        default=False,
-        help="Calibrate model using temperature scaling.",
+        "--seed",
+        default=69,
+        type=int,
+        help="Seed used for randomization. (default: 69)",
     )
     parser.add_argument(
         "--save-dir", type=str, default="./output",
@@ -122,6 +122,12 @@ def parse_args():
         type=str,
         default="/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k",
         help="Data directory for getting images from.",
+    )
+    parser.add_argument(
+        "--parameters",
+        type=str,
+        default=None,
+        help="path to a parameters JSON file."
     )
     parser.add_argument(
         "-se",
@@ -167,6 +173,14 @@ def parse_args():
         action="store_true",
         dest="jpeg_compression",
         help="Use JPEG compression")
+    parser.add_argument(
+        "--codec",
+        action="store",
+        default="libjpeg",
+        type=str,
+        help="Type of codec. Possible choices - libjpeg, soft, sin, harmonic."
+             " (default: libjpeg)",
+    )
     parser.add_argument(
         '--jpeg-quality',
         '-jq',

@@ -25,10 +25,9 @@ from workflows.jpeg_double_compression import (
     parse_args,
     validate,
     JPEGDoubleCompression,
+    EnsembleJPEGDoubleCompression,
     qf_plot,
 )
-
-setup_logging()
 
 # necessary here, as slurm executes a copy
 sys.path.append(os.path.abspath("/"))
@@ -36,6 +35,7 @@ sys.path.append(os.path.abspath("/"))
 
 def main():
     args = parse_args()
+    setup_logging()
 
     if args.cpu:
         disable_gpu()
@@ -63,10 +63,10 @@ def main():
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
     # TODO (Govind) Change to the new standard parameters from sensor branch.
-    if args.parameters is None:
-        f = open('config/jpeg_double/default_params.json', 'r')
-    else:
+    if args.parameters:
         f = open(args.parameters, 'r')
+    else:
+        f = open('config/jpeg_double/default_params.json', 'r')
 
     try:
         parameters = json.load(f)
@@ -95,14 +95,23 @@ def main():
         qf_train=qf_train,
         qf_test=qf_test,
         codec=JPEG(codec=args.codec),
+        presample_epochs=args.presample_epochs,
     )
 
-    # Build a model
-    model = JPEGDoubleCompression(
-        method=args.uncertainty_method,
-        patch_size=args.patch_size,
-        **args.parameters
-    )
+    if args.uncertainty_method == "ensemble":
+        model = EnsembleJPEGDoubleCompression(
+            num_models=5,
+            method=args.uncertainty_method,
+            patch_size=args.patch_size,
+            **args.parameters,
+        )
+
+    else:
+        model = JPEGDoubleCompression(
+            method=args.uncertainty_method,
+            patch_size=args.patch_size,
+            **args.parameters,
+        )
 
     if args.load_model:
         model.load_model(os.path.abspath(args.load_model))
@@ -137,8 +146,6 @@ def main():
         fig.savefig(os.path.join(args.save_dir, "training_progress.pdf"))
 
     # TODO Add calibration
-    # TODO add a dataset for calibration specifically (extend class Dataset)
-    # TODO include calibration to the BayesBaseModel
     # if args.calibrate:
     #     model.set_temp(data)
 
