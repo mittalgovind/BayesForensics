@@ -129,14 +129,14 @@ def main():
             save_freq=save_freq,
             tensorboard=args.tensorboard,
             patience=int(args.epochs * args.patience_percent),
-            verbose=args.verbosity
+            verbose=args.verbose
         ),
         train_performance = model._model.fit(
             x=data.get_training_generator(args.batch_size, args.patch_size),
             validation_data=data.get_validation_generator(args.batch_size),
             epochs=args.epochs,
             batch_size=args.batch_size,
-            verbose=args.verbosity,
+            verbose=args.verbose,
             callbacks=callbacks,
             steps_per_epoch=args.n_train_images // args.batch_size,
             validation_steps=args.n_val_images // args.batch_size,

@@ -192,7 +192,7 @@ def parse_args():
         help="Disables GPU utilization.",
     )
     parser.add_argument(
-        "--verbosity",
+        "--verbose",
         type=int,
         default=2,
         help="Controls verbosity of training.",
