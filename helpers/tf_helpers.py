@@ -487,17 +487,21 @@ def reset_layer(layer, alpha=0):
     layer.set_weights(w)
 
 
-def get_callbacks(path, model_name=None, save_freq=0, monitor='val_loss', patience=200,
+def get_callbacks(path, model_name=None, save_freq=0, monitor='loss', patience=200,
                   tensorboard=False, verbose=0, save_best_only=False,
                   min_delta=0.001):
     """callbacks list for keras models."""
     verbose = 1 if verbose != 1 else 0
+
     callbacks = [
         tf.keras.callbacks.EarlyStopping(monitor=monitor,
                                          patience=patience,
                                          min_delta=min_delta,
                                          verbose=verbose),
     ]
+    if verbose == 0:
+        from tqdm.keras import TqdmCallback
+        callbacks.append(TqdmCallback(verbose=2))
     if not model_name:
         model_name = 'model.h5'
 
