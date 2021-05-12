@@ -133,11 +133,10 @@ class EnsembleJPEGDoubleCompression(JPEGDoubleCompression):
                     layers[j].append(self.dropout(self.drop_rate))
             layers[j].append(self.dense(2, activation=None))
 
-        inputs_list = []
+        inputs = Input(shape=(self.patch_size, self.patch_size, 3))
         outputs_list = []
 
         for i in range(self.n_models):
-            inputs = Input(shape=(self.patch_size, self.patch_size, 3))
             if self.residual:
                 # concatenate residual if append_rgb is true
                 outputs = tf.keras.layers.concatenate([inputs, self.residual(inputs)])
@@ -147,7 +146,17 @@ class EnsembleJPEGDoubleCompression(JPEGDoubleCompression):
             for layer in layers[i]:
                 outputs = layer(outputs)
 
-            inputs_list.append(inputs)
             outputs_list.append(outputs)
 
-        self._model = tf.keras.models.Model(inputs_list, outputs_list)
+        self._model = tf.keras.models.Model(inputs, outputs_list)
+
+
+def ensemble_scce(y_true, y_pred):
+    scce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+    losses = tf.zeros([y_pred.shape[0]])
+
+    for i in range(y_pred.shape[0]):
+        losses[i] = scce(y_true, y_pred[i])
+
+    return tf.mean(losses)

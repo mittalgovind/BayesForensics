@@ -26,6 +26,7 @@ from workflows.jpeg_double_compression import (
     validate,
     JPEGDoubleCompression,
     EnsembleJPEGDoubleCompression,
+    ensemble_scce,
     qf_plot,
 )
 
@@ -106,6 +107,8 @@ def main():
             **args.parameters,
         )
 
+        loss_criterion = ensemble_scce
+
     else:
         model = JPEGDoubleCompression(
             method=args.uncertainty_method,
@@ -113,11 +116,13 @@ def main():
             **args.parameters,
         )
 
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True
+        )
+
     if args.load_model:
         model.load_model(os.path.abspath(args.load_model))
     else:
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True)
         optimizer = tf.keras.optimizers.Adam(args.lr)
 
         model._model.compile(optimizer, loss=loss_criterion,
