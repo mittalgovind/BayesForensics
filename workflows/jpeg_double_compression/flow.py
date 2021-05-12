@@ -154,6 +154,8 @@ class EnsembleJPEGDoubleCompression(JPEGDoubleCompression):
 def ensemble_scce(y_true, y_pred):
     scce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
+    print(y_pred.shape)
+
     losses = tf.zeros([y_pred.shape[0]])
 
     for i in range(y_pred.shape[0]):
