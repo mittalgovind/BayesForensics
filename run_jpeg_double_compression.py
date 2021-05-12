@@ -107,7 +107,11 @@ def main():
             **args.parameters,
         )
 
-        loss_criterion = ensemble_scce
+        # loss_criterion = ensemble_scce
+
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True
+        )
 
     else:
         model = JPEGDoubleCompression(
