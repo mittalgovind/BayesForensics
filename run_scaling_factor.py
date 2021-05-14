@@ -23,7 +23,7 @@ from workflows.bayes_scaling_factor import (
     validate,
     parse_args,
     ScalingFactor,
-    sf_plot,
+    sf_plot, plot_conf_matrix,
     load_parameters
 )
 
@@ -55,7 +55,7 @@ def main():
     else:
         os.mkdir(args.save_dir)
 
-    cache = ResultCache(["{step}_{sampling_method}.npz"], prefix=args.save_dir)
+    cache = ResultCache(["{step}}.npz"], prefix=args.save_dir)
 
     data = ScalingFactorDataset(
         data_directory=args.data_dir,
@@ -74,11 +74,11 @@ def main():
     args.parameters = load_parameters(args.parameters)
 
     model = ScalingFactor(
-                method=args.uncertainty_method,
-                n_classes=args.n_classes,
-                patch_size=args.patch_size,
-                **args.parameters
-            )
+        method=args.uncertainty_method,
+        n_classes=args.n_classes,
+        patch_size=args.patch_size,
+        **args.parameters
+    )
 
     # TODO CLEANUP
     # if args.uncertainty_method == "ensemble":
@@ -100,13 +100,12 @@ def main():
     #     '''
     #     train_function = train_single
 
-
-        #
-        # if args.uncertainty_method == "ensemble":
-        #     for performance in train_performance:
-        #         perf(performance)
-        # else:
-        #     perf(train_performance)
+    #
+    # if args.uncertainty_method == "ensemble":
+    #     for performance in train_performance:
+    #         perf(performance)
+    # else:
+    #     perf(train_performance)
 
     if args.load_model:
         model.load_model(os.path.abspath(args.load_model))
@@ -138,30 +137,20 @@ def main():
         )
         # save the training performance
         fig = perf(train_performance.history)
-        fig.savefig(os.path.join(args.save_dir, "training_progress.pdf"))
+        fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
     # TODO Add calibration
     # if args.calibrate:
     #     model.set_temp(data)
 
     logger.info("Started Testing")
-    tests_summary = validate(
-        model,
-        args.uncertainty_method,
-        args.sampling_method,
-        data,
-        methods,
-        scales,
-        classes,
-        args.n_val_images,
-        patch_size,
-        n_runs,
-        cache,
-        temperature,
-        codec
+    tests_summary, conf_matrix = validate(
+        model, data, args.batch_size, args.uncertainty_method, args.num_runs
     )
 
-    sf_plot(tests_summary, classes, args.sampling_method, args.save_dir)
+    # TODO (Marcelo) this needs adapting to new tests_summary
+    # sf_plot(tests_summary, data.classes, args.sampling_method, args.save_dir)
+    plot_conf_matrix(conf_matrix, data.methods, data.classes, args.save_dir)
 
 
 if __name__ == "__main__":

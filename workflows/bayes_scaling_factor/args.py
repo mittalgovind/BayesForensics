@@ -94,7 +94,7 @@ def parse_args():
     parser.add_argument(
         "-nr",
         "--num-runs",
-        dest="n_runs",
+        dest="num_runs",
         action="store",
         default=10,
         type=int,
@@ -168,6 +168,12 @@ def parse_args():
         help="Epsilon value used when generating adversarial training examples.",
     )
     parser.add_argument(
+        "--validation-freq",
+        default=50,
+        type=int,
+        help="Number of training epochs to run before a new validation run.",
+    )
+    parser.add_argument(
         "--jpeg-compression",
         default=False,
         action="store_true",
@@ -216,7 +222,7 @@ def parse_args():
         help="Disables GPU utilization.",
     )
     parser.add_argument(
-        "--verbosity",
+        "--verbose",
         type=int,
         default=2,
         help="Controls verbosity of training.",

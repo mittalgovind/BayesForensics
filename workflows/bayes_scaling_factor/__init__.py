@@ -13,5 +13,5 @@
 from .dataset import ScalingFactorDataset
 from .validate import validate
 from .flow import ScalingFactor
-from .visualize import sf_plot
+from .visualize import sf_plot, plot_conf_matrix
 from .args import parse_args, load_parameters

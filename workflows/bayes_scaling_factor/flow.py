@@ -39,6 +39,7 @@ class ScalingFactor(BayesBaseModel):
             dense_units=200,
             activation="leaky_relu",
             pool=2,
+            channels=3,
             **kwargs
     ):
         """
@@ -96,19 +97,23 @@ class ScalingFactor(BayesBaseModel):
         self.optimizer = tf.keras.optimizers.Adam()
         self.loss = tf.keras.losses.SparseCategoricalCrossentropy()
         self.performance = dict()
-
+        self.patch_size = patch_size
+        self.channels = channels
         self.create_model()
 
     def _create_model(self):
         # Constrained convolution with a learned residual filter
-        layers = [ConstrainedConv2D()]
-
+        layers = [
+            tf.keras.layers.Input(shape=(self.patch_size, self.patch_size,
+                                         self.channels)),
+            ConstrainedConv2D()
+        ]
         # Standard convolutional layers
         filters = self._h.filters
         for _ in range(self._h.conv_layers):
             layers.append(
-                self.conv2D(
-                    filters, [self._h.kernel, self._h.kernel],
+                tf.keras.layers.Conv2D(
+                    filters, self._h.kernel,
                     padding="same", activation=self.activation,
                 )
             )
@@ -118,8 +123,8 @@ class ScalingFactor(BayesBaseModel):
 
         # Final 1 x 1 convolution
         layers.append(
-            self.conv2D(int(filters), [1, 1], activation=self.activation)
-)
+            self.conv2d(int(filters), 1, activation=self.activation)
+        )
 
         # GAP / Feature formation
         if self._h.use_gap:
@@ -161,9 +166,6 @@ class ScalingFactor(BayesBaseModel):
                 params=self.count_parameters(),
             )
         )
-
-    def __getattr__(self, name):
-        raise AttributeError(name)
 
     @property
     def model_code(self):

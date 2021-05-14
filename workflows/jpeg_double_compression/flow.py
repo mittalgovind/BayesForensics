@@ -60,10 +60,13 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         self.conv_layers = conv_layers
         self.trainable_residual = trainable_residual
         self.drop_rate = drop
+        self.channels = 3
         if residual_type == "trainable":
             self.residual = ConstrainedConv2D(trainable=self.trainable_residual)
         elif residual_type == "pywt":
             self.residual = None
+            # as input already contains the filter.
+            self.channels = 6
         self.patch_size = patch_size
         self.filter_multiplier = filter_multiplier
         self.dense_multiplier = dense_multiplier
@@ -92,7 +95,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         layers.append(self.dense(2, activation=None))
 
         # make a custom keras model
-        inputs = Input(shape=(self.patch_size, self.patch_size, 3))
+        inputs = Input(shape=(self.patch_size, self.patch_size, self.channels))
         if self.residual:
             # concatenate residual if append_rgb is true
             outputs = tf.keras.layers.concatenate([inputs, self.residual(inputs)])

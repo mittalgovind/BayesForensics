@@ -7,6 +7,6 @@
   "use_gap": false,
   "dense_layers": 2,
   "dense_units": 128,
-  "activation": "prelu",
+  "activation": "leaky_relu",
   "pool": 2
 }
