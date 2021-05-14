@@ -30,7 +30,7 @@ class DoubleCompressionDataset(Dataset):
         calc_pywt_residual : bool
             Flag for calculate PyWavalet residual
         """
-        super().__init__(**kwargs)
+        super().__init__(presample_epochs=calc_pywt_residual, **kwargs)
         self.qf_train = qf_train
         self.qf_test = qf_test
         self.codec = codec
@@ -132,7 +132,6 @@ class DoubleCompressionDataset(Dataset):
                 [1, 1, 1, 1],
                 "SAME",
             )
-            ycbcrs = tf.cast(ycbcrs, dtype=tf.uint8)
             residuals = tf.tensor([self._noise_extract(ycbcr) for ycbcr in ycbcrs])
             self.data[split] = tf.concat(self.data[split], residuals, axis=-1)
         logger.info("Residuals appended to each patch.")

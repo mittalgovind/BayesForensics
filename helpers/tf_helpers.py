@@ -29,6 +29,7 @@ activation_mapping = {
     "tanh": tf.keras.activations.tanh,
     "sigmoid": tf.keras.activations.sigmoid,
     "softsign": tf.keras.activations.softsign,
+    'prelu': tf.keras.layers.PReLU(),
 }
 
 
