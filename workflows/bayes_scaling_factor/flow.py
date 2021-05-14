@@ -107,7 +107,7 @@ class ScalingFactor(BayesBaseModel):
         layers = [
             tf.keras.layers.Input(shape=(self.patch_size, self.patch_size,
                                          self.channels))
-            ConstrainedConv2D()
+#             ConstrainedConv2D()
         ]
         # Standard convolutional layers
         filters = self._h.filters

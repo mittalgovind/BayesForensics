@@ -436,7 +436,7 @@ class Dataset(object):
             for batch_id in range(self.count_training // batch_size):
                 batch = self.next_training_batch(
                     batch_id, batch_size,
-                    rgb_patch_size=self.train_image_shape_rgb, discard=discard
+                    rgb_patch_size=self.train_image_shape_rgb[0], discard=discard
                 )
                 images, labels = self.preprocess_batch(batch, **kwargs)
                 yield images, labels

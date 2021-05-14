@@ -54,7 +54,7 @@ class ScalingFactorDataset(Dataset):
         jpeg_quality : int
             JPEG quality to compress with.
         """
-        super().__init__(**kwargs)
+        super().__init__(val_rgb_patch_size=patch_size, **kwargs)
         self.scales = (float(scales.split(",")[0]),
                        float(scales.split(",")[1]))
         self.patch_size = patch_size
