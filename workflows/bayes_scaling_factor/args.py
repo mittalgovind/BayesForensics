@@ -104,7 +104,7 @@ def parse_args():
         "-um",
         "--uncertainty-method",
         action="store",
-        default="mc-dropout",
+        default="vanilla",
         type=str,
         help="Uncertainty method. Can be 'vanilla', 'mc-dropout',"
              "'temp-scaling', 'mc-temp', 'flipout', 'reparameterization'.",

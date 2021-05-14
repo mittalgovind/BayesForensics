@@ -26,7 +26,7 @@ class ScalingFactor(BayesBaseModel):
 
     def __init__(
             self,
-            method,
+            uncertainty_method,
             n_classes,
             patch_size=None,
             filters=32,
@@ -69,7 +69,8 @@ class ScalingFactor(BayesBaseModel):
             activation function.
             (see helpers.tf_helpers.activation_mapping for more activations).
         """
-        super().__init__(method=method, activation=activation, **kwargs)
+        super().__init__(method=uncertainty_method, activation=activation,
+                         **kwargs)
 
         # Set-up and validate hyper-parameters
         self._h = ParamSpec(

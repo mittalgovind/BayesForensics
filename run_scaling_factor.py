@@ -74,7 +74,7 @@ def main():
     args.parameters = load_parameters(args.parameters)
 
     model = ScalingFactor(
-        method=args.uncertainty_method,
+        uncertainty_method=args.uncertainty_method,
         n_classes=args.n_classes,
         patch_size=args.patch_size,
         **args.parameters
