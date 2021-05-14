@@ -124,7 +124,7 @@ class ScalingFactor(BayesBaseModel):
 
         # Final 1 x 1 convolution
         layers.append(
-            self.conv2d(int(filters), 1, activation=self.activation)
+            tf.keras.layers.Conv2D(int(filters), 1, activation=self.activation)
         )
 
         # GAP / Feature formation
