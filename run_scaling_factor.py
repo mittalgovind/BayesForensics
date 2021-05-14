@@ -123,9 +123,10 @@ def main():
             tensorboard=args.tensorboard,
             patience=int(args.epochs * args.patience_percent),
             verbose=args.verbose
-        ),
+        )
+
         train_performance = model._model.fit(
-            x=data.get_training_generator(args.batch_size),
+            x=data.get_training_generator(args.batch_size, args.patch_size),
             validation_data=data.get_validation_generator(args.batch_size),
             epochs=args.epochs,
             batch_size=args.batch_size,
