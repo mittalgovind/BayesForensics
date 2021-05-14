@@ -13,7 +13,7 @@ import tensorflow as tf
 from helpers.utils import progress_bar
 
 
-def run_tests(
+def validate(
     model,
     uncertainty_method,
     sampling_method,

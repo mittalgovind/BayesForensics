@@ -11,7 +11,7 @@
 # Internal libraries
 
 from .dataset import ScalingFactorDataset
-from .validate import run_tests
+from .validate import validate
 from .flow import ScalingFactor
 from .visualize import sf_plot
-from .args import parse_args
+from .args import parse_args, load_parameters

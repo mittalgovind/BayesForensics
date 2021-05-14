@@ -7,7 +7,6 @@
 # Standard libraries
 import sys
 import os
-import json
 
 # External libraries
 import numpy as np
@@ -18,16 +17,14 @@ from loguru import logger
 from helpers.results_data import ResultCache
 from helpers.plots import perf
 from helpers.utils import setup_logging
-from helpers.tf_helpers import disable_gpu
-from models.bayes import DeepEnsemble
+from helpers.tf_helpers import disable_gpu, get_callbacks
 from workflows.bayes_scaling_factor import (
-    # train_single,
-    # train_ensemble,
     ScalingFactorDataset,
-    run_tests,
+    validate,
     parse_args,
     ScalingFactor,
     sf_plot,
+    load_parameters
 )
 
 # TODO (Marcelo) Do you still need this?
@@ -60,14 +57,6 @@ def main():
 
     cache = ResultCache(["{step}_{sampling_method}.npz"], prefix=args.save_dir)
 
-    flags = {
-        "lr": args.lr,
-        "save_dir": args.save_dir,
-        "adversarial": args.adversarial,
-        "epsilon": args.epsilon,
-        "save_every": args.save_every,
-    }
-
     data = ScalingFactorDataset(
         data_directory=args.data_dir,
         load="y",
@@ -82,78 +71,81 @@ def main():
         jpeg_quality=args.jpeg_quality
     )
 
-    # TODO (Govind) Change to the new standard parameters from sensor branch.
-    if args.parameters:
-        f = open(args.parameters, 'r')
-    else:
-        f = open('config/scaling_factor/default_params.json', 'r')
-
-    try:
-        parameters = json.load(f)
-        f.close()
-        logger.info(
-            'Model configuration loaded successfully from {}.'.format(f))
-        args.parameters = parameters
-    except RuntimeError:
-        logger.error("Cannot load parameter configuration.")
-        sys.exit()
-
-    print(args.parameters)
+    args.parameters = load_parameters(args.parameters)
 
     model = ScalingFactor(
                 method=args.uncertainty_method,
                 n_classes=args.n_classes,
-                patch_size=128,
-                dropout=0.1,
+                patch_size=args.patch_size,
+                **args.parameters
             )
 
-    if args.uncertainty_method == "ensemble":
-        model = DeepEnsemble([model for _ in range(5)])
-        train_function = train_ensemble
+    # TODO CLEANUP
+    # if args.uncertainty_method == "ensemble":
+    #     model = DeepEnsemble([model for _ in range(5)])
+    #     train_function = train_ensemble
+    #
+    # else:
+    #     '''
+    #     model = SFP(
+    #         args.uncertainty_method,
+    #         c_filters=(32, 32, 32, 32),
+    #         d_filters=(32, 16, args.n_classes),
+    #         kernel=5,
+    #         activation="leaky_relu",
+    #         trainable_residual=True,
+    #         drop=0.1,
+    #         append_rgb=False,
+    #     )
+    #     '''
+    #     train_function = train_single
 
+
+        #
+        # if args.uncertainty_method == "ensemble":
+        #     for performance in train_performance:
+        #         perf(performance)
+        # else:
+        #     perf(train_performance)
+
+    if args.load_model:
+        model.load_model(os.path.abspath(args.load_model))
     else:
-        '''
-        model = SFP(
-            args.uncertainty_method,
-            c_filters=(32, 32, 32, 32),
-            d_filters=(32, 16, args.n_classes),
-            kernel=5,
-            activation="leaky_relu",
-            trainable_residual=True,
-            drop=0.1,
-            append_rgb=False,
+        optimizer = tf.keras.optimizers.Adam(args.lr)
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True)
+        model._model.compile(optimizer, loss=loss_criterion,
+                             metrics=["accuracy"])
+        save_freq = args.save_every * args.n_train_images // args.batch_size
+        callbacks = get_callbacks(
+            args.save_dir,
+            model_name=model.model_filename,
+            save_freq=save_freq,
+            tensorboard=args.tensorboard,
+            patience=int(args.epochs * args.patience_percent),
+            verbose=args.verbose
+        ),
+        train_performance = model._model.fit(
+            x=data.get_training_generator(args.batch_size, args.patch_size),
+            validation_data=data.get_validation_generator(args.batch_size),
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            verbose=args.verbose,
+            callbacks=callbacks,
+            steps_per_epoch=args.n_train_images // args.batch_size,
+            validation_steps=args.n_val_images // args.batch_size,
+            validation_freq=args.validation_freq,
         )
-        '''
-        train_function = train_single
-
-    if args.cont_model_path:
-        # train for an epoch so that model is built
-        _ = train_function(model, 1, data, args.batch_size, cache=None,
-                           codec=codec, **flags)
-        model.load_model(os.path.abspath(args.cont_model_path))
-
-    if not args.only_eval:
-        train_performance = train_function(model, args.epochs, data,
-                                           args.batch_size, cache, codec,
-                                           **flags)
-
         # save the training performance
-        if args.uncertainty_method == "ensemble":
-            for performance in train_performance:
-                perf(performance)
-        else:
-            perf(train_performance)
+        fig = perf(train_performance.history)
+        fig.savefig(os.path.join(args.save_dir, "training_progress.pdf"))
 
-    if args.calibrate:
-        temp_model = BayarStammCalibrated(model, batch_size=args.batch_size)
-        temp_model.set_temp(data)
-        temperature = temp_model.temperature
-    else:
-        temperature = 1.0
+    # TODO Add calibration
+    # if args.calibrate:
+    #     model.set_temp(data)
 
     logger.info("Started Testing")
-
-    tests_summary = run_tests(
+    tests_summary = validate(
         model,
         args.uncertainty_method,
         args.sampling_method,

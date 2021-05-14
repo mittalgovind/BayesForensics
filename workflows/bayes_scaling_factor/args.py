@@ -6,8 +6,10 @@
 
 # Standard libraries
 import argparse
+import json
 
 # External libraries
+from loguru import logger
 
 # Internal libraries
 
@@ -24,7 +26,7 @@ def parse_args():
         default="nearest",
         type=str,
         help="Sampling method."
-        "Can be 'nearest', 'bilinear', 'bicubic', 'lanczos3' or 'random'",
+             "Can be 'nearest', 'bilinear', 'bicubic', 'lanczos3' or 'random'",
     )
     parser.add_argument(
         "-s",
@@ -34,7 +36,7 @@ def parse_args():
         default="0.25,1.0",
         type=str,
         help="Comma separated values for lower and upper bound of scales,"
-        " e.g. '0.25,1.0'",
+             " e.g. '0.25,1.0'",
     )
     parser.add_argument(
         "-e",
@@ -105,7 +107,7 @@ def parse_args():
         default="mc-dropout",
         type=str,
         help="Uncertainty method. Can be 'vanilla', 'mc-dropout',"
-        "'temp-scaling', 'mc-temp', 'flipout', 'reparameterization'.",
+             "'temp-scaling', 'mc-temp', 'flipout', 'reparameterization'.",
     )
     parser.add_argument(
         "--seed",
@@ -114,7 +116,8 @@ def parse_args():
         help="Seed used for randomization. (default: 69)",
     )
     parser.add_argument(
-        "--save-dir", type=str, default="./output", help="Output save directory"
+        "--save-dir", type=str, default="./output",
+        help="Output save directory"
     )
     parser.add_argument(
         "--data-dir",
@@ -123,7 +126,8 @@ def parse_args():
         help="Data directory for getting images from.",
     )
     parser.add_argument(
-        "--parameters", type=str, default=None, help="path to a parameters JSON file."
+        "--parameters", type=str, default=None,
+        help="path to a parameters JSON file."
     )
     parser.add_argument(
         "-se",
@@ -134,7 +138,8 @@ def parse_args():
         help="Number of epochs to log after.",
     )
     parser.add_argument(
-        "-lr", "--lr", action="store", default=1e-3, type=float, help="Learning_rate"
+        "-lr", "--lr", action="store", default=1e-3, type=float,
+        help="Learning_rate"
     )
     parser.add_argument(
         "--load-model",
@@ -149,8 +154,10 @@ def parse_args():
         help="Overwrite the output folder, if exists.",
     )
     # TODO something is weird here. why two arguments?
-    parser.add_argument("-a", "--adversarial", dest="adversarial", action="store_true")
-    parser.add_argument("--no-adversarial", dest="adversarial", action="store_false")
+    parser.add_argument("-a", "--adversarial", dest="adversarial",
+                        action="store_true")
+    parser.add_argument("--no-adversarial", dest="adversarial",
+                        action="store_false")
     parser.set_defaults(adversarial=False)
     parser.add_argument(
         "-eps",
@@ -173,7 +180,7 @@ def parse_args():
         default="libjpeg",
         type=str,
         help="Type of codec. Possible choices - libjpeg, soft, sin, harmonic."
-        " (default: libjpeg)",
+             " (default: libjpeg)",
     )
     parser.add_argument(
         "--jpeg-quality",
@@ -221,3 +228,23 @@ def parse_args():
         help="Percentage of total epochs to use as patience. (def : 0.1 or 10%).",
     )
     return parser.parse_args()
+
+
+def load_parameters(parameters):
+    """Load parameters from the config file"""
+    # TODO (Govind) Change to the new standard parameters from sensor branch.
+    if parameters:
+        f = open(parameters, 'r')
+    else:
+        f = open('config/scaling_factor/default_params.json', 'r')
+
+    try:
+        parameters = json.load(f)
+        f.close()
+        logger.info(
+            'Model configuration loaded successfully from {}.'.format(f))
+        logger.info("Model parameters : {}".format(parameters))
+    except RuntimeError:
+        logger.error("Cannot load parameter configuration.")
+
+    return parameters

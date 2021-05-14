@@ -14,4 +14,4 @@ from .flow import JPEGDoubleCompression, EnsembleJPEGDoubleCompression, ensemble
 from .dataset import DoubleCompressionDataset
 from .validate import validate
 from .visualize import qf_plot
-from .args import parse_args
+from .args import parse_args, load_parameters
