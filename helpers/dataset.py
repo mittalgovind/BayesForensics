@@ -422,7 +422,7 @@ class Dataset(object):
         """
         Implement this method to return the processed batch and its labels.
         """
-        raise NotImplementedError
+        return batch
 
     def get_training_generator(self, batch_size, rgb_patch_size,
                                discard="flat", **kwargs):

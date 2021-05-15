@@ -28,7 +28,7 @@ class DoubleCompressionDataset(Dataset):
         qf_test : tuple
             Range of quality factor to choose for compressing during testing.
         calc_pywt_residual : bool
-            Flag for calculate PyWavalet residual
+            Flag for calculate PyWavelet residual
         """
         super().__init__(presample_epochs=calc_pywt_residual, **kwargs)
         self.qf_train = qf_train
@@ -120,6 +120,8 @@ class DoubleCompressionDataset(Dataset):
     def extract_pywt_residual(self):
         """Calculate and append an external filter to all the patches."""
         logger.info("Calculating PyWavelet residuals ...")
+        # TODO remove tensorflow usage!
+        # TODO be mindful of dataset being used, e.g., list comprehensions
         for split in ["training", "validation", "calibration"]:
             xc = tf.pad(255.0 * self.data[split],
                         [[0, 0], [0, 0], [0, 0], [1, 0]],
@@ -129,7 +131,6 @@ class DoubleCompressionDataset(Dataset):
                                   tf.reshape(tf.transpose(self._color_F),
                                              [1, 1, 4, 3]),
                                   [1, 1, 1, 1], 'SAME')
-            ycbcrs = tf.cast(ycbcrs, dtype=tf.uint8)
             residuals = tf.tensor([self._noise_extract(ycbcr) for ycbcr in ycbcrs])
             self.data[split] = tf.concat(self.data[split], residuals, axis=-1)
         logger.info("Residuals appended to each patch.")

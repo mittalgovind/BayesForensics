@@ -114,4 +114,3 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             outputs = layer(outputs)
 
         self._model = tf.keras.models.Model(inputs, outputs)
-
