@@ -32,7 +32,7 @@ def qf_plot(qf, accuracies, save_dir):
     axes[0].set_xticks(range(0, n_factors, 5))
     axes[0].set_xticklabels(q_factors[::5])
 
-    axes[0].set_yticks(range(n_factors, 0, -5))
+    axes[0].set_yticks(range(0, n_factors, 5))
     axes[0].set_yticklabels(q_factors[::5])
 
     axes[0].set_ylabel("$Q_1$")

@@ -29,6 +29,7 @@ activation_mapping = {
     "tanh": tf.keras.activations.tanh,
     "sigmoid": tf.keras.activations.sigmoid,
     "softsign": tf.keras.activations.softsign,
+    'prelu': tf.keras.layers.PReLU(),
 }
 
 
@@ -487,18 +488,25 @@ def reset_layer(layer, alpha=0):
     layer.set_weights(w)
 
 
-def get_callbacks(path, save_freq=0, monitor='val_loss', patience=200,
-                  tensorboard=False, verbose=0, save_best_only=False):
+def get_callbacks(path, model_name=None, save_freq=0, monitor='loss', patience=200,
+                  tensorboard=False, verbose=0, save_best_only=False,
+                  min_delta=0.001):
     """callbacks list for keras models."""
     callbacks = [
         tf.keras.callbacks.EarlyStopping(monitor=monitor,
                                          patience=patience,
-                                         min_delta=0.001),
+                                         min_delta=min_delta,
+                                         verbose=verbose),
     ]
+    if verbose == 0:
+        from tqdm.keras import TqdmCallback
+        callbacks.append(TqdmCallback(verbose=2))
+    if not model_name:
+        model_name = 'model.h5'
 
     if save_freq != 0:
         callbacks.append(tf.keras.callbacks.ModelCheckpoint(
-            filepath=os.path.join(path, 'model.h5'),
+            filepath=os.path.join(path, model_name),
             save_weights_only=True,
             monitor=monitor, mode='auto',
             save_best_only=save_best_only,

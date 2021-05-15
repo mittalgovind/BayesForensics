@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# New York University 
+# New York University
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
 import argparse
+import json
 
 # External libraries
+from loguru import logger
 
 # Internal libraries
 
@@ -92,7 +94,7 @@ def parse_args():
     parser.add_argument(
         "-nr",
         "--num-runs",
-        dest="n_runs",
+        dest="num_runs",
         action="store",
         default=10,
         type=int,
@@ -102,16 +104,16 @@ def parse_args():
         "-um",
         "--uncertainty-method",
         action="store",
-        default="mc-dropout",
+        default="vanilla",
         type=str,
         help="Uncertainty method. Can be 'vanilla', 'mc-dropout',"
              "'temp-scaling', 'mc-temp', 'flipout', 'reparameterization'.",
     )
     parser.add_argument(
-        "--calibrate",
-        action="store_true",
-        default=False,
-        help="Calibrate model using temperature scaling.",
+        "--seed",
+        default=69,
+        type=int,
+        help="Seed used for randomization. (default: 69)",
     )
     parser.add_argument(
         "--save-dir", type=str, default="./output",
@@ -122,6 +124,10 @@ def parse_args():
         type=str,
         default="/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k",
         help="Data directory for getting images from.",
+    )
+    parser.add_argument(
+        "--parameters", type=str, default=None,
+        help="path to a parameters JSON file."
     )
     parser.add_argument(
         "-se",
@@ -162,19 +168,35 @@ def parse_args():
         help="Epsilon value used when generating adversarial training examples.",
     )
     parser.add_argument(
-        '--jpeg-compression',
+        "--validation-freq",
+        default=50,
+        type=int,
+        help="Number of training epochs to run before a new validation run.",
+    )
+    parser.add_argument(
+        "--jpeg-compression",
         default=False,
         action="store_true",
         dest="jpeg_compression",
-        help="Use JPEG compression")
+        help="Use JPEG compression",
+    )
     parser.add_argument(
-        '--jpeg-quality',
-        '-jq',
+        "--codec",
+        action="store",
+        default="libjpeg",
+        type=str,
+        help="Type of codec. Possible choices - libjpeg, soft, sin, harmonic."
+             " (default: libjpeg)",
+    )
+    parser.add_argument(
+        "--jpeg-quality",
+        "-jq",
         default=100,
         action="store",
         type=int,
         dest="jpeg_quality",
-        help="Quality factor for jpeg compression.")
+        help="Quality factor for jpeg compression.",
+    )
     parser.add_argument(
         "--calibrate",
         action="store_true",
@@ -200,7 +222,7 @@ def parse_args():
         help="Disables GPU utilization.",
     )
     parser.add_argument(
-        "--verbosity",
+        "--verbose",
         type=int,
         default=2,
         help="Controls verbosity of training.",
@@ -213,3 +235,22 @@ def parse_args():
     )
     return parser.parse_args()
 
+
+def load_parameters(parameters):
+    """Load parameters from the config file"""
+    # TODO (Govind) Change to the new standard parameters from sensor branch.
+    if parameters:
+        f = open(parameters, 'r')
+    else:
+        f = open('config/scaling_factor/default_params.json', 'r')
+
+    try:
+        parameters = json.load(f)
+        f.close()
+        logger.info(
+            'Model configuration loaded successfully from {}.'.format(f))
+        logger.info("Model parameters : {}".format(parameters))
+    except RuntimeError:
+        logger.error("Cannot load parameter configuration.")
+
+    return parameters

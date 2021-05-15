@@ -18,14 +18,23 @@ from helpers.stats import quantize
 from helpers.plots import perf
 from helpers.uncertainty import get_pred
 from helpers.dataset import Dataset
+from models.jpeg import JPEG
 
 # Hacky fix
 sys.path.append("/scratch/jms1595/neural-imaging-dev/")
 
 
 class ScalingFactorDataset(Dataset):
-    def __init__(self, scales, patch_size, sampling_method, random_method,
-                 n_classes, codec=None, **kwargs):
+    def __init__(
+            self,
+            scales,
+            patch_size,
+            sampling_method,
+            n_classes,
+            codec=None,
+            jpeg_quality=100,
+            **kwargs,
+    ):
         """
         Subclass of helpers.dataset.Dataset class.
 
@@ -38,20 +47,25 @@ class ScalingFactorDataset(Dataset):
         sampling_method : str
             Method to be used for sampling. Can be one of 'nearest',
              'bilinear', 'bicubic', 'lanczos3', or 'random'.
-        random_method : bool
-            Whether sampling_method is 'random' or not.
         n_classes : int
             Number of classes to split the scales range into.
+        codec : str or None
+            JPEG Compression type to preprocess batch with. None = no compression.
+        jpeg_quality : int
+            JPEG quality to compress with.
         """
-        super().__init__(**kwargs)
-        self.scales = (
-            float(scales.split(",")[0]), float(scales.split(",")[1]))
+        super().__init__(val_rgb_patch_size=patch_size, **kwargs)
+        self.scales = (float(scales.split(",")[0]),
+                       float(scales.split(",")[1]))
         self.patch_size = patch_size
         self.sampling_method = sampling_method
-        self.random_method = random_method
-        self.methods = ["nearest", "bilinear", "bicubic", "lanczos3", "random"]
-        self.classes = np.linspace(*scales, num=n_classes)
-        self.codec = codec
+        self.methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
+        self.random_method = self.sampling_method == "random"
+        self.classes = np.linspace(*self.scales, num=n_classes)
+        if codec:
+            self.codec = JPEG(quality=jpeg_quality, codec=codec)
+        else:
+            self.codec = None
 
     def preprocess_batch(self, batch, **kwargs):
         """
@@ -61,40 +75,45 @@ class ScalingFactorDataset(Dataset):
 
         Parameters
         ----------
-        batch : list of np.array
+        batch : np.array
             Batch to be preprocessed.
 
         Returns
         -------
-        batch_processed : tf.Tensor
+        rescaled_images : tf.Tensor
             Tensor containing the resized batch.
-        batch_sf : tf.Tensor
+        sf_labels : tf.Tensor
             Tensor containing the target labels.
         """
-        sf = tf.random.uniform((1,), *self.scales)
+
+        if 'sf' in kwargs:
+            sf = float(kwargs['sf'])
+        else:
+            sf = tf.random.uniform((1,), *self.scales)
+
         resized_size = int(sf * self.patch_size)
 
         # Choose sampling method.
         if self.random_method:
-            method_idx = tf.random.shuffle([0, 1, 2, 3])[0]
-            m = self.methods[method_idx]
+            m = tf.random.choice(self.methods)
         else:
             m = self.sampling_method
 
         # Resize batch.
-        batch_processed = tf.image.resize(batch, [resized_size, resized_size],
+        rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
                                           method=m)
         class_id = quantize(sf.numpy(), self.classes, return_indices=True)
-        batch_sf = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
+        sf_labels = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
 
         # Convert to JPEG if a codec is passed.
-        if self.codec is not None:
-            batch_processed = self.codec.process(batch_processed)
+        if self.codec:
+            rescaled_images = self.codec.process(rescaled_images)
 
-        return batch_processed, batch_sf
+        return rescaled_images, sf_labels
 
 
-def train_single(
+# TODO (Marcelo) refactor in future release
+def train_ensemble(
         model,
         epochs,
         data,
@@ -109,124 +128,46 @@ def train_single(
         lr,
         methods,
         save_every,
-        **kwargs
+        adversarial,
+        **kwargs,
 ):
-    """Scaling factor training
+    """
+    Trains models inside the Deep Ensemble.
+
     Parameters
     ----------
-    model
-    epochs
-    data
-    batch_size
-    cache
-    kwargs
-
-    Returns
-    -------
-
+    model : sfp_ensemble.SFPEnsemble
+        Model to be trained.
+    epochs : int
+        Number of epochs to train for.
+    data : helpers.dataset.Dataset
+        Dataset that will be used to load training images.
+    batch_size : int
+        Size of batch at every training step.
+    cache : helpers.results_data.ResultCache
+        Structure for naming performance files.
+    codec : models.jpeg.JPEG
+        Codec for conversion of images into JPEG. Use None for no conversion.
+    patch_size : int
+        Patch size for the model.
+    scales : tuple
+        Min and max value for scaling factor classes.
+    classes : np.array
+        List of all the possible scaling factors to use.
+    save_dir : string
+        Path for the model to be saved.
+    lr : float
+        Learning rate.
+    sampling_method : string
+        Sampling method to use for training. Can be one of "random", "nearest", "bilinear",
+        "bicubic", or "lanczos3".
+    methods : list of string
+        List of sampling methods to be used if sampling_method is "random".
+    adversarial : bool
+        Whether or not to use adversarial training.
+    epsilon : float
+        Epsilon value for adversarial training.
     """
-    random_method = sampling_method == "random"
-    n_batches = data.count_training // batch_size
-
-    performance = {"loss": {"training": []}, "accuracy": {"training": []}}
-    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-        from_logits=True)
-    opt = tf.keras.optimizers.Adam(lr)
-
-    with progress_bar(epochs, "Training") as pbar:
-        for epoch in range(epochs):
-            losses = 0
-            accuracies = 0
-
-            for batch_id in range(n_batches):
-                batch_y = data.next_training_batch(batch_id, batch_size,
-                                                   patch_size)
-
-                batch_yy, batch_sf = preprocess_batch(
-                    batch_y,
-                    scales,
-                    patch_size,
-                    sampling_method,
-                    random_method,
-                    methods,
-                    classes,
-                    codec
-                )
-
-                with tf.GradientTape() as tape:
-                    logits = model(batch_yy, training=True)
-                    loss = loss_criterion(batch_sf, logits)
-
-                grads = tape.gradient(loss, model._model.trainable_variables)
-                opt.apply_gradients(
-                    zip(grads, model._model.trainable_variables))
-
-                predictions = get_pred(tf.convert_to_tensor([logits]))
-
-                # Update loss counter
-                losses += loss.numpy()
-                accuracies += np.mean(predictions == batch_sf)
-
-            performance["loss"]["training"].append(losses / n_batches)
-            performance["accuracy"]["training"].append(accuracies / n_batches)
-
-            pbar.set_postfix(loss=losses / n_batches)
-            pbar.update(1)
-
-            if (epoch + 1) % save_every == 0:
-                model.save_model(dirname=save_dir)
-                fig = perf(performance, results="training")
-                fig.savefig(
-                    os.path.join(save_dir,
-                                 "training_progress".format(epoch + 1)))
-
-        if cache:
-            cache.save(performance, step="performance",
-                       sampling_method=sampling_method)
-
-    return performance
-
-
-def train_ensemble(model, epochs, data, batch_size, cache, codec,
-                   patch_size, scales, classes, sampling_method,
-                   save_dir, lr, methods, save_every, adversarial, **kwargs):
-    """
-            Trains models inside the Deep Ensemble.
-
-            Parameters
-            ----------
-            model : sfp_ensemble.SFPEnsemble
-                Model to be trained.
-            epochs : int
-                Number of epochs to train for.
-            data : helpers.dataset.Dataset
-                Dataset that will be used to load training images.
-            batch_size : int
-                Size of batch at every training step.
-            cache : helpers.results_data.ResultCache
-                Structure for naming performance files.
-            codec : models.jpeg.JPEG
-                Codec for conversion of images into JPEG. Use None for no conversion.
-            patch_size : int
-                Patch size for the model.
-            scales : tuple
-                Min and max value for scaling factor classes.
-            classes : np.array
-                List of all the possible scaling factors to use.
-            save_dir : string
-                Path for the model to be saved.
-            lr : float
-                Learning rate.
-            sampling_method : string
-                Sampling method to use for training. Can be one of "random", "nearest", "bilinear",
-                "bicubic", or "lanczos3".
-            methods : list of string
-                List of sampling methods to be used if sampling_method is "random".
-            adversarial : bool
-                Whether or not to use adversarial training.
-            epsilon : float
-                Epsilon value for adversarial training.
-            """
 
     random_method = sampling_method == "random"
     epsilon = None
@@ -236,8 +177,10 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
     n_batches = data.count_training // batch_size
 
     # Different performance dictionary for each model.
-    performance = [{"loss": {"training": []}, "accuracy": {"training": []}} for
-                   _ in model.models]
+    performance = [
+        {"loss": {"training": []}, "accuracy": {"training": []}} for _ in
+        model.models
+    ]
     n_batches = data.count_training // batch_size
     opt = tf.keras.optimizers.Adam(lr)
     loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
@@ -262,7 +205,7 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
                     random_method,
                     methods,
                     classes,
-                    codec
+                    codec,
                 )
 
                 for i in range(model.n_models):
@@ -281,10 +224,7 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
 
                     with tf.GradientTape() as tape:
                         logits = model.models[i](batch_yy, training=True)
-                        loss = loss_criterion(
-                            batch_sf,
-                            logits
-                        )
+                        loss = loss_criterion(batch_sf, logits)
 
                         # Loss becomes the sum of both adversarial loss and regular training loss.
                         if adversarial:
@@ -293,10 +233,12 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
                                 model.models[i](batch_adv, training=True)
                             )
 
-                    grads = tape.gradient(loss, model.models[
-                        i]._model.trainable_variables)
+                    grads = tape.gradient(
+                        loss, model.models[i]._model.trainable_variables
+                    )
                     opt.apply_gradients(
-                        zip(grads, model.models[i]._model.trainable_variables))
+                        zip(grads, model.models[i]._model.trainable_variables)
+                    )
 
                     predictions = get_pred(tf.convert_to_tensor([logits]))
                     # Update loss counter.
@@ -318,7 +260,11 @@ def train_ensemble(model, epochs, data, batch_size, cache, codec,
                 for i in range(model.n_models):
                     fig = perf(performance[i], results="training")
                     fig.savefig(
-                        os.path.join(save_dir, f'ensemble_{i:03d}',
-                                     "training_progress".format(epoch + 1)))
+                        os.path.join(
+                            save_dir,
+                            f"ensemble_{i:03d}",
+                            "training_progress".format(epoch + 1),
+                        )
+                    )
 
     return performance

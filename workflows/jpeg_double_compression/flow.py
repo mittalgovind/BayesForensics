@@ -21,22 +21,22 @@ from models.bayes import BayesBaseModel
 
 class JPEGDoubleCompression(BayesBaseModel, ABC):
     def __init__(
-            self,
-            conv_layers,
-            dense_layers,
-            method,
-            filters,
-            dense_units,
-            pool_size,
-            kernel,
-            dense_multiplier,
-            filter_multiplier,
-            activation='leaky_relu',
-            trainable_residual=True,
-            drop=0.1,
-            residual_type='trainable',
-            patch_size=64,
-            **kwargs
+        self,
+        conv_layers,
+        dense_layers,
+        method,
+        filters,
+        dense_units,
+        pool_size,
+        kernel,
+        dense_multiplier,
+        filter_multiplier,
+        activation="leaky_relu",
+        trainable_residual=True,
+        drop=0.1,
+        residual_type="trainable",
+        patch_size=64,
+        **kwargs
     ):
         """
         c_filters: int
@@ -60,16 +60,13 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         self.conv_layers = conv_layers
         self.trainable_residual = trainable_residual
         self.drop_rate = drop
-        if residual_type == 'trainable':
-            self.residual = ConstrainedConv2D(
-                trainable=self.trainable_residual)
-        elif residual_type == 'pywt':
-            # TODO easy fix - push it to "main" dataset class.
-            self.residual = self.extract_pywt_residual
-            self._color_F = np.array(
-                [[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5],
-                 [128, 0.5, -0.418688, -0.081312]], dtype=np.float32)
-
+        self.channels = 3
+        if residual_type == "trainable":
+            self.residual = ConstrainedConv2D(trainable=self.trainable_residual)
+        elif residual_type == "pywt":
+            self.residual = None
+            # as input already contains the filter.
+            self.channels = 6
         self.patch_size = patch_size
         self.filter_multiplier = filter_multiplier
         self.dense_multiplier = dense_multiplier
@@ -102,7 +99,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         layers.append(self.dense(2, activation=None))
 
         # make a custom keras model
-        inputs = Input(shape=(self.patch_size, self.patch_size, 3))
+        inputs = Input(shape=(self.patch_size, self.patch_size, self.channels))
         if self.residual:
             # concatenate residual if append_rgb is true
             outputs = tf.keras.layers.concatenate(
@@ -114,3 +111,62 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             outputs = layer(outputs)
 
         self._model = tf.keras.models.Model(inputs, outputs)
+
+
+class EnsembleJPEGDoubleCompression(JPEGDoubleCompression):
+    def __init__(self, num_models, method, activation, **kwargs):
+        self.n_models = num_models
+        super().__init__(method=method, activation=activation, **kwargs)
+
+    def _create_model(self):
+        layers = []
+
+        for j in range(self.n_models):
+            layers.append([])
+            # Setup conv layers
+            for i in range(self.conv_layers):
+                filters = int(self.filters * self.filter_multiplier ** i)
+                layers[j].append(
+                    self.conv2d(filters, self.kernel, activation=self.activation)
+                )
+                layers[j].append(MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
+
+            layers[j].append(tf.keras.layers.Flatten())
+
+            # Setup dense layers
+            for i in range(self.dense_layers):
+                dense_units = int(self.dense_units * self.dense_multiplier ** i)
+                layers[j].append(self.dense(dense_units, activation=self.activation))
+                if self.drop_rate > 0:
+                    layers[j].append(self.dropout(self.drop_rate))
+            layers[j].append(self.dense(2, activation=None))
+
+        inputs = Input(shape=(self.patch_size, self.patch_size, 3))
+        outputs_list = []
+
+        for i in range(self.n_models):
+            if self.residual:
+                # concatenate residual if append_rgb is true
+                outputs = tf.keras.layers.concatenate([inputs, self.residual(inputs)])
+            else:
+                outputs = inputs
+
+            for layer in layers[i]:
+                outputs = layer(outputs)
+
+            outputs_list.append(outputs)
+
+        self._model = tf.keras.models.Model(inputs, outputs_list)
+
+
+def ensemble_scce(y_true, y_pred):
+    scce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+    print(y_pred)
+
+    losses = tf.zeros([y_pred.shape[0]])
+
+    for i in range(y_pred.shape[0]):
+        losses[i] = scce(y_true, y_pred[i])
+
+    return tf.mean(losses)

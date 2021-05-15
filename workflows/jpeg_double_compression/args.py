@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# New York University 
+# New York University
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
 import argparse
+import json
 
 # External libraries
+from loguru import logger
 
 # Internal libraries
 
@@ -23,8 +25,8 @@ def parse_args():
         default="mc-dropout",
         type=str,
         help="Uncertainty method."
-             " Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp',"
-             " 'flipout', or 'reparameterization'.",
+        " Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp',"
+        " 'flipout', or 'reparameterization'.",
     )
     parser.add_argument(
         "--qf-train",
@@ -33,7 +35,7 @@ def parse_args():
         default="75,100",
         type=str,
         help="Comma separated values for lower and upper bound of Quality "
-             "factor used for training, e.g. '75,100'",
+        "factor used for training, e.g. '75,100'",
     )
     parser.add_argument(
         "--qf-test",
@@ -42,15 +44,15 @@ def parse_args():
         default="60,100",
         type=str,
         help="Comma separated values for lower and upper bound of Quality "
-             "factor used for testing, e.g. '60,100'",
+        "factor used for testing, e.g. '60,100'",
     )
     parser.add_argument(
         "--codec",
         action="store",
-        default="soft",
+        default="libjpeg",
         type=str,
         help="Type of codec. Possible choices - libjpeg, soft, sin, harmonic."
-             " (default: soft)",
+        " (default: libjpeg)",
     )
     parser.add_argument(
         "--patch-size",
@@ -121,8 +123,7 @@ def parse_args():
         help="Number of test runs per image in validation set",
     )
     parser.add_argument(
-        "--save-dir", type=str, default="./output",
-        help="Output save directory"
+        "--save-dir", type=str, default="./output", help="Output save directory"
     )
     parser.add_argument(
         "--data-dir",
@@ -139,9 +140,15 @@ def parse_args():
         help="Number of epochs to log after.",
     )
     parser.add_argument(
-        "-lr", "--lr", action="store", default=5e-4, type=float,
-        help="Learning rate."
+        "-lr", "--lr", action="store", default=1e-3, type=float, help="Learning rate."
     )
+    parser.add_argument(
+        "--validation-freq",
+        default=50,
+        type=int,
+        help="Number of training epochs to run before a new validation run.",
+    )
+
     parser.add_argument(
         "--load-model",
         type=str,
@@ -149,10 +156,7 @@ def parse_args():
         default=None,
     )
     parser.add_argument(
-        "--parameters",
-        type=str,
-        default=None,
-        help="path to a parameters JSON file."
+        "--parameters", type=str, default=None, help="path to a parameters JSON file."
     )
     parser.add_argument(
         "--overwrite",
@@ -185,10 +189,16 @@ def parse_args():
         help="Disables GPU utilization.",
     )
     parser.add_argument(
-        "--verbosity",
+        "--verbose",
         type=int,
         default=2,
         help="Controls verbosity of training.",
+    )
+    parser.add_argument(
+        "--presample",
+        type=int,
+        default=0,
+        help="Number of patches to presample per training image (default :0).",
     )
     parser.add_argument(
         "--patience-percent",
@@ -197,3 +207,24 @@ def parse_args():
         help="Percentage of total epochs to use as patience. (def : 0.1 or 10%).",
     )
     return parser.parse_args()
+
+
+def load_parameters(parameters):
+    """Load parameters from the config file"""
+    # TODO (Govind) Change to the new standard parameters from sensor branch.
+    if parameters:
+        f = open(parameters, 'r')
+    else:
+        f = open('config/scaling_factor/default_params.json', 'r')
+
+    try:
+        parameters = json.load(f)
+        f.close()
+        logger.info(
+            'Model configuration loaded successfully from {}.'.format(f))
+        logger.info("Model parameters : {}".format(parameters))
+    except RuntimeError:
+        logger.error("Cannot load parameter configuration.")
+
+    return parameters
+

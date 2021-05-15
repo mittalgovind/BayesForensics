@@ -42,12 +42,12 @@ class DoubleCompressionDataset(Dataset):
         batch_size = len(batch)
 
         # sample quality factors
-        if 'QF1' in kwargs:
-            QF1 = int(kwargs['QF1'])
+        if "QF1" in kwargs:
+            QF1 = int(kwargs["QF1"])
         else:
             QF1 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
-        if 'QF2' in kwargs:
-            QF2 = int(kwargs['QF2'])
+        if "QF2" in kwargs:
+            QF2 = int(kwargs["QF2"])
         else:
             QF2 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
 
@@ -66,8 +66,7 @@ class DoubleCompressionDataset(Dataset):
         return images, labels
 
     @staticmethod
-    def _noise_extract(im: np.ndarray, levels: int = 4,
-                       sigma: float = 4) -> np.ndarray:
+    def _noise_extract(im: np.ndarray, levels: int = 4, sigma: float = 4):
         """
         NoiseExtract as from Binghamton toolbox.
         :param im: grayscale or color image, np.uint8
@@ -88,7 +87,7 @@ class DoubleCompressionDataset(Dataset):
 
         for ch in range(im.shape[2]):
 
-            wlet = pywt.wavedec2(im[:, :, ch], 'db4', level=levels)
+            wlet = pywt.wavedec2(im[:, :, ch], "db4", level=levels)
             wlet_details = wlet[1:]
 
             wlet_details_filter = [None] * len(wlet_details)
@@ -97,9 +96,9 @@ class DoubleCompressionDataset(Dataset):
                 # Cycle over H,V,D components
                 level_coeff_filt = [None] * 3
                 for wlet_coeff_idx, wlet_coeff in enumerate(wlet_level):
-                    level_coeff_filt[
-                        wlet_coeff_idx] = commons._wiener_adaptive(wlet_coeff,
-                                                                   noise_var)
+                    level_coeff_filt[wlet_coeff_idx] = commons._wiener_adaptive(
+                        wlet_coeff, noise_var
+                    )
                 wlet_details_filter[wlet_level_idx] = tuple(level_coeff_filt)
 
             # Set filtered detail coefficients for Levels > 0 ---
@@ -109,11 +108,11 @@ class DoubleCompressionDataset(Dataset):
             wlet[0][...] = 0
 
             # Invert wavelet transform ---
-            wrec = pywt.waverec2(wlet, 'db4')
+            wrec = pywt.waverec2(wlet, "db4")
             W[:, :, ch] = wrec
 
         W = W.squeeze()
-        W = W[:im.shape[0], :im.shape[1]]
+        W = W[: im.shape[0], : im.shape[1]]
 
         return W
 

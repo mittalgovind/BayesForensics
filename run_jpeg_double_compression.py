@@ -25,10 +25,11 @@ from workflows.jpeg_double_compression import (
     parse_args,
     validate,
     JPEGDoubleCompression,
+    EnsembleJPEGDoubleCompression,
+    ensemble_scce,
+    load_parameters,
     qf_plot,
 )
-
-setup_logging()
 
 # necessary here, as slurm executes a copy
 sys.path.append(os.path.abspath("/"))
@@ -36,6 +37,7 @@ sys.path.append(os.path.abspath("/"))
 
 def main():
     args = parse_args()
+    setup_logging()
 
     if args.cpu:
         disable_gpu()
@@ -62,24 +64,6 @@ def main():
         int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
-    # TODO (Govind) Change to the new standard parameters from sensor branch.
-    if args.parameters is None:
-        f = open('config/jpeg_double/default_params.json', 'r')
-    else:
-        f = open(args.parameters, 'r')
-
-    try:
-        parameters = json.load(f)
-        f.close()
-        logger.info(
-            'Model configuration loaded successfully from {}.'.format(f))
-        args.parameters = parameters
-    except RuntimeError:
-        logger.error("Cannot load parameter configuration.")
-        sys.exit()
-
-    print(args.parameters)
-
     calc_pywt_residual = True if "pywt" in args.parameters[
         "residual_type"] else False
 
@@ -87,7 +71,7 @@ def main():
     data = DoubleCompressionDataset(
         data_directory=args.data_dir,
         load="y",
-        n_images=args.n_train_images,
+        n_images=args.n_train_images if not args.load_model else 0,
         v_images=args.n_val_images,
         randomize=args.seed,
         val_rgb_patch_size=args.patch_size,
@@ -95,14 +79,25 @@ def main():
         qf_train=qf_train,
         qf_test=qf_test,
         codec=JPEG(codec=args.codec),
+        presample_epochs=args.presample,
     )
 
-    # Build a model
-    model = JPEGDoubleCompression(
-        method=args.uncertainty_method,
-        patch_size=args.patch_size,
-        **args.parameters
-    )
+    args.parameters = load_parameters(args.parameters)
+
+    if args.uncertainty_method == "ensemble":
+        model = EnsembleJPEGDoubleCompression(
+            num_models=5,
+            method=args.uncertainty_method,
+            patch_size=args.patch_size,
+            **args.parameters,
+        )
+
+    else:
+        model = JPEGDoubleCompression(
+            method=args.uncertainty_method,
+            patch_size=args.patch_size,
+            **args.parameters,
+        )
 
     if args.load_model:
         model.load_model(os.path.abspath(args.load_model))
@@ -116,20 +111,23 @@ def main():
         save_freq = args.save_every * args.n_train_images // args.batch_size
         callbacks = get_callbacks(
             args.save_dir,
+            model_name=model.model_filename,
             save_freq=save_freq,
             tensorboard=args.tensorboard,
             patience=int(args.epochs * args.patience_percent),
-            verbose=args.verbosity
+            verbose=args.verbose
         ),
         train_performance = model._model.fit(
             x=data.get_training_generator(args.batch_size, args.patch_size),
-            validation_data=data.get_validation_generator(args.batch_size),
+            validation_data=data.get_validation_generator(args.batch_size,
+                                                          args.patch_size),
             epochs=args.epochs,
             batch_size=args.batch_size,
-            verbose=args.verbosity,
+            verbose=args.verbose,
             callbacks=callbacks,
             steps_per_epoch=args.n_train_images // args.batch_size,
-            validation_steps=args.n_val_images // args.batch_size
+            validation_steps=args.n_val_images // args.batch_size,
+            validation_freq=args.validation_freq,
         )
 
         # save the training performance
@@ -137,8 +135,6 @@ def main():
         fig.savefig(os.path.join(args.save_dir, "training_progress.pdf"))
 
     # TODO Add calibration
-    # TODO add a dataset for calibration specifically (extend class Dataset)
-    # TODO include calibration to the BayesBaseModel
     # if args.calibrate:
     #     model.set_temp(data)
 
