@@ -81,7 +81,7 @@ def main():
         qf_train=qf_train,
         qf_test=qf_test,
         codec=JPEG(codec=args.codec),
-        presample_epochs=args.presample,
+        # presample_epochs=args.presample,
     )
 
     args.parameters = load_parameters(args.parameters)
