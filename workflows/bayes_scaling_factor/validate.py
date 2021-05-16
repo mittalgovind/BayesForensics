@@ -22,7 +22,7 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
             performance = cache.load()
             performance["accuracy"]["validation"] = []
         except:
-            performance = {"accuracy": {"validation": []}}
+            performance = {"accuracy": {}}
             logger.warning(
                 "performance cache from training could not be loaded. Making a new one."
             )
@@ -60,7 +60,8 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                              range(num_runs)]) / model.temperature
                     else:
                         logits[bindex: bindex + batch_size] = (model(
-                            images, training=False) / model.temperature).numpy()
+                            images,
+                            training=False) / model.temperature).numpy()
 
                 predictions = logits.argmax(axis=-1)
 
@@ -68,10 +69,10 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                     # TODO finish calculating accuracy for mc
                     pass
                 else:
-
-                    conf_matrix[m][s] += np.unique(
-                        predictions, return_counts=True)[
-                                             1] / data.count_validation
+                    labels, counts = np.unique(predictions, return_counts=True)
+                    for label, count in zip(labels, counts):
+                        conf_matrix[m][s][label] += count
+                    conf_matrix[m][s] /= data.count_validation
                 tests_summary[method][sf] = logits
                 pbar.update(1)
     if cache:
