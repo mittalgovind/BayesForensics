@@ -11,6 +11,7 @@ import json
 # External libraries
 from loguru import logger
 
+
 # Internal libraries
 
 
@@ -230,8 +231,8 @@ def parse_args():
     parser.add_argument(
         "--patience-percent",
         type=float,
-        default=0.1,
-        help="Percentage of total epochs to use as patience. (def : 0.1 or 10%).",
+        default=1.0,
+        help="Percentage of total epochs to use as patience. (def : 1 or None).",
     )
     return parser.parse_args()
 

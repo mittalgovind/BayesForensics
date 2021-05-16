@@ -35,7 +35,8 @@ class PaddedConv2D(tf.keras.layers.Layer):
         self._bn = tf.keras.layers.BatchNormalization() if use_bn else None
 
     def call(self, input, *, training=False):
-        y = self._conv(tf.pad(input, self._padding_spec, self.padding))
+        y = self._conv(tf.pad(input, self._padding_spec, self.padding),
+                       training=training)
         y = self._bn(y) if self._bn is not None else y
         y = self._activation(y) if self._activation is not None else y
         return y

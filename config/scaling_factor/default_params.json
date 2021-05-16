@@ -1,10 +1,10 @@
 {
   "filters": 32,
-  "filter_multiplier": 1,
+  "filter_multiplier": 2,
   "conv_layers": 4,
   "kernel": 3,
   "dropout": 0.1,
-  "use_gap": false,
+  "use_gap": true,
   "dense_layers": 2,
   "dense_units": 128,
   "activation": "leaky_relu",

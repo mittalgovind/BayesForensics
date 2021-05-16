@@ -40,16 +40,15 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
             tests_summary[method] = {}
             data.sampling_method = method
             for s, sf in enumerate(data.classes):
-                sf *= data.patch_size
-                images, labels = data.preprocess_batch(batch, sf=sf)
                 if "mc" in uncertainty_method:
-                    logits = tf.zeros((data.count_validation, num_runs,
+                    logits = np.zeros((data.count_validation, num_runs,
                                        len(data.classes)))
                 else:
-                    logits = tf.zeros(
+                    logits = np.zeros(
                         (data.count_validation, len(data.classes)))
                 for batch_id in range(n_batches):
                     batch = data.next_validation_batch(batch_id, batch_size)
+                    images, labels = data.preprocess_batch(batch, sf=sf)
                     bindex = batch_id * batch_size
 
                     if "mc" in uncertainty_method:
@@ -60,10 +59,10 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                             [model(images, training=False) for _ in
                              range(num_runs)]) / model.temperature
                     else:
-                        logits[bindex: bindex + batch_size] = model(
-                            images, training=False) / model.temperature
+                        logits[bindex: bindex + batch_size] = (model(
+                            images, training=False) / model.temperature).numpy()
 
-                predictions = logits.numpy().argmax(axis=-1)
+                predictions = logits.argmax(axis=-1)
 
                 if 'mc' in uncertainty_method:
                     # TODO finish calculating accuracy for mc

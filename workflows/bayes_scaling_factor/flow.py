@@ -81,7 +81,7 @@ class ScalingFactor(BayesBaseModel):
                 "conv_layers": (4, int, (1, 32)),
                 "kernel": (5, int, (3, 11)),
                 "dropout": (0, float, (0, 1)),
-                "use_gap": (False, bool, None),
+                "use_gap": (True, bool, None),
                 "dense_layers": (2, int, (0, 4)),
                 "activation": (
                     "prelu", str, set(activation_mapping.keys())),
@@ -106,26 +106,23 @@ class ScalingFactor(BayesBaseModel):
         # Constrained convolution with a learned residual filter
         layers = [
             tf.keras.layers.Input(shape=(self.patch_size, self.patch_size,
-                                         self.channels))
-            # ConstrainedConv2D()
+                                         self.channels)),
+            ConstrainedConv2D()
         ]
         # Standard convolutional layers
         filters = self._h.filters
         for _ in range(self._h.conv_layers):
-            layers.append(
-                tf.keras.layers.Conv2D(
-                    filters, self._h.kernel,
-                    padding="same", activation=self.activation,
-                )
-            )
-            layers.append(tf.keras.layers.BatchNormalization())
-            layers.append(tf.keras.layers.MaxPool2D(self._h.pool, strides=2))
+            layers.extend([
+                self.conv2d(filters, self._h.kernel,
+                            activation=self.activation, use_bn=True),
+                tf.keras.layers.MaxPool2D(self._h.pool)
+            ])
             filters = int(self._h.filters * self._h.filter_multiplier)
 
         # Final 1 x 1 convolution
-        layers.append(
-            tf.keras.layers.Conv2D(int(filters), 1, activation=self.activation)
-        )
+        layers.append(self.conv2d(
+            filters // self._h.filter_multiplier, 1,
+            activation=self.activation, use_bn=True))
 
         # GAP / Feature formation
         if self._h.use_gap:

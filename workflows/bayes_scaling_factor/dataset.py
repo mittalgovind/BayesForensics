@@ -89,7 +89,7 @@ class ScalingFactorDataset(Dataset):
         if 'sf' in kwargs:
             sf = float(kwargs['sf'])
         else:
-            sf = tf.random.uniform((1,), *self.scales)
+            sf = tf.random.uniform((1,), *self.scales)[0].numpy()
 
         resized_size = int(sf * self.patch_size)
 
@@ -102,7 +102,7 @@ class ScalingFactorDataset(Dataset):
         # Resize batch.
         rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
                                           method=m)
-        class_id = quantize(sf.numpy(), self.classes, return_indices=True)
+        class_id = quantize([sf], self.classes, return_indices=True)
         sf_labels = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
 
         # Convert to JPEG if a codec is passed.

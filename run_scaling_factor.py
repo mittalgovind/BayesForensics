@@ -146,7 +146,8 @@ def main():
 
     logger.info("Started Testing")
     tests_summary, conf_matrix = validate(
-        model, data, args.batch_size, args.uncertainty_method, args.num_runs
+        model=model, data=data, batch_size=args.batch_size, cache=cache,
+        uncertainty_method=args.uncertainty_method, num_runs=args.num_runs
     )
 
     # TODO (Marcelo) this needs adapting to new tests_summary
