@@ -140,7 +140,8 @@ def parse_args():
         help="Number of epochs to log after.",
     )
     parser.add_argument(
-        "-lr", "--lr", action="store", default=1e-3, type=float, help="Learning rate."
+        "-lr", "--lr", action="store", default=1e-3, type=float,
+        help="Learning rate."
     )
     parser.add_argument(
         "--validation-freq",
@@ -156,7 +157,8 @@ def parse_args():
         default=None,
     )
     parser.add_argument(
-        "--parameters", type=str, default=None, help="path to a parameters JSON file."
+        "--parameters", type=str, default=None,
+        help="path to a parameters JSON file."
     )
     parser.add_argument(
         "--overwrite",
@@ -203,8 +205,8 @@ def parse_args():
     parser.add_argument(
         "--patience-percent",
         type=float,
-        default=0.1,
-        help="Percentage of total epochs to use as patience. (def : 0.1 or 10%).",
+        default=1,
+        help="Percentage of total epochs to use as patience (def : 1 or None)."
     )
     return parser.parse_args()
 

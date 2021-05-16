@@ -35,6 +35,7 @@ sys.path.append(os.path.abspath("/"))
 def main():
     setup_logging()
     args = parse_args()
+    args.parameters = load_parameters(args.parameters)
 
     if args.cpu:
         disable_gpu()
@@ -70,8 +71,6 @@ def main():
         codec=args.codec if args.jpeg_compression else None,
         jpeg_quality=args.jpeg_quality
     )
-
-    args.parameters = load_parameters(args.parameters)
 
     model = ScalingFactor(
         uncertainty_method=args.uncertainty_method,
