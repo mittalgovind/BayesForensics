@@ -26,7 +26,6 @@ from workflows.jpeg_double_compression import (
     validate,
     JPEGDoubleCompression,
     EnsembleJPEGDoubleCompression,
-    ensemble_scce,
     qf_plot,
 )
 
