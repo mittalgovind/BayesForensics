@@ -215,7 +215,7 @@ def load_parameters(parameters):
     if parameters:
         f = open(parameters, 'r')
     else:
-        f = open('config/scaling_factor/default_params.json', 'r')
+        f = open('config/jpeg_double/default_params.json', 'r')
 
     try:
         parameters = json.load(f)
