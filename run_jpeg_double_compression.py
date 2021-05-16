@@ -36,6 +36,7 @@ sys.path.append(os.path.abspath("/"))
 
 def main():
     args = parse_args()
+    args.parameters = load_parameters(args.parameters)
     setup_logging()
 
     if args.cpu:
@@ -63,9 +64,6 @@ def main():
         int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
-    calc_pywt_residual = True if "pywt" in args.parameters[
-        "residual_type"] else False
-
     # load the dataset
     data = DoubleCompressionDataset(
         data_directory=args.data_dir,
@@ -74,14 +72,13 @@ def main():
         v_images=args.n_val_images,
         randomize=args.seed,
         val_rgb_patch_size=args.patch_size,
-        calc_pywt_residual=calc_pywt_residual,
+        calc_pywt_residual="pywt" in args.parameters["residual_type"],
         qf_train=qf_train,
         qf_test=qf_test,
         codec=JPEG(codec=args.codec),
         presample_epochs=args.presample,
     )
 
-    args.parameters = load_parameters(args.parameters)
 
     if args.uncertainty_method == "ensemble":
         model = EnsembleJPEGDoubleCompression(
