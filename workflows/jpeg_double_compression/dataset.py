@@ -30,7 +30,7 @@ class DoubleCompressionDataset(Dataset):
         calc_pywt_residual : bool
             Flag for calculate PyWavelet residual
         """
-        super().__init__(presample_epochs=calc_pywt_residual, **kwargs)
+        super().__init__(**kwargs)
         self.qf_train = qf_train
         self.qf_test = qf_test
         self.codec = codec
