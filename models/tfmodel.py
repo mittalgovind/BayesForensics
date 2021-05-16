@@ -354,7 +354,3 @@ class TFModel(object):
 
     def process(self, x, training=False):
         return self._model(x, training)
-
-    def deploy_model(self, dirname):
-        # TODO Need to implement model deployment - need to set input shape & self._model.save(dirname)
-        raise NotImplementedError()

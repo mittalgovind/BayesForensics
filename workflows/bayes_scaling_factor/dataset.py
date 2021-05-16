@@ -26,14 +26,14 @@ sys.path.append("/scratch/jms1595/neural-imaging-dev/")
 
 class ScalingFactorDataset(Dataset):
     def __init__(
-        self,
-        scales,
-        patch_size,
-        sampling_method,
-        n_classes,
-        codec=None,
-        jpeg_quality=100,
-        **kwargs,
+            self,
+            scales,
+            patch_size,
+            sampling_method,
+            n_classes,
+            codec=None,
+            jpeg_quality=100,
+            **kwargs,
     ):
         """
         Subclass of helpers.dataset.Dataset class.
@@ -54,8 +54,9 @@ class ScalingFactorDataset(Dataset):
         jpeg_quality : int
             JPEG quality to compress with.
         """
-        super().__init__(**kwargs)
-        self.scales = (float(scales.split(",")[0]), float(scales.split(",")[1]))
+        super().__init__(val_rgb_patch_size=patch_size, **kwargs)
+        self.scales = (float(scales.split(",")[0]),
+                       float(scales.split(",")[1]))
         self.patch_size = patch_size
         self.sampling_method = sampling_method
         self.methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
@@ -63,6 +64,8 @@ class ScalingFactorDataset(Dataset):
         self.classes = np.linspace(*self.scales, num=n_classes)
         if codec:
             self.codec = JPEG(quality=jpeg_quality, codec=codec)
+        else:
+            self.codec = None
 
     def preprocess_batch(self, batch, **kwargs):
         """
@@ -77,12 +80,17 @@ class ScalingFactorDataset(Dataset):
 
         Returns
         -------
-        batch_processed : tf.Tensor
+        rescaled_images : tf.Tensor
             Tensor containing the resized batch.
-        batch_sf : tf.Tensor
+        sf_labels : tf.Tensor
             Tensor containing the target labels.
         """
-        sf = tf.random.uniform((1,), *self.scales)
+
+        if 'sf' in kwargs:
+            sf = float(kwargs['sf'])
+        else:
+            sf = tf.random.uniform((1,), *self.scales)[0].numpy()
+
         resized_size = int(sf * self.patch_size)
 
         # Choose sampling method.
@@ -92,34 +100,36 @@ class ScalingFactorDataset(Dataset):
             m = self.sampling_method
 
         # Resize batch.
-        batch_processed = tf.image.resize(batch, [resized_size, resized_size], method=m)
-        class_id = quantize(sf.numpy(), self.classes, return_indices=True)
-        batch_sf = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
+        rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
+                                          method=m)
+        class_id = quantize([sf], self.classes, return_indices=True)
+        sf_labels = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
 
         # Convert to JPEG if a codec is passed.
-        if self.codec is not None:
-            batch_processed = self.codec.process(batch_processed)
+        if self.codec:
+            rescaled_images = self.codec.process(rescaled_images)
 
-        return batch_processed, batch_sf
+        return rescaled_images, sf_labels
 
 
+# TODO (Marcelo) refactor in future release
 def train_ensemble(
-    model,
-    epochs,
-    data,
-    batch_size,
-    cache,
-    codec,
-    patch_size,
-    scales,
-    classes,
-    sampling_method,
-    save_dir,
-    lr,
-    methods,
-    save_every,
-    adversarial,
-    **kwargs,
+        model,
+        epochs,
+        data,
+        batch_size,
+        cache,
+        codec,
+        patch_size,
+        scales,
+        classes,
+        sampling_method,
+        save_dir,
+        lr,
+        methods,
+        save_every,
+        adversarial,
+        **kwargs,
 ):
     """
     Trains models inside the Deep Ensemble.
@@ -168,11 +178,13 @@ def train_ensemble(
 
     # Different performance dictionary for each model.
     performance = [
-        {"loss": {"training": []}, "accuracy": {"training": []}} for _ in model.models
+        {"loss": {"training": []}, "accuracy": {"training": []}} for _ in
+        model.models
     ]
     n_batches = data.count_training // batch_size
     opt = tf.keras.optimizers.Adam(lr)
-    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+        from_logits=True)
 
     with progress_bar(epochs, "Training") as pbar:
         for epoch in range(epochs):
@@ -182,7 +194,8 @@ def train_ensemble(
 
             for batch_id in range(n_batches):
                 # Get next training batch.
-                batch_y = data.next_training_batch(batch_id, batch_size, patch_size)
+                batch_y = data.next_training_batch(batch_id, batch_size,
+                                                   patch_size)
 
                 batch_yy, batch_sf = preprocess_batch(
                     batch_y,
@@ -216,7 +229,8 @@ def train_ensemble(
                         # Loss becomes the sum of both adversarial loss and regular training loss.
                         if adversarial:
                             loss += loss_criterion(
-                                batch_sf, model.models[i](batch_adv, training=True)
+                                batch_sf,
+                                model.models[i](batch_adv, training=True)
                             )
 
                     grads = tape.gradient(
@@ -233,8 +247,10 @@ def train_ensemble(
 
             # Save losses.
             for i in range(model.n_models):
-                performance[i]["loss"]["training"].append(losses[i] / n_batches)
-                performance[i]["accuracy"]["training"].append(accuracies[i] / n_batches)
+                performance[i]["loss"]["training"].append(
+                    losses[i] / n_batches)
+                performance[i]["accuracy"]["training"].append(
+                    accuracies[i] / n_batches)
 
             pbar.set_postfix(loss=np.mean(losses) / n_batches)
             pbar.update(1)

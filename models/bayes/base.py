@@ -90,12 +90,12 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         # store the vanilla model definition in self._model
         try:
             self._create_model()
+            n_parameters = self.count_parameters()
         except RuntimeError:
             logger.error("Model creation FAILED.")
         self.model_created = True
-        logger.info("Model created successfully.")
-        logger.info("Number of parameters in the model = {}".format(
-            self.count_parameters()))
+        logger.info("Model created successfully. Number of parameters "
+                    "in the model = {}".format(n_parameters))
         logger.info("Layers : {}".format(self._model.layers))
 
     @abstractmethod

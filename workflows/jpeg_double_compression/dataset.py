@@ -28,9 +28,9 @@ class DoubleCompressionDataset(Dataset):
         qf_test : tuple
             Range of quality factor to choose for compressing during testing.
         calc_pywt_residual : bool
-            Flag for calculate PyWavalet residual
+            Flag for calculate PyWavelet residual
         """
-        super().__init__(**kwargs)
+        super().__init__(presample_epochs=calc_pywt_residual, **kwargs)
         self.qf_train = qf_train
         self.qf_test = qf_test
         self.codec = codec
@@ -58,15 +58,15 @@ class DoubleCompressionDataset(Dataset):
 
         # compressing with QF1 before QF2, to give compression history.
         batch_double_compressed = self.codec.process(
-            self.codec.process(batch, QF1), QF2
-        )
-        images = tf.concat((batch_single_compressed, batch_double_compressed), axis=0)
+            self.codec.process(batch, QF1), QF2)
+        images = tf.concat((batch_single_compressed, batch_double_compressed),
+                           axis=0)
         labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)), axis=0)
 
         return images, labels
 
     @staticmethod
-    def _noise_extract(im: np.ndarray, levels: int = 4, sigma: float = 4) -> np.ndarray:
+    def _noise_extract(im: np.ndarray, levels: int = 4, sigma: float = 4):
         """
         NoiseExtract as from Binghamton toolbox.
         :param im: grayscale or color image, np.uint8
@@ -119,20 +119,17 @@ class DoubleCompressionDataset(Dataset):
     def extract_pywt_residual(self):
         """Calculate and append an external filter to all the patches."""
         logger.info("Calculating PyWavelet residuals ...")
+        # TODO remove tensorflow usage!
+        # TODO be mindful of dataset being used, e.g., list comprehensions
         for split in ["training", "validation", "calibration"]:
-            xc = tf.pad(
-                255.0 * self.data[split],
-                [[0, 0], [0, 0], [0, 0], [1, 0]],
-                "CONSTANT",
-                constant_values=1,
-            )
-            ycbcrs = tf.nn.conv2d(
-                xc,
-                tf.reshape(tf.transpose(self._color_F), [1, 1, 4, 3]),
-                [1, 1, 1, 1],
-                "SAME",
-            )
-            ycbcrs = tf.cast(ycbcrs, dtype=tf.uint8)
+            xc = tf.pad(255.0 * self.data[split],
+                        [[0, 0], [0, 0], [0, 0], [1, 0]],
+                        'CONSTANT',
+                        constant_values=1)
+            ycbcrs = tf.nn.conv2d(xc,
+                                  tf.reshape(tf.transpose(self._color_F),
+                                             [1, 1, 4, 3]),
+                                  [1, 1, 1, 1], 'SAME')
             residuals = tf.tensor([self._noise_extract(ycbcr) for ycbcr in ycbcrs])
             self.data[split] = tf.concat(self.data[split], residuals, axis=-1)
         logger.info("Residuals appended to each patch.")

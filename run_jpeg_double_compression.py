@@ -26,6 +26,7 @@ from workflows.jpeg_double_compression import (
     validate,
     JPEGDoubleCompression,
     EnsembleJPEGDoubleCompression,
+    load_parameters,
     qf_plot,
 )
 
@@ -62,24 +63,6 @@ def main():
         int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
-    # TODO (Govind) Change to the new standard parameters from sensor branch.
-    if args.parameters:
-        f = open(args.parameters, 'r')
-    else:
-        f = open('config/jpeg_double/default_params.json', 'r')
-
-    try:
-        parameters = json.load(f)
-        f.close()
-        logger.info(
-            'Model configuration loaded successfully from {}.'.format(f))
-        args.parameters = parameters
-    except RuntimeError:
-        logger.error("Cannot load parameter configuration.")
-        sys.exit()
-
-    print(args.parameters)
-
     calc_pywt_residual = True if "pywt" in args.parameters[
         "residual_type"] else False
 
@@ -98,18 +81,14 @@ def main():
         presample_epochs=args.presample,
     )
 
+    args.parameters = load_parameters(args.parameters)
+
     if args.uncertainty_method == "ensemble":
         model = EnsembleJPEGDoubleCompression(
             num_models=5,
             method=args.uncertainty_method,
             patch_size=args.patch_size,
             **args.parameters,
-        )
-
-        # loss_criterion = ensemble_scce
-
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True
         )
 
     else:
@@ -119,13 +98,11 @@ def main():
             **args.parameters,
         )
 
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True
-        )
-
     if args.load_model:
         model.load_model(os.path.abspath(args.load_model))
     else:
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True)
         optimizer = tf.keras.optimizers.Adam(args.lr)
 
         model._model.compile(optimizer, loss=loss_criterion,
@@ -141,7 +118,8 @@ def main():
         ),
         train_performance = model._model.fit(
             x=data.get_training_generator(args.batch_size, args.patch_size),
-            validation_data=data.get_validation_generator(args.batch_size),
+            validation_data=data.get_validation_generator(args.batch_size,
+                                                          args.patch_size),
             epochs=args.epochs,
             batch_size=args.batch_size,
             verbose=args.verbose,

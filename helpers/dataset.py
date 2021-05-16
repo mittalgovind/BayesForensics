@@ -422,10 +422,9 @@ class Dataset(object):
         """
         Implement this method to return the processed batch and its labels.
         """
-        raise NotImplementedError
+        return batch
 
-    def get_training_generator(self, batch_size, rgb_patch_size,
-                               discard="flat", **kwargs):
+    def get_training_generator(self, batch_size, patch_size, discard="flat", **kwargs):
         """
         Get a generator for training data. Can be used to construct a data pipeline:
 
@@ -436,8 +435,7 @@ class Dataset(object):
         while True:
             for batch_id in range(self.count_training // batch_size):
                 batch = self.next_training_batch(
-                    batch_id, batch_size, rgb_patch_size, discard
-                )
+                            batch_id, batch_size, patch_size, discard)
                 images, labels = self.preprocess_batch(batch, **kwargs)
                 yield images, labels
 

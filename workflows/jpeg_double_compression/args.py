@@ -6,8 +6,10 @@
 
 # Standard libraries
 import argparse
+import json
 
 # External libraries
+from loguru import logger
 
 # Internal libraries
 
@@ -205,3 +207,24 @@ def parse_args():
         help="Percentage of total epochs to use as patience. (def : 0.1 or 10%).",
     )
     return parser.parse_args()
+
+
+def load_parameters(parameters):
+    """Load parameters from the config file"""
+    # TODO (Govind) Change to the new standard parameters from sensor branch.
+    if parameters:
+        f = open(parameters, 'r')
+    else:
+        f = open('config/scaling_factor/default_params.json', 'r')
+
+    try:
+        parameters = json.load(f)
+        f.close()
+        logger.info(
+            'Model configuration loaded successfully from {}.'.format(f))
+        logger.info("Model parameters : {}".format(parameters))
+    except RuntimeError:
+        logger.error("Cannot load parameter configuration.")
+
+    return parameters
+

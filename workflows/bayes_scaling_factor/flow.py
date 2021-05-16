@@ -7,6 +7,8 @@
 # Standard libraries
 
 # External libraries
+from abc import ABC
+
 import tensorflow as tf
 
 # Internal libraries
@@ -14,7 +16,6 @@ from helpers.paramspec import ParamSpec
 from helpers.tf_helpers import activation_mapping
 from models.layers import ConstrainedConv2D
 from models.bayes import BayesBaseModel
-from models.bayes import DeepEnsemble
 
 
 class ScalingFactor(BayesBaseModel):
@@ -24,19 +25,22 @@ class ScalingFactor(BayesBaseModel):
      IEEE Transactions on Information Forensics and Security, 13 (11), 2018."""
 
     def __init__(
-        self,
-        method,
-        n_classes,
-        patch_size=None,
-        filters=32,
-        filter_multiplier=2,
-        conv_layers=4,
-        kernel=5,
-        dropout=0.0,
-        use_gap=True,
-        dense_layers=0,
-        activation="leaky_relu",
-        **kwargs
+            self,
+            uncertainty_method,
+            n_classes,
+            patch_size=None,
+            filters=32,
+            filter_multiplier=2,
+            conv_layers=4,
+            kernel=5,
+            dropout=0.0,
+            use_gap=True,
+            dense_layers=0,
+            dense_units=200,
+            activation="leaky_relu",
+            pool=2,
+            channels=3,
+            **kwargs
     ):
         """
         Creates a forensic analysis network (see class docstring for details).
@@ -65,7 +69,8 @@ class ScalingFactor(BayesBaseModel):
             activation function.
             (see helpers.tf_helpers.activation_mapping for more activations).
         """
-        super().__init__(method=method, activation=activation, **kwargs)
+        super().__init__(method=uncertainty_method, activation=activation,
+                         **kwargs)
 
         # Set-up and validate hyper-parameters
         self._h = ParamSpec(
@@ -76,9 +81,13 @@ class ScalingFactor(BayesBaseModel):
                 "conv_layers": (4, int, (1, 32)),
                 "kernel": (5, int, (3, 11)),
                 "dropout": (0, float, (0, 1)),
-                "use_gap": (False, bool, None),
-                "dense_layers": (2, int, (0, 16)),
-                "activation": ("leaky_relu", str, set(activation_mapping.keys())),
+                "use_gap": (True, bool, None),
+                "dense_layers": (2, int, (0, 4)),
+                "activation": (
+                    "prelu", str, set(activation_mapping.keys())),
+                "pool": (2, int, (1, 4)),
+                "dense_units": (200, int, (100, 400))
+
             }
         )
         params = locals()
@@ -89,55 +98,53 @@ class ScalingFactor(BayesBaseModel):
         self.optimizer = tf.keras.optimizers.Adam()
         self.loss = tf.keras.losses.SparseCategoricalCrossentropy()
         self.performance = dict()
-
+        self.patch_size = patch_size
+        self.channels = channels
         self.create_model()
 
     def _create_model(self):
         # Constrained convolution with a learned residual filter
-        self._layers.append(ConstrainedConv2D())
-
+        layers = [
+            tf.keras.layers.Input(shape=(self.patch_size, self.patch_size,
+                                         self.channels)),
+            ConstrainedConv2D()
+        ]
         # Standard convolutional layers
+        filters = self._h.filters
         for _ in range(self._h.conv_layers):
-            self._layers.append(
-                self.conv2D(
-                    self._h.filters,
-                    [self._h.kernel, self._h.kernel],
-                    padding="same",
-                    activation=self.activation,
-                )
-            )
-            self._layers.append(tf.keras.layers.BatchNormalization())
-            self._layers.append(tf.keras.layers.MaxPool2D([2, 2]))
-            filters = int(self._h.n_filters * self._h.n_fscale)
-
-        n_filters = self._h.n_filters // self._h.n_fscale
+            layers.extend([
+                self.conv2d(filters, self._h.kernel,
+                            activation=self.activation, use_bn=True),
+                tf.keras.layers.MaxPool2D(self._h.pool)
+            ])
+            filters = int(self._h.filters * self._h.filter_multiplier)
 
         # Final 1 x 1 convolution
-        self._layers.append(
-            self.conv2D(int(self._h.n_filters), [1, 1], activation=self.activation)
-        )
+        layers.append(self.conv2d(
+            filters // self._h.filter_multiplier, 1,
+            activation=self.activation, use_bn=True))
 
         # GAP / Feature formation
         if self._h.use_gap:
-            self._layers.append(tf.keras.layers.GlobalAveragePooling2D())
+            layers.append(tf.keras.layers.GlobalAveragePooling2D())
         else:
-            self._layers.append(tf.keras.layers.Flatten())
+            layers.append(tf.keras.layers.Flatten())
 
         # Fully-connected classifier
-        for _ in range(self._h.n_dense):
-            self._layers.append(
-                tf.keras.layers.Dense(n_filters, activation=self.activation)
+        for _ in range(self._h.dense_layers):
+            layers.append(
+                self.dense(self._h.dense_units, activation=self.activation)
             )
             if self._h.dropout > 0:
-                self._layers.append(tf.keras.layers.Dropout(self._h.dropout))
+                layers.append(self.dropout(self._h.dropout))
 
-        self._layers.append(
-            tf.keras.layers.Dense(
-                self._h.n_classes, activation=tf.keras.activations.softmax
-            )
+        # final classification head
+        layers.append(
+            tf.keras.layers.Dense(self._h.n_classes, activation=None)
         )
 
-        self._model = tf.keras.Sequential(self._layers)
+        # make a keras model out of the layers
+        self._model = tf.keras.Sequential(layers)
 
     def reset_performance_stats(self):
         self.performance = {
@@ -145,33 +152,6 @@ class ScalingFactor(BayesBaseModel):
             "accuracy": {"validation": []},
             "confusion": [],
         }
-
-    def _call(self, batch_x, training=False):
-        """Returns class probabilities for an image batch (NHWC:rgb)."""
-        return self._model(batch_x, training)
-
-    def process_and_decide(self, batch_x, with_confidence=False):
-        """Returns the predicted class (and optionally its confidence)
-        for an image batch (NHWC:rgb)."""
-        probs = self._model(batch_x)
-
-        if with_confidence:
-            return probs.numpy().argmax(axis=1), probs.numpy().max(axis=1)
-        else:
-            return probs.numpy().argmax(axis=1)
-
-    def training_step(self, batch_x, target_labels, learning_rate=None):
-        """Make a single training step and return the current loss
-        (Use class numbers for target labels)."""
-        with tf.GradientTape() as tape:
-            class_probabilities = self._model(batch_x)
-            loss = self.loss(target_labels, class_probabilities)
-
-        if learning_rate is not None:
-            self.optimizer.lr.assign(learning_rate)
-        grads = tape.gradient(loss, self._model.trainable_weights)
-        self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
-        return loss
 
     def summary(self):
         return (
@@ -185,5 +165,11 @@ class ScalingFactor(BayesBaseModel):
             )
         )
 
-    def __getattr__(self, name):
-        raise AttributeError(name)
+    @property
+    def model_code(self):
+        return "{c}_{k}x{k}_{l}x{f}f".format(
+            c=self.class_name,
+            k=self._h.kernel,
+            f=self._h.n_features,
+            l=self._h.n_layers,
+        )
