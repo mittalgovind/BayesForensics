@@ -29,7 +29,7 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
 
     n_batches = data.count_validation // batch_size
     conf_matrix = np.zeros((len(data.methods), len(data.classes),
-                            len(data.classes)), dtype=np.int)
+                            len(data.classes)))
 
     # not testing on random method
     data.random_method = False
