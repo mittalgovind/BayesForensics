@@ -79,7 +79,6 @@ def main():
         presample_epochs=args.presample,
     )
 
-
     if args.uncertainty_method == "ensemble":
         model = EnsembleJPEGDoubleCompression(
             num_models=5,
