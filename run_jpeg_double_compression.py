@@ -63,7 +63,11 @@ def main():
         int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
-    calc_pywt_residual = True if "pywt" in args.residual_type else False
+    """
+    calc_pywt_residual = True if "pywt" in args.parameters[
+        "residual_type"] else False
+    """
+    calc_pywt_residual = False
 
     # load the dataset
     data = DoubleCompressionDataset(
