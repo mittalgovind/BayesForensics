@@ -157,3 +157,45 @@ class EnsembleJPEGDoubleCompression(JPEGDoubleCompression):
             outputs_list.append(outputs)
 
         self._model = tf.keras.models.Model(inputs, outputs_list)
+
+    def __call__(self, inputs, training=False, full_output=True):
+        outputs = self._model(inputs, training=training)
+        if full_output:
+            return outputs
+
+        else:
+            return tf.math.reduce_mean(outputs, axis=0)
+
+    def test_step(self, data):
+        x, y = data
+        y_pred = self(x, training=False, full_output=False)
+
+        self.compiled_loss(y, y_pred, regularization_losses=self.losses)
+
+        self.compiled_metrics.update_state(y, y_pred)
+
+        return {m.name: m.result() for m in self.metrics}
+
+
+class Ensemble(tf.keras.Model):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        pass
+
+    def call(self, inputs, training=False, full_output=True):
+        outputs = self._model(inputs, training=training)
+        if full_output:
+            return outputs
+
+        else:
+            return tf.math.reduce_mean(outputs, axis=0)
+
+    def test_step(self, data):
+        x, y = data
+        y_pred = self.call(x, training=False, full_output=False)
+
+        self.compiled_loss(y, y_pred, regularization_losses=self.losses)
+
+        self.compiled_metrics.update_state(y, y_pred)
+
+        return {m.name: m.result() for m in self.metrics}
