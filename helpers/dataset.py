@@ -23,6 +23,7 @@ class Dataset(object):
             val_discard="flat-aggressive",
             presample_epochs=0,
             train_rgb_patch_size=0,
+            use_presampled=False
     ):
         """
         Represents a [RAW-]RGB dataset for training imaging pipelines. The class preloads full resolution images and
@@ -82,7 +83,7 @@ class Dataset(object):
             else:
                 raise ValueError(
                     f"Cannot find the data directory: {data_directory}")
-
+        self.data = {}
         self.files = {}
         self._loaded_data = load
         self._data_directory = data_directory
@@ -93,13 +94,39 @@ class Dataset(object):
             val_n_patches,
         )
         self._val_discard = "flat-aggressive"
-        self.files["training"], self.files["validation"], self.files[
-            "calibration"] = loading.discover_images(
-            data_directory, randomize=randomize, n_images=n_images,
-            v_images=v_images, c_images=c_images,
-        )
 
-        self.data = {}
+        # TODO Remove in future release
+        if use_presampled:
+            self.files["training"], self.files["validation"], self.files[
+                "calibration"] = loading.discover_images(
+                data_directory, randomize=69, n_images=10240,
+                v_images=v_images, c_images=c_images,
+            )
+            self.data["training"] = {}
+            self.data["training"]['y'] = np.load(use_presampled)[:512 * n_images]
+            self.presample_epochs = 1
+
+        else:
+            if presample_epochs == 0:
+                self.data["training"] = loading.load_images(
+                    self.files["training"], data_directory, load=load
+                )
+            else:
+                self.data["training"] = loading.load_patches(
+                    self.files["training"],
+                    data_directory,
+                    patch_size=train_rgb_patch_size // 2,
+                    n_patches=presample_epochs,
+                    load=load,
+                    discard=val_discard,
+                )
+                self.files["training"], self.files["validation"], self.files[
+                    "calibration"] = loading.discover_images(
+                    data_directory, randomize=randomize, n_images=n_images,
+                    v_images=v_images, c_images=c_images,
+                )
+            self.presample_epochs = presample_epochs
+
         self.data["validation"] = loading.load_patches(
             self.files["validation"],
             data_directory,
@@ -116,20 +143,6 @@ class Dataset(object):
             load=load,
             discard=val_discard,
         )
-        self.presample_epochs = presample_epochs
-        if presample_epochs == 0:
-            self.data["training"] = loading.load_images(
-                self.files["training"], data_directory, load=load
-            )
-        else:
-            self.data["training"] = loading.load_patches(
-                self.files["training"],
-                data_directory,
-                patch_size=train_rgb_patch_size // 2,
-                n_patches=presample_epochs,
-                load=load,
-                discard=val_discard,
-            )
 
     def __getitem__(self, key):
         if key in ["training", "validation", "calibration"]:
@@ -198,7 +211,8 @@ class Dataset(object):
                     by[b] = self.data["training"]["y"][bid].astype(
                         np.float) / (2 ** 8 - 1)
             else:
-                current_rgb = self.data["training"]["y"][bid] if has_rgb else None
+                current_rgb = self.data["training"]["y"][
+                    bid] if has_rgb else None
                 xx, yy = sample_patch(
                     current_rgb,
                     rgb_patch_size,
@@ -384,7 +398,8 @@ class Dataset(object):
         for k in self._loaded_data:
             stats["training/{}".format(k)] = self.data["training"][k].shape
             stats["validation/{}".format(k)] = self.data["validation"][k].shape
-            stats["calibration/{}".format(k)] = self.data["calibration"][k].shape
+            stats["calibration/{}".format(k)] = self.data["calibration"][
+                k].shape
 
         return stats
 
@@ -424,7 +439,8 @@ class Dataset(object):
         """
         return batch
 
-    def get_training_generator(self, batch_size, patch_size, discard="flat", **kwargs):
+    def get_training_generator(self, batch_size, patch_size, discard="flat",
+                               **kwargs):
         """
         Get a generator for training data. Can be used to construct a data pipeline:
 
@@ -435,7 +451,7 @@ class Dataset(object):
         while True:
             for batch_id in range(self.count_training // batch_size):
                 batch = self.next_training_batch(
-                            batch_id, batch_size, patch_size, discard)
+                    batch_id, batch_size, patch_size, discard)
                 images, labels = self.preprocess_batch(batch, **kwargs)
                 yield images, labels
 
@@ -470,7 +486,7 @@ class Dataset(object):
         import tensorflow as tf
 
         types = (
-        tf.float32, tf.float32) if self.is_raw_and_rgb() else tf.float32
+            tf.float32, tf.float32) if self.is_raw_and_rgb() else tf.float32
         shapes = (
             (batch_size, rgb_patch_size // 2, rgb_patch_size // 2, 4),
             (batch_size, rgb_patch_size, rgb_patch_size, 3),
@@ -497,4 +513,3 @@ class Dataset(object):
             lambda: self.get_calibration_generator(batch_size),
             output_types=len(self._loaded_data) * (tf.float32,),
         )
-

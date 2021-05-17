@@ -11,6 +11,7 @@ import json
 # External libraries
 from loguru import logger
 
+
 # Internal libraries
 
 
@@ -25,8 +26,8 @@ def parse_args():
         default="mc-dropout",
         type=str,
         help="Uncertainty method."
-        " Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp',"
-        " 'flipout', or 'reparameterization'.",
+             " Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp',"
+             " 'flipout', or 'reparameterization'.",
     )
     parser.add_argument(
         "--qf-train",
@@ -35,7 +36,7 @@ def parse_args():
         default="75,100",
         type=str,
         help="Comma separated values for lower and upper bound of Quality "
-        "factor used for training, e.g. '75,100'",
+             "factor used for training, e.g. '75,100'",
     )
     parser.add_argument(
         "--qf-test",
@@ -44,7 +45,7 @@ def parse_args():
         default="60,100",
         type=str,
         help="Comma separated values for lower and upper bound of Quality "
-        "factor used for testing, e.g. '60,100'",
+             "factor used for testing, e.g. '60,100'",
     )
     parser.add_argument(
         "--codec",
@@ -52,7 +53,7 @@ def parse_args():
         default="libjpeg",
         type=str,
         help="Type of codec. Possible choices - libjpeg, soft, sin, harmonic."
-        " (default: libjpeg)",
+             " (default: libjpeg)",
     )
     parser.add_argument(
         "--patch-size",
@@ -123,7 +124,8 @@ def parse_args():
         help="Number of test runs per image in validation set",
     )
     parser.add_argument(
-        "--save-dir", type=str, default="./output", help="Output save directory"
+        "--save-dir", type=str, default="./output",
+        help="Output save directory"
     )
     parser.add_argument(
         "--data-dir",
@@ -208,6 +210,13 @@ def parse_args():
         default=1,
         help="Percentage of total epochs to use as patience (def : 1 or None)."
     )
+    parser.add_argument(
+        "--use-presampled",
+        default=False,
+        type=str,
+        help="Uses presampled data. Pass the path to npy file.",
+    )
+
     return parser.parse_args()
 
 
@@ -229,4 +238,3 @@ def load_parameters(parameters):
         logger.error("Cannot load parameter configuration.")
 
     return parameters
-

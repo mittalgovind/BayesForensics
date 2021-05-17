@@ -17,7 +17,8 @@ from helpers.dataset import Dataset
 
 
 class DoubleCompressionDataset(Dataset):
-    def __init__(self, codec, qf_train, qf_test, calc_pywt_residual=False, **kwargs):
+    def __init__(self, codec, qf_train, qf_test, calc_pywt_residual=False,
+                 **kwargs):
         """
         Subclass of helpers.dataset.Dataset class.
 
@@ -43,10 +44,13 @@ class DoubleCompressionDataset(Dataset):
 
         if not self.eval_mode:
             # sample quality factors
-            QF1 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
-            QF2 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
+            QF1 = np.random.randint(low=self.qf_train[0],
+                                    high=self.qf_train[1])
+            QF2 = np.random.randint(low=self.qf_train[0],
+                                    high=self.qf_train[1])
             while QF1 == QF2:
-                QF2 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
+                QF2 = np.random.randint(low=self.qf_train[0],
+                                        high=self.qf_train[1])
         else:
             QF1 = int(kwargs["QF1"])
             QF2 = int(kwargs["QF2"])
@@ -93,7 +97,8 @@ class DoubleCompressionDataset(Dataset):
                 # Cycle over H,V,D components
                 level_coeff_filt = [None] * 3
                 for wlet_coeff_idx, wlet_coeff in enumerate(wlet_level):
-                    level_coeff_filt[wlet_coeff_idx] = commons._wiener_adaptive(
+                    level_coeff_filt[
+                        wlet_coeff_idx] = commons._wiener_adaptive(
                         wlet_coeff, noise_var
                     )
                 wlet_details_filter[wlet_level_idx] = tuple(level_coeff_filt)
@@ -127,7 +132,8 @@ class DoubleCompressionDataset(Dataset):
                                   tf.reshape(tf.transpose(self._color_F),
                                              [1, 1, 4, 3]),
                                   [1, 1, 1, 1], 'SAME')
-            residuals = tf.tensor([self._noise_extract(ycbcr) for ycbcr in ycbcrs])
+            residuals = tf.tensor(
+                [self._noise_extract(ycbcr) for ycbcr in ycbcrs])
             self.data[split] = tf.concat(self.data[split], residuals, axis=-1)
         logger.info("Residuals appended to each patch.")
 
