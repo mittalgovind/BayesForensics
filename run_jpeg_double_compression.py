@@ -120,8 +120,8 @@ def main():
             batch_size=args.batch_size,
             verbose=args.verbose,
             callbacks=callbacks,
-            steps_per_epoch=args.n_train_images // args.batch_size,
-            validation_steps=args.n_val_images // args.batch_size,
+            steps_per_epoch=data.count_training // args.batch_size,
+            validation_steps=data.count_validation // args.batch_size,
             validation_freq=args.validation_freq,
         )
 
