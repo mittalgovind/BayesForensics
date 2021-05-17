@@ -58,10 +58,6 @@ def main():
     else:
         os.mkdir(args.save_dir)
 
-    qf_train = (
-        int(args.qf_train.split(",")[0]), int(args.qf_train.split(",")[1]))
-    qf_test = (
-        int(args.qf_test.split(",")[0]), int(args.qf_test.split(",")[1]))
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
     # load the dataset
@@ -73,8 +69,8 @@ def main():
         randomize=args.seed,
         val_rgb_patch_size=args.patch_size,
         calc_pywt_residual="pywt" in args.parameters["residual_type"],
-        qf_train=qf_train,
-        qf_test=qf_test,
+        qf_train=args.qf_train,
+        qf_test=args.qf_test,
         codec=JPEG(codec=args.codec),
         presample_epochs=args.presample,
         use_presampled=args.use_presampled, # TODO hacky fix
