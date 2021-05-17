@@ -79,7 +79,6 @@ def main():
         presample_epochs=args.presample,
     )
 
-
     if args.uncertainty_method == "ensemble":
         model = EnsembleJPEGDoubleCompression(
             num_models=5,
@@ -127,7 +126,7 @@ def main():
 
         # save the training performance
         fig = perf(train_performance.history)
-        fig.savefig(os.path.join(args.save_dir, "training_progress.pdf"))
+        fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
     # TODO Add calibration
     # if args.calibrate:
