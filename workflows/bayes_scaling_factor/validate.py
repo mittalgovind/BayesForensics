@@ -66,7 +66,7 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                 predictions = logits.argmax(axis=-1)
 
                 if 'mc' in uncertainty_method:
-                    # TODO finish calculating accuracy for mc
+                    # TODO (Marcelo) finish calculating accuracy for mc
                     pass
                 else:
                     labels, counts = np.unique(predictions, return_counts=True)

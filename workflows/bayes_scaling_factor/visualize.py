@@ -12,6 +12,7 @@ import os
 
 
 def get_uncertainties(summary, classes):
+    # TODO (Marcelo) Fix this for new format summary[m][sf] = logits
     results = []
     classes = (classes * 128).astype(int)
 
@@ -45,6 +46,8 @@ def get_uncertainties(summary, classes):
 
 
 def sf_plot(summary, classes, training_method, save_dir):
+    # TODO (Marcelo) Fix this for new format summary[m][sf] = logits
+
     summary = get_uncertainties(summary, classes)
 
     text_classes = [f"{x:.2f}" for x in classes]
@@ -131,6 +134,7 @@ def sf_plot(summary, classes, training_method, save_dir):
 
 
 def plot_conf_matrix(conf_matrix, methods, classes, save_dir):
+    # TODO (Govind) remove in future release
     acc_fig, acc_axes = sub(4, ncols=2, figwidth=12)
     text_classes = [f"{x:.2f}" for x in classes]
     method_titles = ["Nearest", "Bilinear", "Bicubic", "Lanczos 3"]
