@@ -34,25 +34,22 @@ class DoubleCompressionDataset(Dataset):
         self.qf_train = qf_train
         self.qf_test = qf_test
         self.codec = codec
+        self.eval_mode = False
         if calc_pywt_residual:
             self.extract_pywt_residual()
 
     def preprocess_batch(self, batch, **kwargs):
-
         batch_size = len(batch)
 
-        # sample quality factors
-        if "QF1" in kwargs:
-            QF1 = int(kwargs["QF1"])
-        else:
+        if not self.eval_mode:
+            # sample quality factors
             QF1 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
-        if "QF2" in kwargs:
-            QF2 = int(kwargs["QF2"])
+            QF2 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
+            while QF1 == QF2:
+                QF2 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
         else:
-            QF2 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
-
-        while QF1 == QF2:
-            QF2 = np.random.randint(low=self.qf_train[0], high=self.qf_train[1])
+            QF1 = int(kwargs["QF1"])
+            QF2 = int(kwargs["QF2"])
 
         batch_single_compressed = self.codec.process(batch, QF2)
 
@@ -133,3 +130,6 @@ class DoubleCompressionDataset(Dataset):
             residuals = tf.tensor([self._noise_extract(ycbcr) for ycbcr in ycbcrs])
             self.data[split] = tf.concat(self.data[split], residuals, axis=-1)
         logger.info("Residuals appended to each patch.")
+
+    def set_eval_mode(self):
+        self.eval_mode = True

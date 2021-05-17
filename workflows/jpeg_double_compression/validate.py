@@ -29,11 +29,10 @@ def validate(model, data, batch_size, cache):
     num_runs
     cache
     """
+    data.set_eval_mode()
     q_factors = np.arange(*data.qf_test)
-    n_factors = len(q_factors)
-    batch_size //= 2
     n_batches = data.count_validation // batch_size
-    counters = np.zeros((4, n_factors, n_factors))
+    accuracies = 0
 
     if cache:
         try:
@@ -41,19 +40,13 @@ def validate(model, data, batch_size, cache):
             performance["loss"]["validation"] = []
             performance["accuracy"]["validation"] = []
         except:
-            performance = {"loss": {"validation": []}, "accuracy": {"validation": []}}
+            performance = {"loss": {"validation": []},
+                           "accuracy": {"validation": []}}
             logger.warning(
                 "performance cache from training could not be loaded. Making a new one."
             )
 
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
-
-        # index of corresponding QF in the counters array.
-        qf1 = np.argmax(q_factors == QF1)
-        qf2 = np.argmax(q_factors == QF2)
-
-        # skipping if an image has a history of stronger or equal compression
-
         QF1, QF2 = int(QF1), int(QF2)
         for batch_id in range(n_batches):
             batch = data.next_validation_batch(batch_id, batch_size)
@@ -65,15 +58,9 @@ def validate(model, data, batch_size, cache):
             calibrated_logits = logits / model.temperature
             predictions = calibrated_logits.numpy().argmax(axis=1)
 
-            # Counter for True negatives, negatives, True positives, positives.
-            counters[0, qf1, qf2] += np.sum(predictions[:batch_size] == 0)
-            counters[1, qf1, qf2] += batch_size
-            counters[2, qf1, qf2] += np.sum(predictions[batch_size:] == 1)
-            counters[3, qf1, qf2] += batch_size
+            accuracies += np.sum(predictions == labels)
 
-    tnr = counters[0] / counters[1]
-    tpr = counters[2] / counters[3]
-    accuracies = (tnr + tpr) / 2
+    accuracies /= data.count_validation
 
     if cache:
         performance["accuracy"]["validation"].append(accuracies / n_batches)
