@@ -8,7 +8,6 @@
 import argparse
 import sys
 import os
-import json
 
 # External libraries
 import tensorflow as tf
@@ -136,7 +135,7 @@ def main():
         batch_size=args.batch_size,
         cache=cache
     )
-    qf_plot(qf_test, accuracies, args.save_dir)
+    qf_plot(data.qf_test, accuracies, args.save_dir)
 
 
 if __name__ == "__main__":
