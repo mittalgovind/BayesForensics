@@ -156,8 +156,8 @@ def main(args=None):
         search_alg=search_alg,
         scheduler=scheduler,
         raise_on_failed_trial=True,
-        resources_per_trial={"cpu": 4,
-                             "gpu": 2}
+        resources_per_trial={"cpu": 2,
+                             "gpu": 1}
         )
 
     best_config = analysis.get_best_config(metric="val_loss", mode='min')
