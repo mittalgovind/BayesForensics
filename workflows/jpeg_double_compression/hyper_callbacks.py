@@ -64,9 +64,10 @@ def get_callbacks(path, model_name=None, save_freq=0, monitor='loss',
                                          verbose=verbose),
         TuneReporter(freq="epoch")
     ]
+
     if verbose == 0:
         from tqdm.keras import TqdmCallback
-        callbacks.append(TqdmCallback(verbose=2))
+        callbacks.append(TqdmCallback())
     if not model_name:
         model_name = 'model.h5'
 

@@ -13,17 +13,9 @@ import ray
 from ray import tune
 from ray.tune.schedulers import AsyncHyperBandScheduler
 from ray.tune.suggest.hyperopt import HyperOptSearch
-from ray.tune.suggest import ConcurrencyLimiter
 from hyperopt import hp
 from loguru import logger
 from hyper_callbacks import get_callbacks
-
-
-# Internal libraries
-
-# ray.shutdown()
-# ray.init(log_to_driver=False)
-# # disable_gpu()
 
 
 def create_keras_model(parameters):
@@ -53,7 +45,7 @@ class Trainable:
         data = DoubleCompressionDataset(
             data_directory=os.path.join(self.root, 'data/rgb/native12k'),
             load="y",
-            n_images=2048,
+            n_images=1024,
             v_images=1024,
             randomize=69,
             val_rgb_patch_size=64,
@@ -118,11 +110,11 @@ def main(args=None):
     root = '/scratch/gm2724'
     # root = '.'
 
-    epochs = 4
+    epochs = 2
     batch_size = 2048
-    num_samples = 5
+    num_samples = 300
     lr = 0.001
-    save_dir = os.path.join(root, 'outputs/test')
+    save_dir = os.path.join(root, 'nip_runs/ray_results/')
     os.makedirs(save_dir, exist_ok=True)
 
     logger.info("Initializing ray")
@@ -165,29 +157,20 @@ def main(args=None):
         scheduler=scheduler,
         raise_on_failed_trial=True,
         resources_per_trial={"cpu": 4,
-                             "gpu": 1}
+                             "gpu": 2}
         )
 
     best_config = analysis.get_best_config(metric="val_loss", mode='min')
     logger.info(f'Best config: {best_config}')
-    #
-    # if best_config is None:
-    #     logger.error(f'Optimization failed')
-    # else:
-    #     logger.info("Saving best model config")
-    #     with open(os.path.join(args.snapshot_dir, 'config.json'),
-    #               'w') as f:
-    #         import json
-    #         json.dump(best_config, f, indent=4)
-    #
-    #     logger.info("Waiting for GPU/CPU memory cleanup")
-    #     import time;
-    #     time.sleep(3)
-    #
-    #     logger.info(f"Refitting the model on best config")
-    #     trainer = Trainable(args.train_dir, args.val_dir,
-    #                         args.snapshot_dir, final_run=True)
-    #     history = trainer.train(best_config, reporter=None)
+
+    if best_config is None:
+        logger.error(f'Optimization failed')
+    else:
+        logger.info("Saving best model config")
+        with open(os.path.join(save_dir, 'config_on_two_gpus.json'),
+                  'w') as f:
+            import json
+            json.dump(best_config, f, indent=4)
 
     logger.info("Training completed")
 
