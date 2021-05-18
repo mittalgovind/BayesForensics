@@ -13,6 +13,7 @@ import ray
 from ray import tune
 from ray.tune.schedulers import AsyncHyperBandScheduler
 from ray.tune.suggest.hyperopt import HyperOptSearch
+from ray.tune.suggest import ConcurrencyLimiter
 from hyperopt import hp
 from loguru import logger
 from hyper_callbacks import get_callbacks
@@ -137,7 +138,7 @@ def main(args=None):
                                 points_to_evaluate=[initial_best_config])
 
     # # We limit concurrent trials to 1 since bayesian optimisation doesn't parallelize very well
-    # search_alg = ConcurrencyLimiter(search_alg, max_concurrent=1)
+    search_alg = ConcurrencyLimiter(search_alg, max_concurrent=4)
 
     logger.info("Initializing ray Trainable")
     # Initialize Trainable for hyperparameter tuning
