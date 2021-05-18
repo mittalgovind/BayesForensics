@@ -83,7 +83,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             filters = int(self.filters * self.filter_multiplier ** i)
             layers.append(
                 self.conv2d(filters, self.kernel,
-                            activation=self.activation)
+                            activation=self.activation, use_bn=True)
             )
             layers.append(
                 MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
