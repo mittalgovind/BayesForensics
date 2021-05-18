@@ -161,7 +161,7 @@ def main(args=None):
     trainer = Trainable(data_train, data_val, root, batch_size, lr, save_dir)
 
     logger.info("Starting hyperparameter tuning")
-    analysis = tune.run(trainer.train,
+    analysis = tune.run(tune.with_parameters(trainer.train),
                         verbose=1,
                         num_samples=num_samples,
                         search_alg=search_alg,
