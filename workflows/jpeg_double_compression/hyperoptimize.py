@@ -38,14 +38,14 @@ def create_keras_model(parameters):
 
 
 class Trainable:
-    def __init__(self, data_val, root, batch_size, lr, save_dir):
-        self.data_val = data_val
+    def __init__(self, root, batch_size, lr, save_dir, epochs):
+        self.epochs = epochs
         self.root = root
         self.batch_size = batch_size
         self.lr = lr
         self.save_dir = save_dir
 
-    def train(self, config, data_train=None):
+    def train(self, config, data_train=None, data_val=None):
         import tensorflow as tf
         from dataset import DoubleCompressionDataset
         from models.jpeg import JPEG
@@ -53,8 +53,8 @@ class Trainable:
         data = DoubleCompressionDataset(
             data_directory=os.path.join(self.root, 'data/rgb/native12k'),
             load="y",
-            n_images=20,
-            v_images=20,
+            n_images=2048,
+            v_images=1024,
             randomize=69,
             val_rgb_patch_size=64,
             calc_pywt_residual=False,
@@ -62,7 +62,7 @@ class Trainable:
             qf_test="75,95",
             codec=JPEG(codec='soft'),
             data_train=data_train,
-            data_val=self.data_val
+            data_val=data_val
         )
         model = create_keras_model(config)
         if not model:
@@ -119,7 +119,7 @@ def main(args=None):
     # root = '.'
 
     epochs = 4
-    batch_size = 64
+    batch_size = 2048
     num_samples = 5
     lr = 0.001
     save_dir = os.path.join(root, 'outputs/test')
@@ -129,11 +129,7 @@ def main(args=None):
     ray.init(configure_logging=False)
 
     logger.info("Initializing ray search space")
-    search_space, intial_best_config = create_search_space()
-
-    # TODO: Adapt the below parameters according to the machine configuration
-    num_cpus = 2
-    num_gpus = 0
+    search_space, initial_best_config = create_search_space()
 
     logger.info("Initializing scheduler and search algorithms")
     # Use HyperBand scheduler to earlystop unpromising runs
@@ -146,7 +142,7 @@ def main(args=None):
     search_alg = HyperOptSearch(space=search_space,
                                 metric="val_loss",
                                 mode="min",
-                                points_to_evaluate=[intial_best_config])
+                                points_to_evaluate=[initial_best_config])
 
     # # We limit concurrent trials to 1 since bayesian optimisation doesn't parallelize very well
     # search_alg = ConcurrencyLimiter(search_alg, max_concurrent=1)
@@ -157,18 +153,20 @@ def main(args=None):
     data_val = np.load(
         os.path.join(root, 'data/rgb/native12k_20k_val.npy'))
 
-    trainer = Trainable(data_val, root, batch_size, lr, save_dir)
+    trainer = Trainable(root, batch_size, lr, save_dir, epochs)
 
     logger.info("Starting hyperparameter tuning")
-    analysis = tune.run(tune.with_parameters(trainer.train, data_train=data_train),
-                        verbose=1,
-                        num_samples=num_samples,
-                        search_alg=search_alg,
-                        scheduler=scheduler,
-                        raise_on_failed_trial=True,
-                        resources_per_trial={"cpu": 2,
-                                             "gpu": 1}
-                        )
+    analysis = tune.run(
+        tune.with_parameters(trainer.train, data_train=data_train,
+                             data_val=data_val),
+        verbose=1,
+        num_samples=num_samples,
+        search_alg=search_alg,
+        scheduler=scheduler,
+        raise_on_failed_trial=True,
+        resources_per_trial={"cpu": 4,
+                             "gpu": 1}
+        )
 
     best_config = analysis.get_best_config(metric="val_loss", mode='min')
     logger.info(f'Best config: {best_config}')
