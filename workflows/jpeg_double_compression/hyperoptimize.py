@@ -167,7 +167,7 @@ def main(args=None):
                         search_alg=search_alg,
                         scheduler=scheduler,
                         raise_on_failed_trial=True,
-                        resources_per_trial={"cpu": 4,
+                        resources_per_trial={"cpu": 2,
                                              "gpu": 1}
                         )
 
