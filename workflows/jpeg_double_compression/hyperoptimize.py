@@ -46,7 +46,7 @@ class Trainable:
         self.lr = lr
         self.save_dir = save_dir
 
-    def train(self, config, reporter=None):
+    def train(self, config, data_train=None):
         import tensorflow as tf
         from dataset import DoubleCompressionDataset
         from models.jpeg import JPEG
@@ -62,7 +62,7 @@ class Trainable:
             qf_train="75,95",
             qf_test="75,95",
             codec=JPEG(codec='soft'),
-            data_train=self.data_train,
+            data_train=data_train,
             data_val=self.data_val
         )
         model = create_keras_model(config)
@@ -77,7 +77,7 @@ class Trainable:
         history = model.fit(
             x=data.get_training_generator(self.batch_size, 64),
             validation_data=data.get_validation_generator(self.batch_size),
-            epochs=epochs,
+            epochs=2,
             batch_size=self.batch_size,
             verbose=0,
             callbacks=callbacks,
@@ -158,10 +158,10 @@ def main(args=None):
     data_val = np.load(
         os.path.join(root, 'data/rgb/native12k_20k_val.npy'))
 
-    trainer = Trainable(data_train, data_val, root, batch_size, lr, save_dir)
+    trainer = Trainable(data_val, root, batch_size, lr, save_dir)
 
     logger.info("Starting hyperparameter tuning")
-    analysis = tune.run(tune.with_parameters(trainer.train),
+    analysis = tune.run(tune.with_parameters(trainer.train, data_train=data_train),
                         verbose=1,
                         num_samples=num_samples,
                         search_alg=search_alg,
