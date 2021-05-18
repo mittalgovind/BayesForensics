@@ -11,7 +11,7 @@ from helpers.loading import sample_patch
 class Dataset(object):
     def __init__(
             self,
-            data_directory,
+            data_directory=None,
             *,
             randomize=2468,
             load="xy",
@@ -70,20 +70,6 @@ class Dataset(object):
                 "(when presample_epochs>0). Otherwise, full resolution images are loaded."
             )
 
-        if not os.path.isdir(data_directory):
-            if "/" in data_directory or "\\" in data_directory:
-                raise ValueError(
-                    f"Cannot find the data directory: {data_directory}")
-
-            if os.path.isdir(
-                    os.path.join("data/raw/training_data/", data_directory)):
-                data_directory = os.path.join("data/raw/training_data/",
-                                              data_directory)
-            elif os.path.isdir(os.path.join("data/rgb/", data_directory)):
-                data_directory = os.path.join("data/rgb/", data_directory)
-            else:
-                raise ValueError(
-                    f"Cannot find the data directory: {data_directory}")
         self.data = {}
         self.files = {}
         self._loaded_data = load
@@ -98,8 +84,8 @@ class Dataset(object):
 
         self.data["training"] = {}
         self.data["validation"] = {}
-        self.data["training"]['y'] = data_train[:512*n_images]
-        self.data["validation"]['y'] = data_val[:20*v_images]
+        self.data["training"]['y'] = data_train
+        self.data["validation"]['y'] = data_val
         self.presample_epochs = 1
 
     def __getitem__(self, key):

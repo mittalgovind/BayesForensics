@@ -31,23 +31,31 @@ def create_keras_model(parameters):
 
 
 class Trainable:
-    def __init__(self, root, batch_size, lr, save_dir, epochs):
+    def __init__(self, root, batch_size, lr, save_dir, epochs, n_images,
+                 v_images, memory_growth):
         self.epochs = epochs
         self.root = root
         self.batch_size = batch_size
         self.lr = lr
         self.save_dir = save_dir
+        self.n_images = n_images
+        self.v_images = v_images
+        self.memory_growth = memory_growth
+        self.set_once = True
 
     def train(self, config, data_train=None, data_val=None):
         import tensorflow as tf
         from dataset import DoubleCompressionDataset
         from models.jpeg import JPEG
+        if self.set_once and self.memory_growth:
+            physical_devices = tf.config.list_physical_devices("GPU")
+            tf.config.experimental.set_memory_growth(physical_devices[0], True)
+            self.set_once = False
 
         data = DoubleCompressionDataset(
-            data_directory=os.path.join(self.root, 'data/rgb/native12k'),
             load="y",
-            n_images=1024,
-            v_images=1024,
+            n_images=self.n_images,
+            v_images=self.v_images,
             randomize=69,
             val_rgb_patch_size=64,
             calc_pywt_residual=False,
@@ -57,19 +65,26 @@ class Trainable:
             data_train=data_train,
             data_val=data_val
         )
+
         model = create_keras_model(config)
+
+        # ON CREATION FAILURE
         if not model:
-            return None
+            history = tf.keras.callbacks.History()
+            history.history = {'loss': np.inf, 'accuracy': 0, 'val_acc': 0,
+                               'val_loss': np.inf}
+            return history
+
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True)
         optimizer = tf.keras.optimizers.Nadam(self.lr)
 
         model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
-        callbacks = get_callbacks(self.save_dir)
+        callbacks = get_callbacks(self.save_dir, verbose=0)
         history = model.fit(
             x=data.get_training_generator(self.batch_size, 64),
             validation_data=data.get_validation_generator(self.batch_size),
-            epochs=2,
+            epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=0,
             callbacks=callbacks,
@@ -106,20 +121,12 @@ def create_search_space():
     return hspace, good
 
 
-def main(args=None):
-    # Create snapshot directory
-    root = '/scratch/gm2724'
-    # root = '.'
-
-    epochs = 2
-    batch_size = 2048
-    num_samples = 300
-    lr = 0.001
-    save_dir = os.path.join(root, 'nip_runs/ray_results/')
-    os.makedirs(save_dir, exist_ok=True)
+def main(args):
+    # Create save directory
+    os.makedirs(args.save_dir, exist_ok=True)
 
     logger.info("Initializing ray")
-    ray.init(configure_logging=False)
+    ray.init(configure_logging=False, num_cpus=args.cpus, num_gpus=args.gpus)
 
     logger.info("Initializing ray search space")
     search_space, initial_best_config = create_search_space()
@@ -129,7 +136,7 @@ def main(args=None):
     scheduler = AsyncHyperBandScheduler(time_attr='training_iteration',
                                         metric="val_loss",
                                         mode="min",
-                                        grace_period=10)
+                                        grace_period=2)
 
     # Use bayesian optimisation provided by hyperopt
     search_alg = HyperOptSearch(space=search_space,
@@ -137,29 +144,32 @@ def main(args=None):
                                 mode="min",
                                 points_to_evaluate=[initial_best_config])
 
-    # # We limit concurrent trials to 1 since bayesian optimisation doesn't parallelize very well
     search_alg = ConcurrencyLimiter(search_alg, max_concurrent=4)
 
     logger.info("Initializing ray Trainable")
-    # Initialize Trainable for hyperparameter tuning
-    data_train = np.load(os.path.join(root, 'data/rgb/native12k_1M_1.npy'))
+    data_train = np.load(
+        os.path.join(args.root, 'data/rgb/native12k_1M_1.npy'))[
+                 :512 * args.n_images]
     data_val = np.load(
-        os.path.join(root, 'data/rgb/native12k_20k_val.npy'))
+        os.path.join(args.root, 'data/rgb/native12k_20k_val.npy'))[
+               :20 * args.v_images]
 
-    trainer = Trainable(root, batch_size, lr, save_dir, epochs)
+    trainer = Trainable(args.root, args.bs, args.lr, args.save_dir,
+                        args.epochs, args.n_images, args.v_images,
+                        args.memory_growth)
 
     logger.info("Starting hyperparameter tuning")
     analysis = tune.run(
         tune.with_parameters(trainer.train, data_train=data_train,
                              data_val=data_val),
         verbose=1,
-        num_samples=num_samples,
+        num_samples=args.num_samples,
         search_alg=search_alg,
         scheduler=scheduler,
         raise_on_failed_trial=True,
-        resources_per_trial={"cpu": 2,
-                             "gpu": 1}
-        )
+        resources_per_trial={"cpu": 2, "gpu": 1},
+        resume=args.resume
+    )
 
     best_config = analysis.get_best_config(metric="val_loss", mode='min')
     logger.info(f'Best config: {best_config}')
@@ -168,7 +178,7 @@ def main(args=None):
         logger.error(f'Optimization failed')
     else:
         logger.info("Saving best model config")
-        with open(os.path.join(save_dir, 'config_on_two_gpus.json'),
+        with open(os.path.join(args.save_dir, 'config_on_two_gpus.json'),
                   'w') as f:
             import json
             json.dump(best_config, f, indent=4)
@@ -178,7 +188,29 @@ def main(args=None):
 
 if __name__ == "__main__":
     try:
-        main()
+        import argparse
+
+        parser = argparse.ArgumentParser(description="Hyperopt")
+        parser.add_argument("--gpus", default=1, type=int)
+        parser.add_argument("--cpus", default=2, type=int)
+        parser.add_argument("--epochs", default=5, type=int)
+        parser.add_argument("--bs", default=2048, type=int)
+        parser.add_argument("--num-samples", default=350, type=int)
+        parser.add_argument("--n-images", default=2048, type=int)
+        parser.add_argument("--v-images", default=1024, type=int)
+        parser.add_argument("--lr", default=0.001, type=float)
+        parser.add_argument("--save-dir",
+                            default='/scratch/gm2724/nip_runs/ray_results/',
+                            type=str)
+        parser.add_argument("--root",
+                            default='/scratch/gm2724',
+                            type=str)
+        parser.add_argument("--memory-growth", action='store_true',
+                            default=False, )
+        parser.add_argument("--resume", action='store_true',
+                            default=False, )
+
+        main(parser.parse_args())
     except:
         import traceback
 

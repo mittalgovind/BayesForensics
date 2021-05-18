@@ -212,7 +212,7 @@ def parse_args():
     )
     parser.add_argument(
         "--use-presampled",
-        default=False,
+        default=None,
         type=str,
         help="Uses presampled data. Pass the path to npy file.",
     )

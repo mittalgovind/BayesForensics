@@ -107,6 +107,11 @@ class Dataset(object):
             self.presample_epochs = 1
 
         else:
+            self.files["training"], self.files["validation"], self.files[
+                "calibration"] = loading.discover_images(
+                data_directory, randomize=randomize, n_images=n_images,
+                v_images=v_images, c_images=c_images,
+            )
             if presample_epochs == 0:
                 self.data["training"] = loading.load_images(
                     self.files["training"], data_directory, load=load
