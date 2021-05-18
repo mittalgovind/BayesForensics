@@ -26,7 +26,6 @@ from hyper_callbacks import get_callbacks
 # # disable_gpu()
 
 
-
 def create_keras_model(parameters):
     try:
         from flow import JPEGDoubleCompression
@@ -55,8 +54,8 @@ class Trainable:
         data = DoubleCompressionDataset(
             data_directory=os.path.join(self.root, 'data/rgb/native12k'),
             load="y",
-            n_images=2048,
-            v_images=1024,
+            n_images=20,
+            v_images=20,
             randomize=69,
             val_rgb_patch_size=64,
             calc_pywt_residual=False,
@@ -93,15 +92,15 @@ np.random.seed(5)
 
 def create_search_space():
     hspace = {
-             "conv_layers": hp.choice("conv_layers", [2, 3, 4, 5]),
-             "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
-             "dense_units": hp.choice("dense_units", [128, 256, 512]),
-             "filters": hp.choice("filters", [16, 32, 64, 128]),
-             "kernel": hp.choice("kernel", [3, 5]),
-             "pool_size": hp.choice("pool_size", [1, 2]),
-             "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
-             "dense_multiplier": hp.choice("dense_multiplier", [0.5, 1])
-             }
+        "conv_layers": hp.choice("conv_layers", [2, 3, 4, 5]),
+        "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
+        "dense_units": hp.choice("dense_units", [128, 256, 512]),
+        "filters": hp.choice("filters", [16, 32, 64, 128]),
+        "kernel": hp.choice("kernel", [3, 5]),
+        "pool_size": hp.choice("pool_size", [1, 2]),
+        "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
+        "dense_multiplier": hp.choice("dense_multiplier", [0.5, 1])
+    }
     good = {
         "conv_layers": 5,
         "dense_layers": 4,
@@ -117,8 +116,8 @@ def create_search_space():
 
 def main(args=None):
     # Create snapshot directory
-    # root = '/scratch/gm2724'
-    root = '.'
+    root = '/scratch/gm2724'
+    # root = '.'
 
     epochs = 4
     batch_size = 64
@@ -157,7 +156,7 @@ def main(args=None):
     # Initialize Trainable for hyperparameter tuning
     data_train = np.load(os.path.join(root, 'data/rgb/native12k_1M_1.npy'))
     data_val = np.load(
-            os.path.join(root, 'data/rgb/native12k_20k_val.npy'))
+        os.path.join(root, 'data/rgb/native12k_20k_val.npy'))
 
     trainer = Trainable(data_train, data_val, root, batch_size, lr, save_dir)
 
@@ -185,7 +184,8 @@ def main(args=None):
             json.dump(best_config, f, indent=4)
 
         logger.info("Waiting for GPU/CPU memory cleanup")
-        import time; time.sleep(3)
+        import time;
+        time.sleep(3)
 
         logger.info(f"Refitting the model on best config")
         trainer = Trainable(args.train_dir, args.val_dir,
@@ -200,5 +200,6 @@ if __name__ == "__main__":
         main()
     except:
         import traceback
+
         logger.error(traceback.format_exc())
         raise
