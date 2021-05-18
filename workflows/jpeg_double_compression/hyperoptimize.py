@@ -26,7 +26,7 @@ def create_keras_model(parameters):
                                       **parameters)
         return model._model
     except RuntimeError:
-        print("model cannot be created")
+        logger.info("model cannot be created")
         return None
 
 
@@ -70,6 +70,7 @@ class Trainable:
 
         # ON CREATION FAILURE
         if not model:
+
             history = tf.keras.callbacks.History()
             history.history = {'loss': np.inf, 'accuracy': 0, 'val_acc': 0,
                                'val_loss': np.inf}
@@ -153,6 +154,11 @@ def main(args):
         os.path.join(args.root, 'data/rgb/native12k_20k_val.npy'))[
                :20 * args.v_images]
 
+    if args.days > 0:
+        time_budget_s = int(args.days * 3600 - 30*60)
+    else:
+        time_budget_s = None
+
     trainer = Trainable(args.root, args.bs, args.lr, args.save_dir,
                         args.epochs, args.n_images, args.v_images,
                         args.memory_growth)
@@ -165,9 +171,12 @@ def main(args):
         num_samples=args.num_samples,
         search_alg=search_alg,
         scheduler=scheduler,
-        raise_on_failed_trial=True,
+        raise_on_failed_trial=False,
         resources_per_trial={"cpu": 2, "gpu": 1},
-        resume=args.resume
+        resume=args.resume if args.resume else "ERRORED_ONLY",
+        local_dir=args.save_dir,
+        log_to_file=True,
+        time_budget_s=time_budget_s,
     )
 
     best_config = analysis.get_best_config(metric="val_loss", mode='min')
@@ -193,6 +202,7 @@ if __name__ == "__main__":
         parser.add_argument("--gpus", default=1, type=int)
         parser.add_argument("--cpus", default=2, type=int)
         parser.add_argument("--epochs", default=6, type=int)
+        parser.add_argument("--days", default=0, type=int)
         parser.add_argument("--bs", default=2048, type=int)
         parser.add_argument("--num-samples", default=250, type=int)
         parser.add_argument("--n-images", default=512, type=int)
