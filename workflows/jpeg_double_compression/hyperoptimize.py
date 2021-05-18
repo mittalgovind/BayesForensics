@@ -38,8 +38,7 @@ def create_keras_model(parameters):
 
 
 class Trainable:
-    def __init__(self, data_train, data_val, root, batch_size, lr, save_dir):
-        self.data_train = data_train
+    def __init__(self, data_val, root, batch_size, lr, save_dir):
         self.data_val = data_val
         self.root = root
         self.batch_size = batch_size
