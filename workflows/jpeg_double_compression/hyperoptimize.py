@@ -167,30 +167,30 @@ def main(args=None):
                         search_alg=search_alg,
                         scheduler=scheduler,
                         raise_on_failed_trial=True,
-                        resources_per_trial={"cpu": 6,
+                        resources_per_trial={"cpu": 4,
                                              "gpu": 1}
                         )
 
     best_config = analysis.get_best_config(metric="val_loss", mode='min')
     logger.info(f'Best config: {best_config}')
-
-    if best_config is None:
-        logger.error(f'Optimization failed')
-    else:
-        logger.info("Saving best model config")
-        with open(os.path.join(args.snapshot_dir, 'config.json'),
-                  'w') as f:
-            import json
-            json.dump(best_config, f, indent=4)
-
-        logger.info("Waiting for GPU/CPU memory cleanup")
-        import time;
-        time.sleep(3)
-
-        logger.info(f"Refitting the model on best config")
-        trainer = Trainable(args.train_dir, args.val_dir,
-                            args.snapshot_dir, final_run=True)
-        history = trainer.train(best_config, reporter=None)
+    #
+    # if best_config is None:
+    #     logger.error(f'Optimization failed')
+    # else:
+    #     logger.info("Saving best model config")
+    #     with open(os.path.join(args.snapshot_dir, 'config.json'),
+    #               'w') as f:
+    #         import json
+    #         json.dump(best_config, f, indent=4)
+    #
+    #     logger.info("Waiting for GPU/CPU memory cleanup")
+    #     import time;
+    #     time.sleep(3)
+    #
+    #     logger.info(f"Refitting the model on best config")
+    #     trainer = Trainable(args.train_dir, args.val_dir,
+    #                         args.snapshot_dir, final_run=True)
+    #     history = trainer.train(best_config, reporter=None)
 
     logger.info("Training completed")
 
