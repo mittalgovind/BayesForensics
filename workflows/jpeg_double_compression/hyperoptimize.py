@@ -135,8 +135,7 @@ def main(args):
     # Use HyperBand scheduler to earlystop unpromising runs
     scheduler = AsyncHyperBandScheduler(time_attr='training_iteration',
                                         metric="val_loss",
-                                        mode="min",
-                                        grace_period=2)
+                                        mode="min")
 
     # Use bayesian optimisation provided by hyperopt
     search_alg = HyperOptSearch(space=search_space,
