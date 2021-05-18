@@ -195,8 +195,8 @@ if __name__ == "__main__":
         parser.add_argument("--cpus", default=2, type=int)
         parser.add_argument("--epochs", default=5, type=int)
         parser.add_argument("--bs", default=2048, type=int)
-        parser.add_argument("--num-samples", default=350, type=int)
-        parser.add_argument("--n-images", default=2048, type=int)
+        parser.add_argument("--num-samples", default=250, type=int)
+        parser.add_argument("--n-images", default=512, type=int)
         parser.add_argument("--v-images", default=1024, type=int)
         parser.add_argument("--lr", default=0.001, type=float)
         parser.add_argument("--save-dir",
