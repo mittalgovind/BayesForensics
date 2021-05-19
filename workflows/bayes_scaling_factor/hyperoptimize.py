@@ -174,7 +174,7 @@ def main(args):
         scheduler=scheduler,
         raise_on_failed_trial=False,
         resources_per_trial={"cpu": 2, "gpu": 1},
-        resume=args.resume if args.resume else "ERRORED_ONLY",
+        resume=args.resume,
         local_dir=args.save_dir,
         log_to_file=True,
         time_budget_s=time_budget_s,
