@@ -159,6 +159,11 @@ def main(args):
     else:
         time_budget_s = None
 
+    if args.gpus > 1:
+        num_cpus_per_trial = args.cpus
+    else:
+        num_cpus_per_trial = 2
+
     trainer = Trainable(args.root, args.bs, args.lr, args.save_dir,
                         args.epochs, args.n_images, args.v_images,
                         args.memory_growth)
@@ -172,7 +177,7 @@ def main(args):
         search_alg=search_alg,
         scheduler=scheduler,
         raise_on_failed_trial=False,
-        resources_per_trial={"cpu": 2, "gpu": 1},
+        resources_per_trial={"cpu": num_cpus_per_trial, "gpu": 1},
         resume=args.resume,
         local_dir=args.save_dir,
         log_to_file=True,
