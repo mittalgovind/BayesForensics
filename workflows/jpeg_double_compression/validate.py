@@ -69,12 +69,14 @@ def validate(model, data, batch_size, cache, num_runs):
                 predictions = get_pred(logits)
             accuracies[qf1_ind, qf2_ind] += np.sum(predictions == labels)
 
+    print(accuracies)
+
     accuracies /= data.count_validation
 
     print(accuracies)
 
     if cache:
-        performance["accuracy"]["validation"].append(accuracies / n_batches)
+        performance["accuracy"]["validation"].append(accuracies)
         cache.save(performance, step="performance")
 
     return accuracies
