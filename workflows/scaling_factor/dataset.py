@@ -61,7 +61,8 @@ class ScalingFactorDataset(Dataset):
         self.sampling_method = sampling_method
         self.methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
         self.random_method = self.sampling_method == "random"
-        self.classes = np.linspace(*self.scales, num=n_classes)
+        self.classes = tf.linspace(*self.scales, num=n_classes)
+        self.class_multiplier = tf.convert_to_tensor(n_classes / (self.scales[1] - self.scales[0]))
         if codec:
             self.codec = JPEG(quality=jpeg_quality, codec=codec)
         else:
@@ -89,10 +90,10 @@ class ScalingFactorDataset(Dataset):
         if 'sf' in kwargs:
             sf = float(kwargs['sf'])
         else:
-            sf = tf.random.uniform((1,), *self.scales)[0].numpy()
+            sf = tf.random.uniform((1,), *self.scales)[0].numpy() - 1e-10
 
-        resized_size = int(sf * self.patch_size)
-
+        resized_size = tf.cast(tf.math.multiply(sf, self.patch_size), tf.int32)
+        resized_size = tf.broadcast_to(resized_size, shape=(2,))
         # Choose sampling method.
         if self.random_method:
             m = tf.random.choice(self.methods)
@@ -100,9 +101,8 @@ class ScalingFactorDataset(Dataset):
             m = self.sampling_method
 
         # Resize batch.
-        rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
-                                          method=m)
-        class_id = quantize([sf], self.classes, return_indices=True)
+        rescaled_images = tf.image.resize(batch, resized_size, method=m)
+        class_id = tf.cast(tf.math.multiply(self.class_multiplier, sf), tf.int32)
         sf_labels = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
 
         # Convert to JPEG if a codec is passed.
