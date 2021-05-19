@@ -69,6 +69,8 @@ def validate(model, data, batch_size, cache, num_runs):
                 predictions = get_pred(logits)
             accuracies[qf1_ind, qf2_ind] += np.sum(predictions == labels)
 
+            print(accuracies[qf1_ind, qf2_ind])
+
     print(accuracies)
 
     accuracies /= data.count_validation
