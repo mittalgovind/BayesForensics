@@ -53,9 +53,6 @@ def validate(model, data, batch_size, cache, num_runs, n_val):
             batch = data.next_validation_batch(batch_id, batch_size)
             images, labels = data.preprocess_batch(batch, QF1=QF1, QF2=QF2)
 
-            # TODO (Marcelo) Add validation for MC dropout
-            # get logits, calibrate and calculate predictions.
-
             if model.method == "vanilla":
                 logits = model(images, training=False) / model.temperature
                 predictions = logits.numpy().argmax(axis=1)
