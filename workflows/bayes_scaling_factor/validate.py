@@ -13,6 +13,7 @@ import numpy as np
 
 # Internal libraries
 from helpers.utils import progress_bar
+from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, mutual_information
 
 
 def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
