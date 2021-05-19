@@ -16,7 +16,6 @@ from ray.tune.suggest.hyperopt import HyperOptSearch
 from ray.tune.suggest import ConcurrencyLimiter
 from hyperopt import hp
 from loguru import logger
-from hyper_callbacks import get_callbacks
 
 
 def create_keras_model(parameters):
@@ -50,6 +49,7 @@ class Trainable:
     def train(self, config, data_train=None, data_val=None):
         import tensorflow as tf
         from dataset import ScalingFactorDataset
+        from hyper_callbacks import TuneReporter
         if self.set_once and self.memory_growth:
             physical_devices = tf.config.list_physical_devices("GPU")
             tf.config.experimental.set_memory_growth(physical_devices[0], True)
@@ -83,14 +83,13 @@ class Trainable:
         optimizer = tf.keras.optimizers.Nadam(self.lr)
 
         model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
-        callbacks = get_callbacks(self.save_dir, verbose=0)
         history = model.fit(
             x=data.get_training_generator(self.batch_size, 64),
             validation_data=data.get_validation_generator(self.batch_size),
             epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=0,
-            callbacks=callbacks,
+            callbacks=[TuneReporter()],
             steps_per_epoch=data.count_training // self.batch_size,
             validation_steps=data.count_validation // self.batch_size,
         )

@@ -16,7 +16,6 @@ from ray.tune.suggest.hyperopt import HyperOptSearch
 from ray.tune.suggest import ConcurrencyLimiter
 from hyperopt import hp
 from loguru import logger
-from hyper_callbacks import TuneReporter
 
 
 def create_keras_model(parameters):
@@ -47,6 +46,7 @@ class Trainable:
         import tensorflow as tf
         from dataset import DoubleCompressionDataset
         from models.jpeg import JPEG
+        from hyper_callbacks import TuneReporter
         if self.set_once and self.memory_growth:
             physical_devices = tf.config.list_physical_devices("GPU")
             tf.config.experimental.set_memory_growth(physical_devices[0], True)
