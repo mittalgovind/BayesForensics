@@ -49,7 +49,7 @@ def validate(model, data, batch_size, cache, num_runs):
             )
 
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
-        qf1_ind, qf2_ind = np.where(q_factors == QF1)[0][0], np.where(q_factors == QF2)[0][0]
+        qf1_ind, qf2_ind = np.where(np.isclose(q_factors, QF1))[0][0], np.where(np.isclose(q_factors, QF2))[0][0]
         QF1, QF2 = int(QF1), int(QF2)
         for batch_id in range(n_batches):
             batch = data.next_validation_batch(batch_id, batch_size)
