@@ -60,12 +60,11 @@ class Trainable:
             n_images=self.n_images,
             v_images=self.v_images,
             randomize=69,
-            val_rgb_patch_size=64,
             patch_size=64,
             scales="0.25,1.0",
             n_classes=31,
             sampling_method="lanczos3",
-            codec="soft",
+            codec=None,
             data_train=data_train,
             data_val=data_val
         )
@@ -105,7 +104,7 @@ def create_search_space():
     hspace = {
         "conv_layers": hp.choice("conv_layers", [2, 3, 4, 5]),
         "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
-        "dense_units": hp.choice("dense_units", [128, 256, 512]),
+        "dense_units": hp.choice("dense_units", [128, 256, 400]),
         "filters": hp.choice("filters", [16, 32, 64, 128]),
         "kernel": hp.choice("kernel", [3, 5]),
         "pool_size": hp.choice("pool_size", [1, 2]),
