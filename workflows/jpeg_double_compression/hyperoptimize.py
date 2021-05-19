@@ -89,7 +89,7 @@ class Trainable:
             epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=0,
-            callbacks=[TuneReporter(), TqdmCallback(verbose=1)],
+            callbacks=[TuneReporter(), TqdmCallback(verbose=0)],
             steps_per_epoch=data.count_training // self.batch_size,
             validation_steps=data.count_validation // self.batch_size,
         )
