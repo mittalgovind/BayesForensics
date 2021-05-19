@@ -75,6 +75,8 @@ def validate(model, data, batch_size, cache, num_runs):
 
     print(accuracies)
 
+    print(accuracies.shape)
+
     if cache:
         performance["accuracy"]["validation"].append(accuracies)
         cache.save(performance, step="performance")
