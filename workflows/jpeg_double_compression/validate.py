@@ -18,7 +18,7 @@ from helpers.utils import progress_bar
 from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, mutual_information
 
 
-def validate(model, data, batch_size, cache, num_runs, n_val):
+def validate(model, data, batch_size, cache, num_runs):
     """
 
     Parameters
@@ -32,7 +32,7 @@ def validate(model, data, batch_size, cache, num_runs, n_val):
     """
     data.set_eval_mode()
     q_factors = np.arange(*data.qf_test)
-    n_batches = n_val // batch_size
+    n_batches = data.count_validation // batch_size
     accuracies = 0
 
     if cache:

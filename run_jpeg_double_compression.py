@@ -30,7 +30,7 @@ from workflows.jpeg_double_compression import (
 )
 
 # necessary here, as slurm executes a copy
-sys.path.append(os.path.abspath("/"))
+# sys.path.append(os.path.abspath("/"))
 
 
 def main():
@@ -63,7 +63,7 @@ def main():
     data = DoubleCompressionDataset(
         data_directory=args.data_dir,
         load="y",
-        n_images=args.n_train_images,  # if not args.load_model else 0,
+        n_images=args.n_train_images if not args.load_model else 0,
         v_images=args.n_val_images,
         randomize=args.seed,
         val_rgb_patch_size=args.patch_size,
@@ -72,7 +72,7 @@ def main():
         qf_test=args.qf_test,
         codec=JPEG(codec=args.codec),
         presample_epochs=args.presample,
-        # use_presampled=args.use_presampled, # TODO hacky fix  # Marcelo: commented out because it breaks.
+        use_presampled=args.use_presampled,  # TODO hacky fix  # Marcelo: commented out because it breaks.
     )
 
     if args.uncertainty_method == "ensemble":
@@ -135,7 +135,6 @@ def main():
         batch_size=args.batch_size,
         cache=cache,
         num_runs=args.n_runs,
-        n_val=args.n_val_images,  # Added because Dataset doesn't seem to be counting on only_eval
     )
     qf_plot(data.qf_test, accuracies, args.save_dir)
 
