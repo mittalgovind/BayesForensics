@@ -15,6 +15,7 @@ from loguru import logger
 
 # Internal libraries
 from helpers.utils import progress_bar
+from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, mutual_information
 
 
 def validate(model, data, batch_size, cache):
@@ -54,10 +55,19 @@ def validate(model, data, batch_size, cache):
 
             # TODO (Marcelo) Add validation for MC dropout
             # get logits, calibrate and calculate predictions.
-            logits = model(images, training=False)
-            calibrated_logits = logits / model.temperature
-            predictions = calibrated_logits.numpy().argmax(axis=1)
 
+            if model.method == "vanilla":
+                logits = model(images, training=False) / model.temperature
+                predictions = logits.numpy().argmax(axis=1)
+
+            else:
+                if model.method == "ensemble":
+                    logits = model(images, training=False) / model.temperature
+
+                else:
+                    logits = tf.convert_to_tensor([model(images, training=False) for _ in range(len(num_runs))])
+
+                predictions = get_pred(logits)
             accuracies += np.sum(predictions == labels)
 
     accuracies /= data.count_validation

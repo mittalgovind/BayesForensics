@@ -72,7 +72,7 @@ def main():
         qf_test=args.qf_test,
         codec=JPEG(codec=args.codec),
         presample_epochs=args.presample,
-        use_presampled=args.use_presampled, # TODO hacky fix
+        # use_presampled=args.use_presampled, # TODO hacky fix  # Marcelo: commented out because it breaks.
     )
 
     if args.uncertainty_method == "ensemble":
