@@ -112,12 +112,12 @@ def create_search_space():
     good = {
         "conv_layers": 5,
         "dense_layers": 4,
-        "dense_units": 128,
-        "filters": 16,
-        "kernel": 5,
+        "dense_units": 512,
+        "filters": 128,
+        "kernel": 3,
         "pool_size": 1,
         "dense_multiplier": 1,
-        "filter_multiplier": 1,
+        "filter_multiplier": 2,
     }
     return hspace, good
 
