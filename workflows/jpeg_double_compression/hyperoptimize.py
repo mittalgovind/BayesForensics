@@ -16,7 +16,7 @@ from ray.tune.suggest.hyperopt import HyperOptSearch
 from ray.tune.suggest import ConcurrencyLimiter
 from hyperopt import hp
 from loguru import logger
-from hyper_callbacks import get_callbacks
+from hyper_callbacks import TuneReporter
 
 
 def create_keras_model(parameters):
@@ -88,7 +88,7 @@ class Trainable:
             epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=0,
-            callbacks=callbacks,
+            callbacks=[TuneReporter()],
             steps_per_epoch=data.count_training // self.batch_size,
             validation_steps=data.count_validation // self.batch_size,
         )
