@@ -18,7 +18,7 @@ from helpers.results_data import ResultCache
 from helpers.plots import perf
 from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu, get_callbacks
-from workflows.bayes_scaling_factor import (
+from workflows.scaling_factor import (
     ScalingFactorDataset,
     validate,
     parse_args,

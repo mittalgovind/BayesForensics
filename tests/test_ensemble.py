@@ -5,7 +5,7 @@ from copy import deepcopy
 import tensorflow as tf
 
 from models.bayes import DeepEnsemble
-from workflows.bayes_scaling_factor.model import SFP
+from workflows.scaling_factor.model import SFP
 from helpers.dataset import Dataset
 
 
