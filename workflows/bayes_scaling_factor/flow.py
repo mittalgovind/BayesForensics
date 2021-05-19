@@ -38,7 +38,7 @@ class ScalingFactor(BayesBaseModel):
             dense_layers=0,
             dense_units=200,
             activation="leaky_relu",
-            pool=2,
+            pool_size=2,
             channels=3,
             **kwargs
     ):
@@ -85,7 +85,7 @@ class ScalingFactor(BayesBaseModel):
                 "dense_layers": (2, int, (0, 4)),
                 "activation": (
                     "prelu", str, set(activation_mapping.keys())),
-                "pool": (2, int, (1, 4)),
+                "pool_size": (2, int, (1, 4)),
                 "dense_units": (200, int, (100, 400))
 
             }
@@ -115,7 +115,7 @@ class ScalingFactor(BayesBaseModel):
             layers.extend([
                 self.conv2d(filters, self._h.kernel,
                             activation=self.activation, use_bn=True),
-                tf.keras.layers.MaxPool2D(self._h.pool)
+                tf.keras.layers.MaxPool2D(self._h.pool_size)
             ])
             filters = int(self._h.filters * self._h.filter_multiplier)
 

@@ -8,5 +8,5 @@
   "dense_layers": 2,
   "dense_units": 128,
   "activation": "leaky_relu",
-  "pool": 1
+  "pool_size": 1
 }

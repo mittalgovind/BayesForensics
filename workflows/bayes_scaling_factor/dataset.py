@@ -17,7 +17,7 @@ from helpers.utils import progress_bar
 from helpers.stats import quantize
 from helpers.plots import perf
 from helpers.uncertainty import get_pred
-from helpers.dataset import Dataset
+from helpers.hyper_dataset import Dataset
 from models.jpeg import JPEG
 
 # Hacky fix
