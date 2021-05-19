@@ -156,7 +156,7 @@ def main(args):
                :20 * args.v_images]
 
     if args.days > 0:
-        time_budget_s = int(args.days * 3600 - 30*60)
+        time_budget_s = int(args.days * 24 * 3600 - 30*60)
     else:
         time_budget_s = None
 
