@@ -47,6 +47,8 @@ class Trainable:
         from dataset import DoubleCompressionDataset
         from models.jpeg import JPEG
         from helpers.tf_helpers import TuneReporter
+        from tqdm.keras import TqdmCallback
+
         if self.set_once and self.memory_growth:
             physical_devices = tf.config.list_physical_devices("GPU")
             tf.config.experimental.set_memory_growth(physical_devices[0], True)
@@ -87,7 +89,7 @@ class Trainable:
             epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=0,
-            callbacks=[TuneReporter()],
+            callbacks=[TuneReporter(), TqdmCallback(verbose=1)],
             steps_per_epoch=data.count_training // self.batch_size,
             validation_steps=data.count_validation // self.batch_size,
         )
