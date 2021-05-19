@@ -33,7 +33,7 @@ def validate(model, data, batch_size, cache, num_runs):
     data.set_eval_mode()
     q_factors = np.arange(*data.qf_test)
     n_batches = data.count_validation // batch_size
-    accuracies = 0
+    accuracies = np.zeros((len(q_factors), len(q_factors)))
 
     performance = None
     if cache:
@@ -49,6 +49,7 @@ def validate(model, data, batch_size, cache, num_runs):
             )
 
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
+        qf1_ind, qf2_ind = np.where(q_factors == QF1)[0][0], np.where(q_factors == QF2)[0][0]
         QF1, QF2 = int(QF1), int(QF2)
         for batch_id in range(n_batches):
             batch = data.next_validation_batch(batch_id, batch_size)
@@ -66,7 +67,7 @@ def validate(model, data, batch_size, cache, num_runs):
                     logits = tf.convert_to_tensor([model(images, training=False) for _ in range(len(num_runs))])
 
                 predictions = get_pred(logits)
-            accuracies += np.sum(predictions == labels)
+            accuracies[qf1_ind, qf2_ind] += np.sum(predictions == labels)
 
     accuracies /= data.count_validation
 
