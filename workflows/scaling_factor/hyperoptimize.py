@@ -82,7 +82,7 @@ class Trainable:
 
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True)
-        optimizer = tf.keras.optimizers.Nadam(self.lr)
+        optimizer = tf.keras.optimizers.Adam(self.lr)
 
         model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
         history = model.fit(
