@@ -216,6 +216,13 @@ def parse_args():
         type=str,
         help="Uses presampled data. Pass the path to npy file.",
     )
+    parser.add_argument(
+        "--num-runs",
+        dest="num_runs",
+        default=0,
+        type=str,
+        help="Number of runs for uncertainty.",
+    )
 
     return parser.parse_args()
 

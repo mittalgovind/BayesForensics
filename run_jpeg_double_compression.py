@@ -133,7 +133,9 @@ def main():
         model=model,
         data=data,
         batch_size=args.batch_size,
-        cache=cache
+        cache=cache,
+        num_runs=args.num_runs,
+        n_val=args.n_val_images,  # Added because Dataset doesn't seem to be counting on only_eval
     )
     qf_plot(data.qf_test, accuracies, args.save_dir)
 
