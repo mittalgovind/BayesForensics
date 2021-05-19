@@ -21,20 +21,6 @@ class TuneReporter(tf.keras.callbacks.Callback):
         self.freq = freq
         super(TuneReporter, self).__init__()
 
-    def on_batch_end(self, batch, logs=None):
-        from ray import tune
-        logs = logs or {}
-        if not self.freq == "batch":
-            return
-        self.iteration += 1
-        for metric in list(logs):
-            if "loss" in metric and "neg_" not in metric:
-                logs["neg_" + metric] = -logs[metric]
-        if "acc" in logs:
-            tune.report(keras_info=logs, mean_accuracy=logs["acc"])
-        else:
-            tune.report(keras_info=logs, mean_accuracy=logs.get("accuracy"))
-
     def on_epoch_end(self, batch, logs=None):
         from ray import tune
         logs = logs or {}
