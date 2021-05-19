@@ -81,7 +81,6 @@ class Trainable:
         optimizer = tf.keras.optimizers.Nadam(self.lr)
 
         model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
-        callbacks = get_callbacks(self.save_dir, verbose=0)
         history = model.fit(
             x=data.get_training_generator(self.batch_size, 64),
             validation_data=data.get_validation_generator(self.batch_size),
