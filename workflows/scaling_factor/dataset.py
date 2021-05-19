@@ -14,7 +14,6 @@ import numpy as np
 
 # Internal libraries
 from helpers.utils import progress_bar
-from helpers.stats import quantize
 from helpers.plots import perf
 from helpers.uncertainty import get_pred
 from helpers.hyper_dataset import Dataset
@@ -62,7 +61,8 @@ class ScalingFactorDataset(Dataset):
         self.methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
         self.random_method = self.sampling_method == "random"
         self.classes = tf.linspace(*self.scales, num=n_classes)
-        self.class_multiplier = tf.convert_to_tensor(n_classes / (self.scales[1] - self.scales[0]))
+        self.class_multiplier = tf.convert_to_tensor(
+            n_classes / (self.scales[1] - self.scales[0]))
         if codec:
             self.codec = JPEG(quality=jpeg_quality, codec=codec)
         else:
@@ -102,7 +102,9 @@ class ScalingFactorDataset(Dataset):
 
         # Resize batch.
         rescaled_images = tf.image.resize(batch, resized_size, method=m)
-        class_id = tf.cast(tf.math.multiply(self.class_multiplier, sf), tf.int32)
+        class_id = tf.cast(
+            tf.math.multiply(self.class_multiplier, sf - self.classes[0]),
+            tf.int32)
         sf_labels = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
 
         # Convert to JPEG if a codec is passed.
