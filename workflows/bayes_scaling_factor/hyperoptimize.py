@@ -49,7 +49,7 @@ class Trainable:
     def train(self, config, data_train=None, data_val=None):
         import tensorflow as tf
         from dataset import ScalingFactorDataset
-        from hyper_callbacks import TuneReporter
+        from helpers.tf_helpers import TuneReporter
         if self.set_once and self.memory_growth:
             physical_devices = tf.config.list_physical_devices("GPU")
             tf.config.experimental.set_memory_growth(physical_devices[0], True)
