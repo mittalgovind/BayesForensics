@@ -71,6 +71,8 @@ def validate(model, data, batch_size, cache, num_runs):
 
     accuracies /= data.count_validation
 
+    print(accuracies)
+
     if cache:
         performance["accuracy"]["validation"].append(accuracies / n_batches)
         cache.save(performance, step="performance")
