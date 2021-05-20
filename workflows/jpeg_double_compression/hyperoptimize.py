@@ -145,7 +145,7 @@ def main(args):
                                 mode="min",
                                 points_to_evaluate=[initial_best_config])
 
-    search_alg = ConcurrencyLimiter(search_alg, max_concurrent=4)
+    search_alg = ConcurrencyLimiter(search_alg, max_concurrent=1)
 
     logger.info("Initializing ray Trainable")
     data_train = np.load(
@@ -178,7 +178,7 @@ def main(args):
         search_alg=search_alg,
         scheduler=scheduler,
         raise_on_failed_trial=False,
-        resources_per_trial={"cpu": num_cpus_per_trial, "gpu": 1},
+        resources_per_trial={"cpu": args.cpus, "gpu": args.gpus},
         resume=args.resume,
         local_dir=args.save_dir,
         log_to_file=True,
