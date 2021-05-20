@@ -160,10 +160,10 @@ def main(args):
     else:
         time_budget_s = None
 
-    if args.gpus <= 1:
-        num_cpus_per_trial = args.cpus
-    else:
-        num_cpus_per_trial = 2
+    # if args.gpus <= 1:
+    #     num_cpus_per_trial = args.cpus
+    # else:
+    #     num_cpus_per_trial = 2
 
     trainer = Trainable(args.root, args.bs, args.lr, args.save_dir,
                         args.epochs, args.n_images, args.v_images,
