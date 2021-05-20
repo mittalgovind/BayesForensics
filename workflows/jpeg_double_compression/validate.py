@@ -54,6 +54,7 @@ def validate(model, data, batch_size, cache, num_runs):
         for batch_id in range(n_batches):
             batch = data.next_validation_batch(batch_id, batch_size)
             images, labels = data.preprocess_batch(batch, QF1=QF1, QF2=QF2)
+            labels = tf.cast(labels, dtype=tf.int64)
 
             if model.method == "vanilla":
                 logits = model(images, training=False) / model.temperature
@@ -69,7 +70,6 @@ def validate(model, data, batch_size, cache, num_runs):
                 predictions = tf.squeeze(get_pred(logits))
                 print(predictions, labels)
 
-            labels = tf.cast(labels, dtype=int64)
             accuracies[qf1_ind, qf2_ind] += np.sum(predictions == labels)
 
             print(accuracies[qf1_ind, qf2_ind])
