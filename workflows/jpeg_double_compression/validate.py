@@ -67,7 +67,7 @@ def validate(model, data, batch_size, cache, num_runs):
                     logits = tf.convert_to_tensor([model(images, training=False) for _ in range(len(num_runs))])
 
                 predictions = tf.squeeze(get_pred(logits))
-                print(predictions.shape, labels.shape)
+                print(predictions, labels)
             accuracies[qf1_ind, qf2_ind] += np.sum(predictions == labels)
 
             print(accuracies[qf1_ind, qf2_ind])
