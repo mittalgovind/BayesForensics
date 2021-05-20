@@ -21,8 +21,8 @@ def qf_plot(qf, accuracies, save_dir):
     if n_factors < 0:
         raise ValueError("Specify correct range of QF.")
 
-    n_tested_values = n_factors * (n_factors - 1) // 2
-    m_accuracy = np.sum(accuracies) / n_tested_values
+    # n_tested_values = n_factors * (n_factors - 1) // 2
+    m_accuracy = np.mean(accuracies)
 
     fig, axes = plots.sub(1)
     plots.image(

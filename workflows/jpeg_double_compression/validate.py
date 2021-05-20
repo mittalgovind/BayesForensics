@@ -75,15 +75,7 @@ def validate(model, data, batch_size, cache, num_runs):
             accuracies[qf1_ind, qf2_ind] += np.sum(predictions == labels)
             sizes[qf1_ind, qf2_ind] += len(labels)
 
-            print(accuracies[qf1_ind, qf2_ind])
-
-    print(accuracies)
-
     accuracies = np.divide(accuracies, sizes)
-
-    print(accuracies)
-
-    print(accuracies.shape)
 
     if cache:
         performance["accuracy"]["validation"].append(accuracies)
