@@ -68,6 +68,8 @@ def validate(model, data, batch_size, cache, num_runs):
 
                 predictions = tf.squeeze(get_pred(logits))
                 print(predictions, labels)
+
+            labels = tf.cast(labels, dtype=int64)
             accuracies[qf1_ind, qf2_ind] += np.sum(predictions == labels)
 
             print(accuracies[qf1_ind, qf2_ind])
