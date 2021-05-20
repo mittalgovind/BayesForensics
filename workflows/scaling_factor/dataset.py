@@ -16,7 +16,7 @@ import numpy as np
 from helpers.utils import progress_bar
 from helpers.plots import perf
 from helpers.uncertainty import get_pred
-from helpers.hyper_dataset import Dataset
+from helpers.dataset import Dataset
 from models.jpeg import JPEG
 
 # Hacky fix
