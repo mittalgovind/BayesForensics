@@ -33,7 +33,9 @@ def validate(model, data, batch_size, cache, num_runs):
     data.set_eval_mode()
     q_factors = np.arange(*data.qf_test)
     n_batches = data.count_validation // batch_size
+
     accuracies = np.zeros((len(q_factors), len(q_factors)))
+    sizes = np.zeros((len(q_factors), len(q_factors)))
 
     performance = None
     if cache:
@@ -71,12 +73,13 @@ def validate(model, data, batch_size, cache, num_runs):
                 print(predictions, labels)
 
             accuracies[qf1_ind, qf2_ind] += np.sum(predictions == labels)
+            sizes[qf1_ind, qf2_ind] += len(labels)
 
             print(accuracies[qf1_ind, qf2_ind])
 
     print(accuracies)
 
-    accuracies /= data.count_validation
+    accuracies = np.divide(accuracies, sizes)
 
     print(accuracies)
 
