@@ -116,7 +116,7 @@ class ScalingFactor(BayesBaseModel):
                 tf.keras.layers.Conv2D(filters, kernel_size=self._h.kernel,
                                        padding='same'),
                 tf.keras.layers.BatchNormalization(),
-                self.activation(),
+                self.activation,
                 tf.keras.layers.MaxPool2D(self._h.pool_size)
             ])
             filters = int(self._h.filters * self._h.filter_multiplier)
@@ -126,7 +126,7 @@ class ScalingFactor(BayesBaseModel):
             tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
                                    kernel_size=1, padding='same'),
             tf.keras.layers.BatchNormalization(),
-            self.activation()
+            self.activation
         ])
 
         # GAP / Feature formation
