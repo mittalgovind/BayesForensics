@@ -102,16 +102,51 @@ class ScalingFactorDataset(Dataset):
 
         # Resize batch.
         rescaled_images = tf.image.resize(batch, resized_size, method=m)
-        class_id = tf.cast(
-            tf.math.multiply(self.class_multiplier, sf - self.classes[0]),
-            tf.int32)
-        sf_labels = tf.reshape(tf.repeat(class_id, batch.shape[0]), (-1, 1))
+        rescaled_images = tf.RaggedTensor.from_tensor(rescaled_images)
+        class_id = tf.math.floor(
+            tf.math.multiply(self.class_multiplier, sf - self.classes[0]))
+        sf_labels = tf.repeat(class_id, batch.shape[0])
 
         # Convert to JPEG if a codec is passed.
         if self.codec:
             rescaled_images = self.codec.process(rescaled_images)
 
         return rescaled_images, sf_labels
+
+    def get_training_pipeline(self, batch_size, rgb_patch_size,
+                              discard="flat"):
+
+        return tf.data.Dataset.from_generator(
+            self.get_training_generator,
+            args=(batch_size, rgb_patch_size, discard),
+            output_signature=(
+                tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
+                                    dtype=tf.float32, ragged_rank=1),
+                tf.TensorSpec(shape=batch_size, dtype=tf.float32)
+            )
+        )
+
+    def get_validation_pipeline(self, batch_size):
+        return tf.data.Dataset.from_generator(
+            self.get_validation_generator,
+            args=batch_size,
+            output_signature=(
+                tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
+                                    dtype=tf.float32, ragged_rank=1),
+                tf.TensorSpec(shape=batch_size, dtype=tf.float32)
+            )
+        )
+
+    def get_calibration_pipeline(self, batch_size):
+        return tf.data.Dataset.from_generator(
+            self.get_calibration_generator,
+            args=batch_size,
+            output_signature=(
+                tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
+                                    dtype=tf.float32, ragged_rank=1),
+                tf.TensorSpec(shape=batch_size, dtype=tf.float32)
+            )
+        )
 
 
 # TODO (Marcelo) refactor in future release

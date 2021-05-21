@@ -54,6 +54,27 @@ class Trainable:
             tf.config.experimental.set_memory_growth(physical_devices[0], True)
             self.set_once = False
 
+        strategy = tf.distribute.MirroredStrategy()
+        logger.info(
+            'Number of devices: {}'.format(strategy.num_replicas_in_sync))
+
+        # Open a strategy scope.
+        with strategy.scope():
+            model = create_keras_model(config)
+
+            # ON CREATION FAILURE
+            if not model:
+                history = tf.keras.callbacks.History()
+                history.history = {'loss': np.inf, 'accuracy': 0, 'val_acc': 0,
+                                   'val_loss': np.inf}
+                return history
+
+            loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+                from_logits=True)
+            optimizer = tf.keras.optimizers.Adam(self.lr)
+
+            model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
+
         data = DoubleCompressionDataset(
             load="y",
             n_images=self.n_images,
@@ -67,25 +88,13 @@ class Trainable:
             data_train=data_train,
             data_val=data_val
         )
-
-        model = create_keras_model(config)
-
-        # ON CREATION FAILURE
-        if not model:
-
-            history = tf.keras.callbacks.History()
-            history.history = {'loss': np.inf, 'accuracy': 0, 'val_acc': 0,
-                               'val_loss': np.inf}
-            return history
-
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True)
-        optimizer = tf.keras.optimizers.Nadam(self.lr)
-
-        model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
+        train_data = data.get_training_pipeline(self.batch_size, 64).prefetch(
+            tf.data.AUTOTUNE)
+        val_data = data.get_validation_pipeline(self.batch_size).prefetch(
+            tf.data.AUTOTUNE)
         history = model.fit(
-            x=data.get_training_generator(self.batch_size, 64),
-            validation_data=data.get_validation_generator(self.batch_size),
+            x=train_data,
+            validation_data=val_data,
             epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=0,
@@ -123,6 +132,8 @@ def create_search_space():
     return hspace, good
 
 
+
+
 def main(args):
     # Create save directory
     os.makedirs(args.save_dir, exist_ok=True)
@@ -156,7 +167,7 @@ def main(args):
                :20 * args.v_images]
 
     if args.days > 0:
-        time_budget_s = int(args.days * 24 * 3600 - 30*60)
+        time_budget_s = int(args.days * 24 * 3600 - 30 * 60)
     else:
         time_budget_s = None
 

@@ -141,3 +141,41 @@ class DoubleCompressionDataset(Dataset):
 
     def set_eval_mode(self):
         self.eval_mode = True
+
+    def get_training_pipeline(self, batch_size, rgb_patch_size,
+                              discard="flat"):
+
+        return tf.data.Dataset.from_generator(
+            self.get_training_generator,
+            args=(batch_size, rgb_patch_size, discard),
+            output_signature=(
+                tf.TensorSpec(
+                    shape=(batch_size * 2, rgb_patch_size, rgb_patch_size, 3),
+                    dtype=tf.float32),
+                tf.TensorSpec(shape=batch_size * 2, dtype=tf.float32)
+            )
+        )
+
+    def get_validation_pipeline(self, batch_size):
+        return tf.data.Dataset.from_generator(
+            self.get_validation_generator,
+            args=batch_size,
+            output_signature=(
+                tf.TensorSpec(shape=(
+                batch_size * 2, self.patch_size, self.patch_size, 3),
+                                    dtype=tf.float32),
+                tf.TensorSpec(shape=batch_size * 2, dtype=tf.float32)
+            )
+        )
+
+    def get_calibration_pipeline(self, batch_size):
+        return tf.data.Dataset.from_generator(
+            self.get_calibration_generator,
+            args=batch_size,
+            output_signature=(
+                tf.TensorSpec(shape=(
+                batch_size * 2, self.patch_size, self.patch_size, 3),
+                                    dtype=tf.float32),
+                tf.TensorSpec(shape=batch_size * 2, dtype=tf.float32)
+            )
+        )
