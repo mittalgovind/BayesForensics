@@ -81,12 +81,13 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         # Setup conv layers
         for i in range(self.conv_layers):
             filters = int(self.filters * self.filter_multiplier ** i)
-            layers.append(
-                self.conv2d(filters, self.kernel,
-                            activation=self.activation, use_bn=True)
-            )
-            layers.append(
-                MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
+            layers.extend([
+                tf.keras.layers.Conv2D(filters, kernel_size=self.kernel,
+                                       padding='same'),
+                tf.keras.layers.BatchNormalization(),
+                self.activation,
+                MaxPool2D(pool_size=(self.pool_size, self.pool_size))
+            ])
 
         layers.append(tf.keras.layers.Flatten())
 
