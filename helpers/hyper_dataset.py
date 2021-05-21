@@ -5,7 +5,6 @@ Provides a Dataset class that loads full resolution training images and samples 
 import os
 import numpy as np
 from helpers import loading
-import tensorflow as tf
 from helpers.loading import sample_patch
 
 
@@ -87,6 +86,7 @@ class Dataset(object):
         self.data["training"]['y'] = data_train
         self.data["validation"]['y'] = data_val
         self.presample_epochs = 1
+        self.patch_size = val_rgb_patch_size
 
     def __getitem__(self, key):
         if key in ["training", "validation", "calibration"]:
@@ -391,13 +391,11 @@ class Dataset(object):
         dp = tf.data.Dataset.from_generator(lambda: data.get_training_generator(batch_size, rgb_patch_size, discard),
             output_types=len(self._loaded_data) * (tf.float32, ))
         """
-
-        while True:
-            for batch_id in range(self.count_training // batch_size):
-                batch = self.next_training_batch(
-                    batch_id, batch_size, patch_size, discard)
-                images, labels = self.preprocess_batch(batch, **kwargs)
-                yield images, labels
+        for batch_id in range(self.count_training // batch_size):
+            batch = self.next_training_batch(
+                batch_id, batch_size, patch_size, discard)
+            images, labels = self.preprocess_batch(batch, **kwargs)
+            yield images, labels
 
     def get_validation_generator(self, batch_size, **kwargs):
         """
@@ -406,11 +404,10 @@ class Dataset(object):
         dp = tf.data.Dataset.from_generator(lambda: data.get_validation_generator(batch_size),
             output_types=len(self._loaded_data) * (tf.float32, ))
         """
-        while True:
-            for batch_id in range(self.count_validation // batch_size):
-                batch = self.next_validation_batch(batch_id, batch_size)
-                images, labels = self.preprocess_batch(batch, **kwargs)
-                yield images, labels
+        for batch_id in range(self.count_validation // batch_size):
+            batch = self.next_validation_batch(batch_id, batch_size)
+            images, labels = self.preprocess_batch(batch, **kwargs)
+            yield images, labels
 
     def get_calibration_generator(self, batch_size, **kwargs):
         """
@@ -419,11 +416,10 @@ class Dataset(object):
         dp = tf.data.Dataset.from_generator(lambda: data.get_calibration_generator(batch_size),
             output_types=len(self._loaded_data) * (tf.float32, ))
         """
-        while True:
-            for batch_id in range(self.count_calibration // batch_size):
-                batch = self.next_calibration_batch(batch_id, batch_size)
-                images, labels = self.preprocess_batch(batch, **kwargs)
-                yield images, labels
+        for batch_id in range(self.count_calibration // batch_size):
+            batch = self.next_calibration_batch(batch_id, batch_size)
+            images, labels = self.preprocess_batch(batch, **kwargs)
+            yield images, labels
 
     def get_training_pipeline(self, batch_size, rgb_patch_size,
                               discard="flat"):
