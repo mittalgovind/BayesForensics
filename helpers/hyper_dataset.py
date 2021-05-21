@@ -5,10 +5,11 @@ Provides a Dataset class that loads full resolution training images and samples 
 import os
 import numpy as np
 from helpers import loading
+import tensorflow as tf
 from helpers.loading import sample_patch
 
 
-class Dataset(object):
+class Dataset(tf.data.Dataset):
     def __init__(
             self,
             data_directory=None,
@@ -58,7 +59,7 @@ class Dataset(object):
         :param val_n_patches: number of validation patches to load per full-resolution image
         :param val_discard: patch discard mode (for validation data)
         """
-
+        super().__init__()
         if not any(load == allowed for allowed in {"xy", "x", "y"}):
             raise ValueError("Invalid X/Y data requested!")
 
@@ -84,7 +85,7 @@ class Dataset(object):
 
         self.data["training"] = {}
         self.data["validation"] = {}
-        self.data["training"]['y'] = data_train
+        self.data["training"]['y'] = tf.data.Dataset(data_train)
         self.data["validation"]['y'] = data_val
         self.presample_epochs = 1
 

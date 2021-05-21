@@ -57,19 +57,6 @@ class Trainable:
             tf.config.experimental.set_memory_growth(physical_devices[0], True)
             self.set_once = False
 
-        data = ScalingFactorDataset(
-            load="y",
-            n_images=self.n_images,
-            v_images=self.v_images,
-            randomize=69,
-            patch_size=64,
-            scales="0.25,1.0",
-            n_classes=31,
-            sampling_method="lanczos3",
-            codec=None,
-            data_train=data_train,
-            data_val=data_val
-        )
 
         strategy = tf.distribute.MirroredStrategy()
         logger.info('Number of devices: {}'.format(strategy.num_replicas_in_sync))
@@ -91,9 +78,25 @@ class Trainable:
 
             model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
 
+        data = ScalingFactorDataset(
+            load="y",
+            n_images=self.n_images,
+            v_images=self.v_images,
+            randomize=69,
+            patch_size=64,
+            scales="0.25,1.0",
+            n_classes=31,
+            sampling_method="lanczos3",
+            codec=None,
+            data_train=data_train,
+            data_val=data_val
+        )
+
+        data = data.prefetch(tf.data.AUTOTUNE)
+
         history = model.fit(
-            x=data.get_training_generator(self.batch_size, 64),
-            validation_data=data.get_validation_generator(self.batch_size),
+            x=data.get_training_pipeline(self.batch_size, 64),
+            validation_data=data.get_validation_pipeline(self.batch_size),
             epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=0,
@@ -119,13 +122,14 @@ def create_search_space():
     }
     good = {
         "conv_layers": 4,
-        "dense_layers": 2,
-        "dense_units": 128,
-        "filters": 32,
-        "kernel": 5,
-        "pool_size": 1,
+        "dense_layers": 1,
+        "dense_units": 256,
+        "filters": 64,
+        "kernel": 3,
+        "pool_size": 2,
         "filter_multiplier": 2,
     }
+
     return hspace, good
 
 
