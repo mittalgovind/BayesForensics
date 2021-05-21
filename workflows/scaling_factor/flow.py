@@ -113,9 +113,10 @@ class ScalingFactor(BayesBaseModel):
         filters = self._h.filters
         for _ in range(self._h.conv_layers):
             layers.extend([
-                tf.keras.layers.Conv2D(filters, kernel=self._h.kernel,
-                                       activation=self.activation),
+                tf.keras.layers.Conv2D(filters, kernel_size=self._h.kernel,
+                                       padding='same'),
                 tf.keras.layers.BatchNormalization(),
+                self.activation(),
                 tf.keras.layers.MaxPool2D(self._h.pool_size)
             ])
             filters = int(self._h.filters * self._h.filter_multiplier)
@@ -123,9 +124,10 @@ class ScalingFactor(BayesBaseModel):
         # Final 1 x 1 convolution
         layers.extend([
             tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
-                                   kernel=1, activation=self.activation),
-            tf.keras.layers.BatchNormalization()]
-        )
+                                   kernel_size=1, padding='same'),
+            tf.keras.layers.BatchNormalization(),
+            self.activation()
+        ])
 
         # GAP / Feature formation
         if self._h.use_gap:
