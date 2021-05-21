@@ -71,20 +71,26 @@ class Trainable:
             data_val=data_val
         )
 
-        model = create_keras_model(config)
+        strategy = tf.distribute.MirroredStrategy()
+        logger.info('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
-        # ON CREATION FAILURE
-        if not model:
-            history = tf.keras.callbacks.History()
-            history.history = {'loss': np.inf, 'accuracy': 0, 'val_acc': 0,
-                               'val_loss': np.inf}
-            return history
+        # Open a strategy scope.
+        with strategy.scope():
+            model = create_keras_model(config)
 
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True)
-        optimizer = tf.keras.optimizers.Adam(self.lr)
+            # ON CREATION FAILURE
+            if not model:
+                history = tf.keras.callbacks.History()
+                history.history = {'loss': np.inf, 'accuracy': 0, 'val_acc': 0,
+                                   'val_loss': np.inf}
+                return history
 
-        model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
+            loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+                from_logits=True)
+            optimizer = tf.keras.optimizers.Adam(self.lr)
+
+            model.compile(optimizer, loss=loss_criterion, metrics=["accuracy"])
+
         history = model.fit(
             x=data.get_training_generator(self.batch_size, 64),
             validation_data=data.get_validation_generator(self.batch_size),
@@ -159,11 +165,6 @@ def main(args):
         time_budget_s = int(args.days * 24 * 3600 - 30*60)
     else:
         time_budget_s = None
-
-    # if args.gpus <= 1:1
-    #     num_cpus_per_trial = args.cpus
-    # else:
-    #     num_cpus_per_trial = 2
 
     trainer = Trainable(args.root, args.bs, args.lr, args.save_dir,
                         args.epochs, args.n_images, args.v_images,
