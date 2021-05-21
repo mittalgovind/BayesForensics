@@ -92,11 +92,10 @@ class Trainable:
             data_val=data_val
         )
 
-        data = data.prefetch(tf.data.AUTOTUNE)
-
+        train_data = data.get_training_pipeline(self.batch_size, 64).prefetch(tf.data.AUTOTUNE)
+        val_data = data.get_validation_pipeline(self.batch_size).prefetch(tf.data.AUTOTUNE)
         history = model.fit(
-            x=data.get_training_pipeline(self.batch_size, 64),
-            validation_data=data.get_validation_pipeline(self.batch_size),
+            x=train_data, validation_data=val_data,
             epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=0,
