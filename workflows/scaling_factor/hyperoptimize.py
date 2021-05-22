@@ -60,8 +60,6 @@ class Trainable:
         strategy = tf.distribute.MirroredStrategy()
         logger.info(
             'Number of devices: {}'.format(strategy.num_replicas_in_sync))
-        options = tf.data.Options()
-        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
         # Open a strategy scope.
         with strategy.scope():
             model = create_keras_model(config)
@@ -92,6 +90,8 @@ class Trainable:
             data_train=tf.convert_to_tensor(data_train),
             data_val=tf.convert_to_tensor(data_val)
         )
+        options = tf.data.Options()
+        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
 
         train_data = data.get_training_pipeline(self.batch_size, 64).prefetch(
             tf.data.AUTOTUNE)

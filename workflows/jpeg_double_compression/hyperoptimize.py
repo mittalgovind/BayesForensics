@@ -58,8 +58,6 @@ class Trainable:
         strategy = tf.distribute.MirroredStrategy()
         logger.info(
             'Number of devices: {}'.format(strategy.num_replicas_in_sync))
-        options = tf.data.Options()
-        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
 
         # Open a strategy scope.
         with strategy.scope():
@@ -96,6 +94,9 @@ class Trainable:
             tf.data.AUTOTUNE)
         val_data = data.get_validation_pipeline(self.batch_size).prefetch(
             tf.data.AUTOTUNE)
+        options = tf.data.Options()
+        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+
         history = model.fit(
             x=train_data,
             validation_data=val_data,

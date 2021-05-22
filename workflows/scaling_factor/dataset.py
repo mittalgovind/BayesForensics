@@ -119,22 +119,26 @@ class ScalingFactorDataset(Dataset):
         return tf.data.Dataset.from_generator(
             self.get_training_generator,
             args=(batch_size, rgb_patch_size, discard),
-            output_signature=(
-                tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
-                                    dtype=tf.float32, ragged_rank=1),
-                tf.TensorSpec(shape=batch_size, dtype=tf.float32)
-            )
+            output_types=(tf.float32, tf.float32),
+            output_shapes=((batch_size, None, None, 3), (batch_size,)),
+            # output_signature=(
+            #     tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
+            #                         dtype=tf.float32, ragged_rank=1),
+            #     tf.TensorSpec(shape=batch_size, dtype=tf.float32)
+            # )
         )
 
     def get_validation_pipeline(self, batch_size):
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
             args=(batch_size,),
-            output_signature=(
-                tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
-                                    dtype=tf.float32, ragged_rank=1),
-                tf.TensorSpec(shape=batch_size, dtype=tf.float32)
-            )
+            output_types=(tf.float32, tf.float32),
+            output_shapes=((batch_size, None, None, 3), (batch_size,)),
+            # output_signature=(
+            #     tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
+            #                         dtype=tf.float32, ragged_rank=1),
+            #     tf.TensorSpec(shape=batch_size, dtype=tf.float32)
+            # )
         )
 
     def get_calibration_pipeline(self, batch_size):
