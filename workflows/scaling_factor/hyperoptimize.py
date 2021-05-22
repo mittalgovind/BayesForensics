@@ -92,8 +92,8 @@ class Trainable:
             data_val=data_val
         )
 
-        train_data = data.get_training_pipeline(self.batch_size, 64)#.prefetch(tf.data.AUTOTUNE)
-        val_data = data.get_validation_pipeline(self.batch_size)#.prefetch(tf.data.AUTOTUNE)
+        train_data = data.get_training_pipeline(self.batch_size, 64).prefetch(tf.data.AUTOTUNE)
+        val_data = data.get_validation_pipeline(self.batch_size).prefetch(tf.data.AUTOTUNE)
         history = model.fit(
             x=train_data, validation_data=val_data,
             epochs=self.epochs,
@@ -107,18 +107,6 @@ class Trainable:
 
 
 np.random.seed(5)
-
-
-import time
-
-
-def benchmark(dataset, num_epochs=2):
-    start_time = time.perf_counter()
-    for epoch_num in range(num_epochs):
-        for sample in dataset:
-            # Performing a training step
-            time.sleep(0.01)
-    print("Execution time:", time.perf_counter() - start_time)
 
 
 def create_search_space():
@@ -175,23 +163,7 @@ def main(args):
     data_val = np.load(
         os.path.join(args.root, 'data/rgb/native12k_20k_val.npy'))[
                :20 * args.v_images]
-    from dataset import ScalingFactorDataset
-    import tensorflow as tf
-    data = ScalingFactorDataset(
-            load="y",
-            n_images=args.n_images,
-            v_images=args.v_images,
-            randomize=69,
-            patch_size=64,
-            scales="0.25,1.0",
-            n_classes=31,
-            sampling_method="lanczos3",
-            codec=None,
-            data_train=data_train,
-            data_val=data_val
-        )
-    train_data = data.get_training_pipeline(args.bs, 64).prefetch(tf.data.AUTOTUNE)
-    print(benchmark(train_data, 10))
+
     if args.days > 0:
         time_budget_s = int(args.days * 24 * 3600 - 30*60)
     else:
