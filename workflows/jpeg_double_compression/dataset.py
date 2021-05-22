@@ -142,6 +142,29 @@ class DoubleCompressionDataset(Dataset):
     def set_eval_mode(self):
         self.eval_mode = True
 
+    def get_training_generator(self, batch_size, patch_size, discard="flat",
+                               **kwargs):
+        """
+        Get a generator for training data. Can be used to construct a data pipeline:
+
+        dp = tf.data.Dataset.from_generator(lambda: data.get_training_generator(batch_size, rgb_patch_size, discard),
+            output_types=len(self._loaded_data) * (tf.float32, ))
+        """
+        for batch in self.batched_data_train:
+            images, labels = self.preprocess_batch(batch, **kwargs)
+            yield images, labels
+
+    def get_validation_generator(self, batch_size, **kwargs):
+        """
+        Get a generator for validation data. Can be used to construct a data pipeline:
+
+        dp = tf.data.Dataset.from_generator(lambda: data.get_validation_generator(batch_size),
+            output_types=len(self._loaded_data) * (tf.float32, ))
+        """
+        for batch in self.batched_data_val:
+            images, labels = self.preprocess_batch(batch, **kwargs)
+            yield images, labels
+
     def get_training_pipeline(self, batch_size, rgb_patch_size,
                               discard="flat"):
 

@@ -3,10 +3,12 @@
 Provides a Dataset class that loads full resolution training images and samples from them randomly. (See class docs.)
 """
 import os
-import numpy as np
+import tensorflow as tf
 from helpers import loading
 from helpers.loading import sample_patch
 
+
+# import numpy as np
 
 class Dataset(object):
     def __init__(
@@ -25,6 +27,7 @@ class Dataset(object):
             train_rgb_patch_size=0,
             data_train=None,
             data_val=None,
+            batch_size=64,
     ):
         """
         Represents a [RAW-]RGB dataset for training imaging pipelines. The class preloads full resolution images and
@@ -83,10 +86,15 @@ class Dataset(object):
 
         self.data["training"] = {}
         self.data["validation"] = {}
-        self.data["training"]['y'] = data_train
-        self.data["validation"]['y'] = data_val
+        self.data["training"]['y'] = tf.math.divide(data_train, (2 ** 8 - 1))
+        self.data["validation"]['y'] = tf.math.divide(data_val, (2 ** 8 - 1))
         self.presample_epochs = 1
         self.patch_size = val_rgb_patch_size
+
+        self.batched_data_train = tf.data.Dataset.from_tensor_slices(
+            self.data["training"]['y']).batch(batch_size, drop_remainder=True)
+        self.batched_data_val = tf.data.Dataset.from_tensor_slices(
+            self.data["validation"]['y']).batch(batch_size, drop_remainder=True)
 
     def __getitem__(self, key):
         if key in ["training", "validation", "calibration"]:
@@ -125,14 +133,14 @@ class Dataset(object):
         has_raw = "x" in self._loaded_data
         has_rgb = "y" in self._loaded_data
         bx = (
-            np.zeros((batch_size, raw_patch_size, raw_patch_size, 4),
-                     dtype=np.float32)
+            tf.zeros((batch_size, raw_patch_size, raw_patch_size, 4),
+                     dtype=tf.float32)
             if has_raw
             else None
         )
         by = (
-            np.zeros((batch_size, rgb_patch_size, rgb_patch_size, 3),
-                     dtype=np.float32)
+            tf.zeros((batch_size, rgb_patch_size, rgb_patch_size, 3),
+                     dtype=tf.float32)
             if has_rgb
             else None
         )
@@ -149,11 +157,10 @@ class Dataset(object):
             bid = batch_id * batch_size + b
             if self.presample_epochs:
                 if has_raw:
-                    bx[b] = self.data["training"]["x"][bid].astype(
-                        np.float) / (2 ** 16 - 1)
+                    bx[b] = tf.cast(self.data["training"]["x"][bid],
+                                    tf.float32) / (2 ** 16 - 1)
                 if has_rgb:
-                    by[b] = self.data["training"]["y"][bid].astype(
-                        np.float) / (2 ** 8 - 1)
+                    by[b] = self.data["training"]["y"][bid]
             else:
                 current_rgb = self.data["training"]["y"][
                     bid] if has_rgb else None
@@ -168,14 +175,16 @@ class Dataset(object):
 
                 if has_raw:
                     current_raw = self.data["training"]["x"][bid]
-                    bx[b] = current_raw[
-                            ry: ry + raw_patch_size, rx: rx + raw_patch_size
-                            ].astype(np.float) / (2 ** 16 - 1)
+                    bx[b] = tf.cast(current_raw[
+                                    ry: ry + raw_patch_size,
+                                    rx: rx + raw_patch_size
+                                    ], tf.float32) / (2 ** 16 - 1)
 
                 if has_rgb:
-                    by[b] = current_rgb[
-                            yy: yy + rgb_patch_size, xx: xx + rgb_patch_size
-                            ].astype(np.float) / (2 ** 8 - 1)
+                    by[b] = tf.cast(current_rgb[
+                                    yy: yy + rgb_patch_size,
+                                    xx: xx + rgb_patch_size
+                                    ], tf.float32) / (2 ** 8 - 1)
 
         if has_rgb and has_raw:
             return bx, by
@@ -201,28 +210,23 @@ class Dataset(object):
         has_raw = "x" in self._loaded_data
         has_rgb = "y" in self._loaded_data
         bx = (
-            np.zeros((batch_size, rgb_patch // 2, rgb_patch // 2, 4),
-                     dtype=np.float32)
-            if has_raw
-            else None
+            tf.cast(tf.zeros((batch_size, rgb_patch // 2, rgb_patch // 2, 4)),
+                    tf.float32)
+            if has_raw else None
         )
         by = (
-            np.zeros((batch_size, rgb_patch, rgb_patch, 3), dtype=np.float32)
-            if has_rgb
-            else None
+            tf.cast(tf.zeros((batch_size, rgb_patch, rgb_patch, 3)),
+                    tf.float32)
+            if has_rgb else None
         )
 
         for b in range(batch_size):
             if has_raw:
-                bx[b] = self.data["validation"]["x"][
-                            batch_id * batch_size + b].astype(
-                    np.float
-                ) / (2 ** 16 - 1)
+                bx[b] = tf.cast(
+                    self.data["validation"]["x"][batch_id * batch_size + b],
+                    tf.float32) / (2 ** 16 - 1)
             if has_rgb:
-                by[b] = self.data["validation"]["y"][
-                            batch_id * batch_size + b].astype(
-                    np.float
-                ) / (2 ** 8 - 1)
+                by[b] = self.data["validation"]["y"][batch_id * batch_size + b]
 
         if has_rgb and has_raw:
             return bx, by
@@ -231,52 +235,52 @@ class Dataset(object):
         elif has_raw:
             return bx
 
-    def next_calibration_batch(self, batch_id, batch_size):
-        """
-        Return a calibration batch.
-        :param batch_id: integer from 0 to (#calibration images // batch_size - 1)
-        :param batch_size: integer, self explanatory
-        :return: tuple of np arrays (RAW, RGB) or np array (RGB)
-        """
-        rgb_patch = self.calib_patch_size_rgb
-
-        if (batch_id + 1) * batch_size > self.count_calibration:
-            raise ValueError(
-                "Not enough images for the requested batch_id & batch_size"
-            )
-
-        has_raw = "x" in self._loaded_data
-        has_rgb = "y" in self._loaded_data
-        bx = (
-            np.zeros((batch_size, rgb_patch // 2, rgb_patch // 2, 4),
-                     dtype=np.float32)
-            if has_raw
-            else None
-        )
-        by = (
-            np.zeros((batch_size, rgb_patch, rgb_patch, 3), dtype=np.float32)
-            if has_rgb
-            else None
-        )
-
-        for b in range(batch_size):
-            if has_raw:
-                bx[b] = self.data["calibration"]["x"][
-                            batch_id * batch_size + b].astype(
-                    np.float
-                ) / (2 ** 16 - 1)
-            if has_rgb:
-                by[b] = self.data["calibration"]["y"][
-                            batch_id * batch_size + b].astype(
-                    np.float
-                ) / (2 ** 8 - 1)
-
-        if has_rgb and has_raw:
-            return bx, by
-        elif has_rgb:
-            return by
-        elif has_raw:
-            return bx
+    # def next_calibration_batch(self, batch_id, batch_size):
+    #     """
+    #     Return a calibration batch.
+    #     :param batch_id: integer from 0 to (#calibration images // batch_size - 1)
+    #     :param batch_size: integer, self explanatory
+    #     :return: tuple of np arrays (RAW, RGB) or np array (RGB)
+    #     """
+    #     rgb_patch = self.calib_patch_size_rgb
+    #
+    #     if (batch_id + 1) * batch_size > self.count_calibration:
+    #         raise ValueError(
+    #             "Not enough images for the requested batch_id & batch_size"
+    #         )
+    #
+    #     has_raw = "x" in self._loaded_data
+    #     has_rgb = "y" in self._loaded_data
+    #     bx = (
+    #         np.zeros((batch_size, rgb_patch // 2, rgb_patch // 2, 4),
+    #                  dtype=np.float32)
+    #         if has_raw
+    #         else None
+    #     )
+    #     by = (
+    #         np.zeros((batch_size, rgb_patch, rgb_patch, 3), dtype=np.float32)
+    #         if has_rgb
+    #         else None
+    #     )
+    #
+    #     for b in range(batch_size):
+    #         if has_raw:
+    #             bx[b] = self.data["calibration"]["x"][
+    #                         batch_id * batch_size + b].astype(
+    #                 np.float
+    #             ) / (2 ** 16 - 1)
+    #         if has_rgb:
+    #             by[b] = self.data["calibration"]["y"][
+    #                         batch_id * batch_size + b].astype(
+    #                 np.float
+    #             ) / (2 ** 8 - 1)
+    #
+    #     if has_rgb and has_raw:
+    #         return bx, by
+    #     elif has_rgb:
+    #         return by
+    #     elif has_raw:
+    #         return bx
 
     def is_raw_and_rgb(self):
         return len(self._loaded_data) == 2
@@ -361,7 +365,7 @@ class Dataset(object):
         valid_label = "" if self._val_discard is None else f", {self._val_discard}"
         return (
             f"Dataset[{os.path.split(self._data_directory)[-1]},{self.loaded_data}]: "
-            f"{self.count_training} train. images ({np.prod(self.train_image_shape_rgb[:2]) / 1e6:.1f} Mpx) "
+            f"{self.count_training} train. images ({tf.prod(self.train_image_shape_rgb[:2]) / 1e6:.1f} Mpx) "
             f"+ {self.count_validation} valid. patches ({self.valid_patch_size_rgb} px{valid_label})"
             f"+ {self.count_calibration} calib. patches ({self.calib_patch_size_rgb} px{valid_label})"
         )
