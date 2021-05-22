@@ -120,8 +120,8 @@ class ScalingFactorDataset(Dataset):
             self.get_training_generator,
             args=(batch_size, rgb_patch_size, discard),
             output_signature=(
-                tf.TensorSpec(shape=(batch_size, None, None, 3),
-                                    dtype=tf.float32),
+                tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
+                                    dtype=tf.float32, ragged_rank=1),
                 tf.TensorSpec(shape=batch_size, dtype=tf.float32)
             )
         )
@@ -131,8 +131,8 @@ class ScalingFactorDataset(Dataset):
             self.get_validation_generator,
             args=(batch_size,),
             output_signature=(
-                tf.TensorSpec(shape=(batch_size, None, None, 3),
-                                    dtype=tf.float32),
+                tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
+                                    dtype=tf.float32, ragged_rank=1),
                 tf.TensorSpec(shape=batch_size, dtype=tf.float32)
             )
         )

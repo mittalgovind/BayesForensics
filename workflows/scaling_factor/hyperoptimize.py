@@ -57,10 +57,11 @@ class Trainable:
             tf.config.experimental.set_memory_growth(physical_devices[0], True)
             self.set_once = False
 
-
         strategy = tf.distribute.MirroredStrategy()
-        logger.info('Number of devices: {}'.format(strategy.num_replicas_in_sync))
-
+        logger.info(
+            'Number of devices: {}'.format(strategy.num_replicas_in_sync))
+        options = tf.data.Options()
+        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
         # Open a strategy scope.
         with strategy.scope():
             model = create_keras_model(config)
@@ -88,12 +89,14 @@ class Trainable:
             n_classes=31,
             sampling_method="lanczos3",
             codec=None,
-            data_train=data_train,
-            data_val=data_val
+            data_train=tf.convert_to_tensor(data_train),
+            data_val=tf.convert_to_tensor(data_val)
         )
 
-        train_data = data.get_training_pipeline(self.batch_size, 64).prefetch(tf.data.AUTOTUNE)
-        val_data = data.get_validation_pipeline(self.batch_size).prefetch(tf.data.AUTOTUNE)
+        train_data = data.get_training_pipeline(self.batch_size, 64).prefetch(
+            tf.data.AUTOTUNE)
+        val_data = data.get_validation_pipeline(self.batch_size).prefetch(
+            tf.data.AUTOTUNE)
         history = model.fit(
             x=train_data, validation_data=val_data,
             epochs=self.epochs,
@@ -161,9 +164,25 @@ def main(args):
     data_val = np.load(
         os.path.join(args.root, 'data/rgb/native12k_20k_val.npy'))[
                :20 * args.v_images]
-
+    # from dataset import ScalingFactorDataset
+    # data = ScalingFactorDataset(
+    #         load="y",
+    #         n_images=args.n_images,
+    #         v_images=args.v_images,
+    #         randomize=69,
+    #         patch_size=64,
+    #         scales="0.25,1.0",
+    #         n_classes=31,
+    #         sampling_method="lanczos3",
+    #         codec=None,
+    #         data_train=data_train,
+    #         data_val=data_val
+    #     )
+    # train_data = data.get_training_pipeline(1, 64)
+    # for sample in train_data:
+    #     import time; time.sleep(1)
     if args.days > 0:
-        time_budget_s = int(args.days * 24 * 3600 - 30*60)
+        time_budget_s = int(args.days * 24 * 3600 - 30 * 60)
     else:
         time_budget_s = None
 

@@ -58,6 +58,8 @@ class Trainable:
         strategy = tf.distribute.MirroredStrategy()
         logger.info(
             'Number of devices: {}'.format(strategy.num_replicas_in_sync))
+        options = tf.data.Options()
+        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
 
         # Open a strategy scope.
         with strategy.scope():
@@ -86,8 +88,8 @@ class Trainable:
             qf_train="75,95",
             qf_test="75,95",
             codec=JPEG(codec='soft'),
-            data_train=data_train,
-            data_val=data_val
+            data_train=tf.convert_to_tensor(data_train),
+            data_val=tf.convert_to_tensor(data_val)
         )
         train_data = data.get_training_pipeline(self.batch_size, 64).prefetch(
             tf.data.AUTOTUNE)
