@@ -32,6 +32,7 @@ class ScalingFactorDataset(Dataset):
             n_classes,
             codec=None,
             jpeg_quality=100,
+            batch_size=64,
             **kwargs,
     ):
         """
@@ -53,7 +54,8 @@ class ScalingFactorDataset(Dataset):
         jpeg_quality : int
             JPEG quality to compress with.
         """
-        super().__init__(val_rgb_patch_size=patch_size, **kwargs)
+        super().__init__(val_rgb_patch_size=patch_size, batch_size=batch_size,
+                         **kwargs)
         self.scales = (float(scales.split(",")[0]),
                        float(scales.split(",")[1]))
         self.patch_size = patch_size
@@ -67,6 +69,19 @@ class ScalingFactorDataset(Dataset):
             self.codec = JPEG(quality=jpeg_quality, codec=codec)
         else:
             self.codec = None
+
+        self.batched_data_train = tf.data.Dataset.from_tensor_slices(
+            self.data["training"]['y']).padded_batch(batch_size,
+                                                     padded_shapes=(
+                                                         self.patch_size,
+                                                         self.patch_size, 3),
+                                                     drop_remainder=True)
+        self.batched_data_val = tf.data.Dataset.from_tensor_slices(
+            self.data["validation"]['y']).padded_batch(batch_size,
+                                                       padded_shapes=(
+                                                           self.patch_size,
+                                                           self.patch_size, 3),
+                                                       drop_remainder=True)
 
     def preprocess_batch(self, batch, **kwargs):
         """
