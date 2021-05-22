@@ -33,7 +33,7 @@ class DoubleCompressionDataset(Dataset):
         """
         super().__init__(**kwargs)
         qf_train = qf_train.split(",")
-        qf_test = qf_train.split(",")
+        qf_test = qf_test.split(",")
 
         if len(qf_train) == 2:
             self.qf_train = (int(qf_train[0]), int(qf_train[1]))
