@@ -121,7 +121,7 @@ class ScalingFactorDataset(Dataset):
             args=(batch_size, rgb_patch_size, discard),
             output_signature=(
                 tf.TensorSpec(shape=(batch_size, None, None, 3),
-                                    dtype=tf.float32, ragged_rank=1),
+                                    dtype=tf.float32),
                 tf.TensorSpec(shape=batch_size, dtype=tf.float32)
             )
         )
@@ -132,7 +132,7 @@ class ScalingFactorDataset(Dataset):
             args=(batch_size,),
             output_signature=(
                 tf.TensorSpec(shape=(batch_size, None, None, 3),
-                                    dtype=tf.float32, ragged_rank=1),
+                                    dtype=tf.float32),
                 tf.TensorSpec(shape=batch_size, dtype=tf.float32)
             )
         )
