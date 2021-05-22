@@ -102,7 +102,7 @@ class Trainable:
             epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=0,
-            callbacks=[TuneReporter(), TqdmCallback(verbose=self.verbose)],
+            callbacks=[TuneReporter()]#, TqdmCallback(verbose=self.verbose)],
         )
         return history
 
