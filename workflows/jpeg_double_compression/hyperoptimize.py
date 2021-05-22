@@ -31,7 +31,7 @@ def create_keras_model(parameters):
 
 class Trainable:
     def __init__(self, root, batch_size, lr, save_dir, epochs, n_images,
-                 v_images, memory_growth):
+                 v_images, memory_growth, verbose):
         self.epochs = epochs
         self.root = root
         self.batch_size = batch_size
@@ -41,6 +41,7 @@ class Trainable:
         self.v_images = v_images
         self.memory_growth = memory_growth
         self.set_once = True
+        self.verbose = verbose
 
     def train(self, config, data_train=None, data_val=None):
         import tensorflow as tf
@@ -98,9 +99,7 @@ class Trainable:
             epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=0,
-            callbacks=[TuneReporter(), TqdmCallback(verbose=0)],
-            steps_per_epoch=data.count_training // self.batch_size,
-            validation_steps=data.count_validation // self.batch_size,
+            callbacks=[TuneReporter(), TqdmCallback(verbose=self.verbose)],
         )
         return history
 
@@ -171,7 +170,7 @@ def main(args):
 
     trainer = Trainable(args.root, args.bs, args.lr, args.save_dir,
                         args.epochs, args.n_images, args.v_images,
-                        args.memory_growth)
+                        args.memory_growth, args.verbose)
 
     logger.info("Starting hyperparameter tuning")
     analysis = tune.run(
@@ -213,6 +212,7 @@ if __name__ == "__main__":
         parser.add_argument("--cpus", default=2, type=int)
         parser.add_argument("--epochs", default=6, type=int)
         parser.add_argument("--days", default=0, type=int)
+        parser.add_argument("--verbose", default=0, type=int)
         parser.add_argument("--bs", default=2048, type=int)
         parser.add_argument("--num-samples", default=250, type=int)
         parser.add_argument("--n-images", default=512, type=int)
