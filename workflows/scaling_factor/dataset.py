@@ -129,7 +129,7 @@ class ScalingFactorDataset(Dataset):
     def get_validation_pipeline(self, batch_size):
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
-            args=batch_size,
+            args=(batch_size,),
             output_signature=(
                 tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
                                     dtype=tf.float32, ragged_rank=1),
@@ -140,7 +140,7 @@ class ScalingFactorDataset(Dataset):
     def get_calibration_pipeline(self, batch_size):
         return tf.data.Dataset.from_generator(
             self.get_calibration_generator,
-            args=batch_size,
+            args=(batch_size,),
             output_signature=(
                 tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
                                     dtype=tf.float32, ragged_rank=1),
