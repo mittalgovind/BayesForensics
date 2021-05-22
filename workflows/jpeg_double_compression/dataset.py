@@ -32,10 +32,24 @@ class DoubleCompressionDataset(Dataset):
             Flag for calculate PyWavelet residual
         """
         super().__init__(**kwargs)
-        self.qf_train = (
-            int(qf_train.split(",")[0]), int(qf_train.split(",")[1]))
-        self.qf_test = (
-            int(qf_test.split(",")[0]), int(qf_test.split(",")[1]))
+        qf_train = qf_train.split(",")
+        qf_test = qf_train.split(",")
+
+        if len(qf_train) == 2:
+            self.qf_train = (int(qf_train[0]), int(qf_train[1]))
+        elif len(qf_train) == 3:
+            self.qf_train = (int(qf_train[0]), int(qf_train[1]),
+                             int(qf_train[2]))
+        else:
+            logger.error("Invalid training quality factor range")
+
+        if len(qf_test) == 2:
+            self.qf_test = (int(qf_test[0]), int(qf_test[1]))
+        elif len(qf_test) == 3:
+            self.qf_test = (int(qf_test[0]), int(qf_test[1]),
+                            int(qf_test[2]))
+        else:
+            logger.error("Invalid testing quality factor range")
         self.codec = codec
         self.eval_mode = False
         if calc_pywt_residual:
@@ -46,13 +60,10 @@ class DoubleCompressionDataset(Dataset):
 
         if not self.eval_mode:
             # sample quality factors
-            QF1 = np.random.randint(low=self.qf_train[0],
-                                    high=self.qf_train[1])
-            QF2 = np.random.randint(low=self.qf_train[0],
-                                    high=self.qf_train[1])
+            QF1 = np.random.choice(np.arange(*self.qf_train))
+            QF2 = np.random.choice(np.arange(*self.qf_train))
             while QF1 == QF2:
-                QF2 = np.random.randint(low=self.qf_train[0],
-                                        high=self.qf_train[1])
+                QF2 = np.random.choice(np.arange(*self.qf_train))
         else:
             QF1 = int(kwargs["QF1"])
             QF2 = int(kwargs["QF2"])
@@ -185,8 +196,8 @@ class DoubleCompressionDataset(Dataset):
             args=(batch_size,),
             output_signature=(
                 tf.TensorSpec(shape=(
-                batch_size * 2, self.patch_size, self.patch_size, 3),
-                                    dtype=tf.float32),
+                    batch_size * 2, self.patch_size, self.patch_size, 3),
+                    dtype=tf.float32),
                 tf.TensorSpec(shape=batch_size * 2, dtype=tf.float32)
             )
         )
@@ -197,8 +208,8 @@ class DoubleCompressionDataset(Dataset):
             args=(batch_size,),
             output_signature=(
                 tf.TensorSpec(shape=(
-                batch_size * 2, self.patch_size, self.patch_size, 3),
-                                    dtype=tf.float32),
+                    batch_size * 2, self.patch_size, self.patch_size, 3),
+                    dtype=tf.float32),
                 tf.TensorSpec(shape=batch_size * 2, dtype=tf.float32)
             )
         )
