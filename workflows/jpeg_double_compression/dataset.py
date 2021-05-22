@@ -60,10 +60,10 @@ class DoubleCompressionDataset(Dataset):
 
         if not self.eval_mode:
             # sample quality factors
-            QF1 = np.random.choice(np.arange(*self.qf_train))
-            QF2 = np.random.choice(np.arange(*self.qf_train))
+            QF1 = int(np.random.choice(np.arange(*self.qf_train)))
+            QF2 = int(np.random.choice(np.arange(*self.qf_train)))
             while QF1 == QF2:
-                QF2 = np.random.choice(np.arange(*self.qf_train))
+                QF2 = int(np.random.choice(np.arange(*self.qf_train)))
         else:
             QF1 = int(kwargs["QF1"])
             QF2 = int(kwargs["QF2"])
