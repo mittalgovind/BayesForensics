@@ -95,7 +95,7 @@ class ScalingFactorDataset(Dataset):
 
         # Choose sampling method.
         if self.random_method:
-            m = tf.random.shuffle(self.methods)[0]
+            m = self.methods[tf.random.uniform(shape=(), minval=0, maxval=len(self.methods), dtype=tf.int32)]
         else:
             m = self.sampling_method
 
