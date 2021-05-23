@@ -16,6 +16,7 @@ from helpers.paramspec import ParamSpec
 from helpers.tf_helpers import activation_mapping
 from models.layers import ConstrainedConv2D
 from models.bayes import BayesBaseModel
+from tensorflow.keras.layers import Input
 
 
 class ScalingFactor(BayesBaseModel):
