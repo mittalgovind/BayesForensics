@@ -123,12 +123,12 @@ def create_search_space():
         "dense_multiplier": hp.choice("dense_multiplier", [0.5, 1])
     }
     good = {
-        "conv_layers": 5,
-        "dense_layers": 4,
-        "dense_units": 512,
-        "filters": 128,
-        "kernel": 3,
-        "pool_size": 1,
+        "conv_layers": 4,
+        "dense_layers": 3,
+        "dense_units": 128,
+        "filters": 32,
+        "kernel": 5,
+        "pool_size": 2,
         "dense_multiplier": 1,
         "filter_multiplier": 2,
     }
