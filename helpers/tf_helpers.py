@@ -527,9 +527,8 @@ def get_callbacks(path, model_name=None, save_freq=0, monitor='loss',
                                          min_delta=min_delta,
                                          verbose=verbose),
     ]
-    if verbose == 0:
-        from tqdm.keras import TqdmCallback
-        callbacks.append(TqdmCallback())
+    from tqdm.keras import TqdmCallback
+    callbacks.append(TqdmCallback(verbose=verbose))
     if not model_name:
         model_name = 'model.h5'
 
