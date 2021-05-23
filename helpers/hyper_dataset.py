@@ -28,6 +28,7 @@ class Dataset(object):
             data_train=None,
             data_val=None,
             batch_size=64,
+            **kwargs
     ):
         """
         Represents a [RAW-]RGB dataset for training imaging pipelines. The class preloads full resolution images and

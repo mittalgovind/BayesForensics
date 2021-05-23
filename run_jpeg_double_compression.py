@@ -8,6 +8,7 @@
 import argparse
 import sys
 import os
+import numpy as np
 
 # External libraries
 import tensorflow as tf
@@ -59,6 +60,12 @@ def main():
 
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
+    data_train = np.load(
+        os.path.join(args.use_presampled, 'data/rgb/native12k_1M_1.npy'))[
+                 :512 * args.n_train_images]
+    data_val = np.load(
+        os.path.join(args.use_presampled, 'data/rgb/native12k_20k_val.npy'))[
+               :20 * args.n_val_images]
     # load the dataset
     data = DoubleCompressionDataset(
         data_directory=args.data_dir,
@@ -72,8 +79,17 @@ def main():
         qf_test=args.qf_test,
         codec=JPEG(codec=args.codec),
         presample_epochs=args.presample,
+        data_val=data_val,
+        data_train=data_train,
         use_presampled=args.use_presampled, # TODO hacky fix
     )
+
+    train_data = data.get_training_pipeline(args.batch_size, 64).prefetch(
+        tf.data.AUTOTUNE)
+    val_data = data.get_validation_pipeline(args.batch_size).prefetch(
+        tf.data.AUTOTUNE)
+    options = tf.data.Options()
+    options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
 
     if args.uncertainty_method == "ensemble":
         model = EnsembleJPEGDoubleCompression(
@@ -109,14 +125,12 @@ def main():
             verbose=args.verbose
         ),
         train_performance = model._model.fit(
-            x=data.get_training_generator(args.batch_size, args.patch_size),
-            validation_data=data.get_validation_generator(args.batch_size),
+            x=train_data,
+            validation_data=val_data,
             epochs=args.epochs,
             batch_size=args.batch_size,
             verbose=args.verbose,
             callbacks=callbacks,
-            steps_per_epoch=data.count_training // args.batch_size,
-            validation_steps=data.count_validation // args.batch_size,
             validation_freq=args.validation_freq,
         )
 
