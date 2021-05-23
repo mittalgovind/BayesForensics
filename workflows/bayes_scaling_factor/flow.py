@@ -111,8 +111,6 @@ class ScalingFactor(BayesBaseModel):
             layers.append([])
             # Constrained convolution with a learned residual filter
             layers[i] = [
-                tf.keras.layers.Input(shape=(self.patch_size, self.patch_size,
-                                             self.channels)),
                 ConstrainedConv2D()
             ]
             # Standard convolutional layers
@@ -149,7 +147,7 @@ class ScalingFactor(BayesBaseModel):
                 tf.keras.layers.Dense(self._h.n_classes, activation=None)
             )
 
-        inputs = Input(shape=(self.patch_size, self.patch_size, 3))
+        inputs = Input(shape=(self.patch_size, self.patch_size, self.channels))
         outputs_list = []
 
         for i in range(self.n_models):
