@@ -82,6 +82,7 @@ def main():
         data_val=data_val,
         data_train=data_train,
         use_presampled=args.use_presampled,  # TODO hacky fix
+        batch_size=args.batch_size,
     )
 
     train_data = data.get_training_pipeline(args.batch_size, 64).prefetch(
