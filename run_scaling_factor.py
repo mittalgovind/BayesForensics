@@ -145,9 +145,8 @@ def main():
         uncertainty_method=args.uncertainty_method, num_runs=args.num_runs
     )
 
-    # TODO (Marcelo) this needs adapting to new tests_summary
-    # sf_plot(tests_summary, data.classes, args.sampling_method, args.save_dir)
-    plot_conf_matrix(conf_matrix, data.methods, data.classes, args.save_dir)
+    sf_plot(tests_summary, conf_matrix, data.classes, args.sampling_method, args.save_dir)
+    # plot_conf_matrix(conf_matrix, data.methods, data.classes, args.save_dir)
 
 
 if __name__ == "__main__":

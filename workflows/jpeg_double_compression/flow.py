@@ -36,6 +36,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         drop=0.1,
         residual_type="trainable",
         patch_size=64,
+        num_models=1,
         **kwargs
     ):
         """
@@ -71,54 +72,13 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         self.filter_multiplier = filter_multiplier
         self.dense_multiplier = dense_multiplier
 
+        self.n_models = num_models
+
         # Needs to be called as the last line in the subclass.
         self.create_model()
 
     def _create_model(self):
         """Need to override to specify model architecture."""
-        layers = []
-
-        # Setup conv layers
-        for i in range(self.conv_layers):
-            filters = int(self.filters * self.filter_multiplier ** i)
-            layers.append(
-                self.conv2d(filters, self.kernel,
-                            activation=self.activation, use_bn=True)
-            )
-            layers.append(
-                MaxPool2D(pool_size=(self.pool_size, self.pool_size)))
-
-        layers.append(tf.keras.layers.Flatten())
-
-        # Setup dense layers
-        for i in range(self.dense_layers):
-            dense_units = int(self.dense_units * self.dense_multiplier ** i)
-            layers.append(self.dense(dense_units, activation=self.activation))
-            if self.drop_rate > 0:
-                layers.append(self.dropout(self.drop_rate))
-        layers.append(self.dense(2, activation=None))
-
-        # make a custom keras model
-        inputs = Input(shape=(self.patch_size, self.patch_size, self.channels))
-        if self.residual:
-            # concatenate residual if append_rgb is true
-            outputs = tf.keras.layers.concatenate(
-                [inputs, self.residual(inputs)])
-        else:
-            outputs = inputs
-
-        for layer in layers:
-            outputs = layer(outputs)
-
-        self._model = tf.keras.models.Model(inputs, outputs)
-
-
-class EnsembleJPEGDoubleCompression(JPEGDoubleCompression):
-    def __init__(self, num_models, method, activation, **kwargs):
-        self.n_models = num_models
-        super().__init__(method=method, activation=activation, **kwargs)
-
-    def _create_model(self):
         layers = []
 
         for j in range(self.n_models):
@@ -156,22 +116,7 @@ class EnsembleJPEGDoubleCompression(JPEGDoubleCompression):
 
             outputs_list.append(outputs)
 
+        if self.n_models == 1:
+            outputs_list = outputs_list[0]
+
         self._model = tf.keras.models.Model(inputs, outputs_list)
-
-    def __call__(self, inputs, training=False, full_output=True):
-        outputs = self._model(inputs, training=training)
-        if full_output:
-            return outputs
-
-        else:
-            return tf.math.reduce_mean(outputs, axis=0)
-
-    def test_step(self, data):
-        x, y = data
-        y_pred = self(x, training=False, full_output=False)
-
-        self.compiled_loss(y, y_pred, regularization_losses=self.losses)
-
-        self.compiled_metrics.update_state(y, y_pred)
-
-        return {m.name: m.result() for m in self.metrics}
