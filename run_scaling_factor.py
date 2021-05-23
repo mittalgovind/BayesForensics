@@ -40,6 +40,19 @@ def main():
         physical_devices = tf.config.list_physical_devices("GPU")
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
+    uncertainty_method = args.uncertainty_method
+    num_models = args.num_models
+    if args.num_models > 1 and args.uncertainty_method != "ensemble":
+        logger.warning("Number of models is greater than 1 but uncertainty method is not ensemble. " +
+                       "Setting uncertainty method to ensemble.")
+
+        uncertainty_method = "ensemble"
+
+    elif args.num_models == 1 and args.uncertainty_method == "ensemble":
+        logger.warning("Uncertainty method is ensemble but number of models is 1. Setting number of models to 5.")
+
+        num_models = 5
+
     # Change json to npz
     if os.path.isdir(os.path.abspath(args.save_dir)):
         if not args.overwrite:
@@ -69,7 +82,8 @@ def main():
     )
 
     model = ScalingFactor(
-        uncertainty_method=args.uncertainty_method,
+        num_models=num_models,
+        uncertainty_method=uncertainty_method,
         n_classes=args.n_classes,
         patch_size=args.patch_size,
         **args.parameters
@@ -142,7 +156,7 @@ def main():
     logger.info("Started Testing")
     tests_summary, conf_matrix = validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
-        uncertainty_method=args.uncertainty_method, num_runs=args.num_runs
+        uncertainty_method=uncertainty_method, num_runs=args.num_runs
     )
 
     sf_plot(tests_summary, conf_matrix, data.classes, args.sampling_method, args.save_dir)

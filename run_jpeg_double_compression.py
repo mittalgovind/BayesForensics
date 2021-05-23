@@ -88,13 +88,8 @@ def main():
         use_presampled=args.use_presampled,  # TODO hacky fix
     )
 
-    if uncertainty_method == "ensemble":
-        n_models = num_models
-    else:
-        n_models = 1
-
     model = JPEGDoubleCompression(
-        num_models=n_models,
+        num_models=num_models,
         method=uncertainty_method,
         patch_size=args.patch_size,
         **args.parameters,
