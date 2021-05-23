@@ -81,7 +81,7 @@ def main():
         presample_epochs=args.presample,
         data_val=data_val,
         data_train=data_train,
-        use_presampled=args.use_presampled, # TODO hacky fix
+        use_presampled=args.use_presampled,  # TODO hacky fix
     )
 
     train_data = data.get_training_pipeline(args.batch_size, 64).prefetch(
@@ -90,31 +90,33 @@ def main():
         tf.data.AUTOTUNE)
     options = tf.data.Options()
     options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-
-    if args.uncertainty_method == "ensemble":
-        model = EnsembleJPEGDoubleCompression(
-            num_models=5,
-            method=args.uncertainty_method,
-            patch_size=args.patch_size,
-            **args.parameters,
-        )
-
-    else:
-        model = JPEGDoubleCompression(
-            method=args.uncertainty_method,
-            patch_size=args.patch_size,
-            **args.parameters,
-        )
-
-    if args.load_model:
-        model.load_model(os.path.abspath(args.load_model))
-    else:
+    strategy = tf.distribute.MirroredStrategy()
+    logger.info(
+        'Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    # Open a strategy scope.
+    with strategy.scope():
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True)
         optimizer = tf.keras.optimizers.Adam(args.lr)
+        if args.uncertainty_method == "ensemble":
+            model = EnsembleJPEGDoubleCompression(
+                num_models=5,
+                method=args.uncertainty_method,
+                patch_size=args.patch_size,
+                **args.parameters,
+            )
 
-        model._model.compile(optimizer, loss=loss_criterion,
-                             metrics=["accuracy"])
+        else:
+            model = JPEGDoubleCompression(
+                method=args.uncertainty_method,
+                patch_size=args.patch_size,
+                **args.parameters,
+            )
+            model._model.compile(optimizer, loss=loss_criterion,
+                                 metrics=["accuracy"])
+    if args.load_model:
+        model.load_model(os.path.abspath(args.load_model))
+    else:
         save_freq = args.save_every * args.n_train_images // args.batch_size
         callbacks = get_callbacks(
             args.save_dir,
