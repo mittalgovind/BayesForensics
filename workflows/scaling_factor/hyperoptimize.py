@@ -88,7 +88,8 @@ class Trainable:
             sampling_method="lanczos3",
             codec=None,
             data_train=tf.convert_to_tensor(data_train),
-            data_val=tf.convert_to_tensor(data_val)
+            data_val=tf.convert_to_tensor(data_val),
+            batch_size=self.batch_size,
         )
         options = tf.data.Options()
         options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
@@ -102,7 +103,7 @@ class Trainable:
             epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=0,
-            callbacks=[TuneReporter()]#, TqdmCallback(verbose=self.verbose)],
+            callbacks=[TuneReporter(), TqdmCallback(verbose=self.verbose)],
         )
         return history
 

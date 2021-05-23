@@ -70,19 +70,6 @@ class ScalingFactorDataset(Dataset):
         else:
             self.codec = None
 
-        self.batched_data_train = tf.data.Dataset.from_tensor_slices(
-            self.data["training"]['y']).padded_batch(batch_size,
-                                                     padded_shapes=(
-                                                         self.patch_size,
-                                                         self.patch_size, 3),
-                                                     drop_remainder=True)
-        self.batched_data_val = tf.data.Dataset.from_tensor_slices(
-            self.data["validation"]['y']).padded_batch(batch_size,
-                                                       padded_shapes=(
-                                                           self.patch_size,
-                                                           self.patch_size, 3),
-                                                       drop_remainder=True)
-
     def preprocess_batch(self, batch, **kwargs):
         """
         Resize a batch with the desired scaling factor and sampling method.
@@ -117,7 +104,6 @@ class ScalingFactorDataset(Dataset):
 
         # Resize batch.
         rescaled_images = tf.image.resize(batch, resized_size, method=m)
-        rescaled_images = tf.RaggedTensor.from_tensor(rescaled_images)
         class_id = tf.math.floor(
             tf.math.multiply(self.class_multiplier, sf - self.classes[0]))
         sf_labels = tf.repeat(class_id, batch.shape[0])
@@ -157,193 +143,22 @@ class ScalingFactorDataset(Dataset):
         return tf.data.Dataset.from_generator(
             self.get_training_generator,
             args=(batch_size, rgb_patch_size, discard),
-            # output_types=(tf.float32, tf.float32),
-            # output_shapes=((batch_size, None, None, 3), (batch_size,)),
-            output_signature=(
-                tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
-                                    dtype=tf.float32, ragged_rank=1),
-                tf.TensorSpec(shape=batch_size, dtype=tf.float32)
-            )
+            output_types=(tf.float32, tf.float32),
+            output_shapes=((batch_size, None, None, 3), (batch_size,)),
         )
 
     def get_validation_pipeline(self, batch_size):
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
             args=(batch_size,),
-            # output_types=(tf.float32, tf.float32),
-            # output_shapes=((batch_size, None, None, 3), (batch_size,)),
-            output_signature=(
-                tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
-                                    dtype=tf.float32, ragged_rank=1),
-                tf.TensorSpec(shape=batch_size, dtype=tf.float32)
-            )
+            output_types=(tf.float32, tf.float32),
+            output_shapes=((batch_size, None, None, 3), (batch_size,)),
         )
 
     def get_calibration_pipeline(self, batch_size):
         return tf.data.Dataset.from_generator(
             self.get_calibration_generator,
             args=(batch_size,),
-            output_signature=(
-                tf.RaggedTensorSpec(shape=(batch_size, None, None, 3),
-                                    dtype=tf.float32, ragged_rank=1),
-                tf.TensorSpec(shape=batch_size, dtype=tf.float32)
-            )
+            output_types=(tf.float32, tf.float32),
+            output_shapes=((batch_size, None, None, 3), (batch_size,)),
         )
-
-
-# TODO (Marcelo) refactor in future release
-def train_ensemble(
-        model,
-        epochs,
-        data,
-        batch_size,
-        cache,
-        codec,
-        patch_size,
-        scales,
-        classes,
-        sampling_method,
-        save_dir,
-        lr,
-        methods,
-        save_every,
-        adversarial,
-        **kwargs,
-):
-    """
-    Trains models inside the Deep Ensemble.
-
-    Parameters
-    ----------
-    model : sfp_ensemble.SFPEnsemble
-        Model to be trained.
-    epochs : int
-        Number of epochs to train for.
-    data : helpers.dataset.Dataset
-        Dataset that will be used to load training images.
-    batch_size : int
-        Size of batch at every training step.
-    cache : helpers.results_data.ResultCache
-        Structure for naming performance files.
-    codec : models.jpeg.JPEG
-        Codec for conversion of images into JPEG. Use None for no conversion.
-    patch_size : int
-        Patch size for the model.
-    scales : tuple
-        Min and max value for scaling factor classes.
-    classes : np.array
-        List of all the possible scaling factors to use.
-    save_dir : string
-        Path for the model to be saved.
-    lr : float
-        Learning rate.
-    sampling_method : string
-        Sampling method to use for training. Can be one of "random", "nearest", "bilinear",
-        "bicubic", or "lanczos3".
-    methods : list of string
-        List of sampling methods to be used if sampling_method is "random".
-    adversarial : bool
-        Whether or not to use adversarial training.
-    epsilon : float
-        Epsilon value for adversarial training.
-    """
-
-    random_method = sampling_method == "random"
-    epsilon = None
-    if adversarial:
-        epsilon = kwargs["epsilon"]
-
-    n_batches = data.count_training // batch_size
-
-    # Different performance dictionary for each model.
-    performance = [
-        {"loss": {"training": []}, "accuracy": {"training": []}} for _ in
-        model.models
-    ]
-    n_batches = data.count_training // batch_size
-    opt = tf.keras.optimizers.Adam(lr)
-    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-        from_logits=True)
-
-    with progress_bar(epochs, "Training") as pbar:
-        for epoch in range(epochs):
-            # Tracking losses separately.
-            losses = [0 for _ in model.models]
-            accuracies = [0 for _ in model.models]
-
-            for batch_id in range(n_batches):
-                # Get next training batch.
-                batch_y = data.next_training_batch(batch_id, batch_size,
-                                                   patch_size)
-
-                batch_yy, batch_sf = preprocess_batch(
-                    batch_y,
-                    scales,
-                    patch_size,
-                    sampling_method,
-                    random_method,
-                    methods,
-                    classes,
-                    codec,
-                )
-
-                for i in range(model.n_models):
-                    # Create adversarial batch.
-                    if adversarial:
-                        with tf.GradientTape() as tape:
-                            tape.watch(batch_yy)
-                            logits = model.models[i](batch_yy, training=True)
-                            loss = loss_criterion(batch_sf, logits)
-
-                        grad_adv = tape.gradient(loss, batch_yy)
-                        sign_grads = tf.sign(grad_adv)
-                        batch_adv = tf.clip_by_value(
-                            batch_yy + sign_grads * epsilon, 0, 1
-                        )
-
-                    with tf.GradientTape() as tape:
-                        logits = model.models[i](batch_yy, training=True)
-                        loss = loss_criterion(batch_sf, logits)
-
-                        # Loss becomes the sum of both adversarial loss and regular training loss.
-                        if adversarial:
-                            loss += loss_criterion(
-                                batch_sf,
-                                model.models[i](batch_adv, training=True)
-                            )
-
-                    grads = tape.gradient(
-                        loss, model.models[i]._model.trainable_variables
-                    )
-                    opt.apply_gradients(
-                        zip(grads, model.models[i]._model.trainable_variables)
-                    )
-
-                    predictions = get_pred(tf.convert_to_tensor([logits]))
-                    # Update loss counter.
-                    losses[i] += loss.numpy()
-                    accuracies[i] += np.mean(predictions == batch_sf)
-
-            # Save losses.
-            for i in range(model.n_models):
-                performance[i]["loss"]["training"].append(
-                    losses[i] / n_batches)
-                performance[i]["accuracy"]["training"].append(
-                    accuracies[i] / n_batches)
-
-            pbar.set_postfix(loss=np.mean(losses) / n_batches)
-            pbar.update(1)
-
-            if (epoch + 1) % save_every == 0:
-                model.save_model(dirname=save_dir)
-                for i in range(model.n_models):
-                    fig = perf(performance[i], results="training")
-                    fig.savefig(
-                        os.path.join(
-                            save_dir,
-                            f"ensemble_{i:03d}",
-                            "training_progress".format(epoch + 1),
-                        )
-                    )
-
-    return performance
