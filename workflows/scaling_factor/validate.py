@@ -56,7 +56,7 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                         logits[
                         bindex: bindex + batch_size] = (tf.convert_to_tensor(
                             [model(images, training=False) for _ in
-                             range(num_runs)])/ model.temperature).numpy()
+                             range(num_runs)]) / model.temperature).numpy()
                     else:
                         logits[bindex: bindex + batch_size] = (model(
                             images,
@@ -72,7 +72,7 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                     for label, count in zip(labels, counts):
                         conf_matrix[m][s][label] += count
                     conf_matrix[m][s] /= data.count_validation
-                tests_summary[method][sf] = logits
+                tests_summary[method][sf.numpy()] = logits
                 pbar.update(1)
     if cache:
         performance["accuracy"]["validation"] = conf_matrix

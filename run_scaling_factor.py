@@ -74,10 +74,12 @@ def main():
             from_logits=True)
         model._model.compile(optimizer, loss=loss_criterion,
                              metrics=["accuracy"])
-
-    loaded_val_data = np.load(
-        os.path.join(args.use_presampled, 'data/rgb/native12k_20k_val.npy'))[
-               :20 * args.n_val_images]
+    if args.use_presampled:
+        loaded_val_data = np.load(
+            os.path.join(args.use_presampled, 'data/rgb/native12k_20k_val.npy'))[
+                   :20 * args.n_val_images]
+    else:
+        loaded_val_data = None
 
     if args.load_model:
         model.load_model(os.path.abspath(args.load_model))
@@ -100,14 +102,17 @@ def main():
             verbose=args.verbose
         )
         # Data prep
-        data_train = np.load(
-            os.path.join(args.use_presampled, 'data/rgb/native12k_1M_1.npy'))[
-                     :512 * args.n_train_images]
+        if args.use_presampled:
+            data_train = np.load(
+                os.path.join(args.use_presampled, 'data/rgb/native12k_1M_1.npy'))[
+                         :512 * args.n_train_images]
+        else:
+            loaded_train_data = None
         data = ScalingFactorDataset(
             load="y",
             n_images=0,
             v_images=len(loaded_val_data),
-            data_train=data_train,
+            data_train=loaded_train_data,
             data_val=loaded_val_data,
             **vars(args)
         )
