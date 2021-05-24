@@ -116,7 +116,7 @@ class ScalingFactor(BayesBaseModel):
             layers.extend([
                 tf.keras.layers.Conv2D(filters, kernel_size=self._h.kernel,
                                        padding='same'),
-                tf.keras.layers.BatchNormalization(),
+                # tf.keras.layers.BatchNormalization(),
                 self.activation,
                 tf.keras.layers.MaxPool2D(self._h.pool_size)
             ])
@@ -126,7 +126,7 @@ class ScalingFactor(BayesBaseModel):
         layers.extend([
             tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
                                    kernel_size=1, padding='same'),
-            tf.keras.layers.BatchNormalization(),
+            # tf.keras.layers.BatchNormalization(),
             self.activation
         ])
 
