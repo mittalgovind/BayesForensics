@@ -46,8 +46,7 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                 else:
                     logits = np.zeros(
                         (data.count_validation, len(data.classes)))
-                for batch_id in range(n_batches):
-                    batch = data.next_validation_batch(batch_id, batch_size)
+                for batch in data.batched_data_val:
                     images, labels = data.preprocess_batch(batch, sf=sf)
                     bindex = batch_id * batch_size
 
@@ -55,9 +54,9 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                         # even if you set training=False, if the model is
                         # created for MC dropout, it should still work.
                         logits[
-                        bindex: bindex + batch_size] = tf.convert_to_tensor(
+                        bindex: bindex + batch_size] = (tf.convert_to_tensor(
                             [model(images, training=False) for _ in
-                             range(num_runs)]) / model.temperature
+                             range(num_runs)])/ model.temperature).numpy()
                     else:
                         logits[bindex: bindex + batch_size] = (model(
                             images,
