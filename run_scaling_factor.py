@@ -56,64 +56,40 @@ def main():
     else:
         os.mkdir(args.save_dir)
 
-    cache = ResultCache(["{step}}.npz"], prefix=args.save_dir)
-
-    data = ScalingFactorDataset(
-        data_directory=args.data_dir,
-        load="y",
-        n_images=args.n_train_images,
-        v_images=args.n_val_images,
-        randomize=args.seed,
-        scales=args.scales,
-        patch_size=args.patch_size,
-        sampling_method=args.sampling_method,
-        n_classes=args.n_classes,
-        codec=args.codec if args.jpeg_compression else None,
-        jpeg_quality=args.jpeg_quality
-    )
-
-    model = ScalingFactor(
-        uncertainty_method=args.uncertainty_method,
-        n_classes=args.n_classes,
-        patch_size=args.patch_size,
-        **args.parameters
-    )
-
-    # TODO CLEANUP
-    # if args.uncertainty_method == "ensemble":
-    #     model = DeepEnsemble([model for _ in range(5)])
-    #     train_function = train_ensemble
-    #
-    # else:
-    #     '''
-    #     model = SFP(
-    #         args.uncertainty_method,
-    #         c_filters=(32, 32, 32, 32),
-    #         d_filters=(32, 16, args.n_classes),
-    #         kernel=5,
-    #         activation="leaky_relu",
-    #         trainable_residual=True,
-    #         drop=0.1,
-    #         append_rgb=False,
-    #     )
-    #     '''
-    #     train_function = train_single
-
-    #
-    # if args.uncertainty_method == "ensemble":
-    #     for performance in train_performance:
-    #         perf(performance)
-    # else:
-    #     perf(train_performance)
-
-    if args.load_model:
-        model.load_model(os.path.abspath(args.load_model))
-    else:
+    cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
+    strategy = tf.distribute.MirroredStrategy()
+    logger.info(
+        'Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    # Open a strategy scope.
+    with strategy.scope():
+        model = ScalingFactor(
+            uncertainty_method=args.uncertainty_method,
+            n_classes=args.n_classes,
+            patch_size=args.patch_size,
+            **args.parameters
+        )
         optimizer = tf.keras.optimizers.Adam(args.lr)
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True)
         model._model.compile(optimizer, loss=loss_criterion,
                              metrics=["accuracy"])
+
+    loaded_val_data = np.load(
+        os.path.join(args.use_presampled, 'data/rgb/native12k_20k_val.npy'))[
+               :20 * args.n_val_images]
+
+    if args.load_model:
+        model.load_model(os.path.abspath(args.load_model))
+        data = ScalingFactorDataset(
+            load="y",
+            n_images=0,
+            v_images=len(loaded_val_data),
+            codec=args.codec if args.jpeg_compression else None,
+            data_val=loaded_val_data,
+            **vars(args)
+        )
+
+    else:
         save_freq = args.save_every * args.n_train_images // args.batch_size
         callbacks = get_callbacks(
             args.save_dir,
@@ -123,16 +99,33 @@ def main():
             patience=int(args.epochs * args.patience_percent),
             verbose=args.verbose
         )
+        # Data prep
+        data_train = np.load(
+            os.path.join(args.use_presampled, 'data/rgb/native12k_1M_1.npy'))[
+                     :512 * args.n_train_images]
+        data = ScalingFactorDataset(
+            load="y",
+            n_images=0,
+            v_images=len(loaded_val_data),
+            codec=args.codec if args.jpeg_compression else None,
+            data_train=data_train,
+            data_val=loaded_val_data,
+            **vars(args)
+        )
+        train_data = data.get_training_pipeline(args.batch_size, 64).prefetch(
+            tf.data.AUTOTUNE)
+        val_data = data.get_validation_pipeline(args.batch_size).prefetch(
+            tf.data.AUTOTUNE)
+        options = tf.data.Options()
+        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
 
         train_performance = model._model.fit(
-            x=data.get_training_generator(args.batch_size, args.patch_size),
-            validation_data=data.get_validation_generator(args.batch_size),
+            x=train_data,
+            validation_data=val_data,
             epochs=args.epochs,
             batch_size=args.batch_size,
             verbose=args.verbose,
             callbacks=callbacks,
-            steps_per_epoch=args.n_train_images // args.batch_size,
-            validation_steps=args.n_val_images // args.batch_size,
             validation_freq=args.validation_freq,
         )
         # save the training performance

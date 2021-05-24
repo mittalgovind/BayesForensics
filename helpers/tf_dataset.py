@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+#
+# New York University
+# By: Govind (mittal@nyu.edu)
+
 """
 Provides a Dataset class that loads full resolution training images and samples from them randomly. (See class docs.)
 """
@@ -8,14 +12,12 @@ from helpers import loading
 from helpers.loading import sample_patch
 
 
-# import numpy as np
-
 class Dataset(object):
     def __init__(
             self,
-            data_directory=None,
+            data_dir=None,
             *,
-            randomize=2468,
+            seed=2468,
             load="xy",
             n_images=120,
             v_images=30,
@@ -52,8 +54,8 @@ class Dataset(object):
         data = Dataset('data/rgb/native12k/', load='y')
         batch_rgb = data.next_training_batch(0, 10, 128, 'flat-aggressive')
 
-        :param data_directory: directory path with RAW-RGB pairs (*.npy & *.png) or only RGB images (*.png)
-        :param randomize: randomization seed
+        :param data_dir: directory path with RAW-RGB pairs (*.npy & *.png) or only RGB images (*.png)
+        :param seed: randomization seed
         :param load: what data to load: 'xy' load RAW+RGB, 'x' load RAW only, 'y' load RGB only
         :param n_images: number of training images (full resolution)
         :param v_images: number of validation images (patches sampled upon creation)
@@ -76,7 +78,7 @@ class Dataset(object):
         self.data = {}
         self.files = {}
         self._loaded_data = load
-        self._data_directory = data_directory
+        self._data_directory = data_dir
         self._counts = (
             n_images if presample_epochs == 0 else n_images * presample_epochs,
             v_images,
@@ -85,17 +87,17 @@ class Dataset(object):
         )
         self._val_discard = "flat-aggressive"
 
-        self.data["training"] = {}
-        self.data["validation"] = {}
-        self.data["validation"]['y'] = tf.math.divide(data_val, (2 ** 8 - 1))
+        self.data = {"training": {}, "validation": {}}
         self.presample_epochs = 1
         self.patch_size = val_rgb_patch_size
         if data_train:
             self.data["training"]['y'] = tf.math.divide(data_train, (2 ** 8 - 1))
             self.batched_data_train = tf.data.Dataset.from_tensor_slices(
                 self.data["training"]['y']).batch(batch_size, drop_remainder=True)
-        self.batched_data_val = tf.data.Dataset.from_tensor_slices(
-            self.data["validation"]['y']).batch(batch_size, drop_remainder=True)
+        if data_val:
+            self.batched_data_val = tf.data.Dataset.from_tensor_slices(
+                self.data["validation"]['y']).batch(batch_size, drop_remainder=True)
+            self.data["validation"]['y'] = tf.math.divide(data_val, (2 ** 8 - 1))
 
     def __getitem__(self, key):
         if key in ["training", "validation", "calibration"]:
@@ -428,8 +430,6 @@ class Dataset(object):
 
     def get_training_pipeline(self, batch_size, rgb_patch_size,
                               discard="flat"):
-        import tensorflow as tf
-
         types = (
             tf.float32, tf.float32) if self.is_raw_and_rgb() else tf.float32
         shapes = (
@@ -444,16 +444,12 @@ class Dataset(object):
         )
 
     def get_validation_pipeline(self, batch_size):
-        import tensorflow as tf
-
         return tf.data.Dataset.from_generator(
             lambda: self.get_validation_generator(batch_size),
             output_types=len(self._loaded_data) * (tf.float32,),
         )
 
     def get_calibration_pipeline(self, batch_size):
-        import tensorflow as tf
-
         return tf.data.Dataset.from_generator(
             lambda: self.get_calibration_generator(batch_size),
             output_types=len(self._loaded_data) * (tf.float32,),

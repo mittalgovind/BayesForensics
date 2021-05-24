@@ -13,7 +13,7 @@ from loguru import logger
 import pywt
 
 # Internal libraries
-from helpers.hyper_dataset import Dataset
+from helpers.tf_dataset import Dataset
 
 
 class DoubleCompressionDataset(Dataset):

@@ -126,11 +126,11 @@ def train_network(parameters):
 
 
 data = Dataset(
-    data_directory=data_dir,
+    data_dir=data_dir,
     load="y",
     n_images=t_images,
     v_images=v_images,
-    randomize=69,
+    seed=69,
     val_rgb_patch_size=patch_size,
 )
 

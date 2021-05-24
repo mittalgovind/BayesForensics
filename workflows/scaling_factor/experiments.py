@@ -193,11 +193,11 @@ def get_results_jpeg(
 
 def in_scales_experiment(model_type, models_dir, results_dir, num_samples):
     data = Dataset(
-        data_directory="data/rgb/native12k",
+        data_dir="data/rgb/native12k",
         load="y",
         n_images=1024,
         v_images=num_samples,
-        randomize=69,
+        seed=69,
     )
 
     if model_type == "ensemble":
@@ -237,11 +237,11 @@ def in_scales_experiment(model_type, models_dir, results_dir, num_samples):
 
 def out_scales_experiment(model_type, models_dir, results_dir, num_samples):
     data = Dataset(
-        data_directory="data/rgb/native12k",
+        data_dir="data/rgb/native12k",
         load="y",
         n_images=1024,
         v_images=num_samples,
-        randomize=69,
+        seed=69,
     )
 
     if model_type == "ensemble":
@@ -286,11 +286,11 @@ def out_scales_experiment(model_type, models_dir, results_dir, num_samples):
 
 def jpeg_experiment(model_type, model_method, models_dir, results_dir, num_samples):
     data = Dataset(
-        data_directory="data/rgb/native12k",
+        data_dir="data/rgb/native12k",
         load="y",
         n_images=1024,
         v_images=num_samples,
-        randomize=69,
+        seed=69,
     )
 
     if model_type == "ensemble":

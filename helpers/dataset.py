@@ -11,9 +11,9 @@ from helpers.loading import sample_patch
 class Dataset(object):
     def __init__(
             self,
-            data_directory,
+            data_dir,
             *,
-            randomize=2468,
+            seed=2468,
             load="xy",
             n_images=120,
             v_images=30,
@@ -23,7 +23,8 @@ class Dataset(object):
             val_discard="flat-aggressive",
             presample_epochs=0,
             train_rgb_patch_size=0,
-            use_presampled=False
+            use_presampled=False,
+            **kwargs
     ):
         """
         Represents a [RAW-]RGB dataset for training imaging pipelines. The class preloads full resolution images and
@@ -47,8 +48,8 @@ class Dataset(object):
         data = Dataset('data/rgb/native12k/', load='y')
         batch_rgb = data.next_training_batch(0, 10, 128, 'flat-aggressive')
 
-        :param data_directory: directory path with RAW-RGB pairs (*.npy & *.png) or only RGB images (*.png)
-        :param randomize: randomization seed
+        :param data_dir: directory path with RAW-RGB pairs (*.npy & *.png) or only RGB images (*.png)
+        :param seed: randomization seed
         :param load: what data to load: 'xy' load RAW+RGB, 'x' load RAW only, 'y' load RGB only
         :param n_images: number of training images (full resolution)
         :param v_images: number of validation images (patches sampled upon creation)
@@ -69,24 +70,24 @@ class Dataset(object):
                 "(when presample_epochs>0). Otherwise, full resolution images are loaded."
             )
 
-        if not os.path.isdir(data_directory):
-            if "/" in data_directory or "\\" in data_directory:
+        if not os.path.isdir(data_dir):
+            if "/" in data_dir or "\\" in data_dir:
                 raise ValueError(
-                    f"Cannot find the data directory: {data_directory}")
+                    f"Cannot find the data directory: {data_dir}")
 
             if os.path.isdir(
-                    os.path.join("data/raw/training_data/", data_directory)):
-                data_directory = os.path.join("data/raw/training_data/",
-                                              data_directory)
-            elif os.path.isdir(os.path.join("data/rgb/", data_directory)):
-                data_directory = os.path.join("data/rgb/", data_directory)
+                    os.path.join("data/raw/training_data/", data_dir)):
+                data_dir = os.path.join("data/raw/training_data/",
+                                        data_dir)
+            elif os.path.isdir(os.path.join("data/rgb/", data_dir)):
+                data_dir = os.path.join("data/rgb/", data_dir)
             else:
                 raise ValueError(
-                    f"Cannot find the data directory: {data_directory}")
+                    f"Cannot find the data directory: {data_dir}")
         self.data = {}
         self.files = {}
         self._loaded_data = load
-        self._data_directory = data_directory
+        self._data_directory = data_dir
         self._counts = (
             n_images if presample_epochs == 0 else n_images * presample_epochs,
             v_images,
@@ -99,7 +100,7 @@ class Dataset(object):
         if use_presampled:
             self.files["training"], self.files["validation"], self.files[
                 "calibration"] = loading.discover_images(
-                data_directory, randomize=69, n_images=10240,
+                data_dir, randomize=69, n_images=10240,
                 v_images=v_images, c_images=c_images,
             )
             self.data["training"] = {}
@@ -109,17 +110,17 @@ class Dataset(object):
         else:
             self.files["training"], self.files["validation"], self.files[
                 "calibration"] = loading.discover_images(
-                data_directory, randomize=randomize, n_images=n_images,
+                data_dir, randomize=seed, n_images=n_images,
                 v_images=v_images, c_images=c_images,
             )
             if presample_epochs == 0:
                 self.data["training"] = loading.load_images(
-                    self.files["training"], data_directory, load=load
+                    self.files["training"], data_dir, load=load
                 )
             else:
                 self.data["training"] = loading.load_patches(
                     self.files["training"],
-                    data_directory,
+                    data_dir,
                     patch_size=train_rgb_patch_size // 2,
                     n_patches=presample_epochs,
                     load=load,
@@ -127,14 +128,14 @@ class Dataset(object):
                 )
                 self.files["training"], self.files["validation"], self.files[
                     "calibration"] = loading.discover_images(
-                    data_directory, randomize=randomize, n_images=n_images,
+                    data_dir, randomize=seed, n_images=n_images,
                     v_images=v_images, c_images=c_images,
                 )
             self.presample_epochs = presample_epochs
 
         self.data["validation"] = loading.load_patches(
             self.files["validation"],
-            data_directory,
+            data_dir,
             patch_size=val_rgb_patch_size // 2,
             n_patches=val_n_patches,
             load=load,
@@ -142,7 +143,7 @@ class Dataset(object):
         )
         self.data["calibration"] = loading.load_patches(
             self.files["calibration"],
-            data_directory,
+            data_dir,
             patch_size=val_rgb_patch_size // 2,
             n_patches=val_n_patches,
             load=load,

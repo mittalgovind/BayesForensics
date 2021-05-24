@@ -10,13 +10,9 @@ import os
 
 # External libraries
 import tensorflow as tf
-import numpy as np
 
 # Internal libraries
-from helpers.utils import progress_bar
-from helpers.plots import perf
-from helpers.uncertainty import get_pred
-from helpers.hyper_dataset import Dataset
+from helpers.tf_dataset import Dataset
 from models.jpeg import JPEG
 
 # Hacky fix
@@ -143,22 +139,25 @@ class ScalingFactorDataset(Dataset):
         return tf.data.Dataset.from_generator(
             self.get_training_generator,
             args=(batch_size, rgb_patch_size, discard),
-            output_types=(tf.float32, tf.float32),
-            output_shapes=((batch_size, None, None, 3), (batch_size,)),
+            output_signature=(tf.TensorSpec((batch_size, None, None, 3),
+                                            tf.float32),
+                              tf.TensorSpec((batch_size,), tf.float32)),
         )
 
     def get_validation_pipeline(self, batch_size):
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
             args=(batch_size,),
-            output_types=(tf.float32, tf.float32),
-            output_shapes=((batch_size, None, None, 3), (batch_size,)),
+            output_signature=(tf.TensorSpec((batch_size, None, None, 3),
+                                            tf.float32),
+                              tf.TensorSpec((batch_size,), tf.float32)),
         )
 
     def get_calibration_pipeline(self, batch_size):
         return tf.data.Dataset.from_generator(
             self.get_calibration_generator,
             args=(batch_size,),
-            output_types=(tf.float32, tf.float32),
-            output_shapes=((batch_size, None, None, 3), (batch_size,)),
+            output_signature=(tf.TensorSpec((batch_size, None, None, 3),
+                                            tf.float32),
+                              tf.TensorSpec((batch_size,), tf.float32)),
         )

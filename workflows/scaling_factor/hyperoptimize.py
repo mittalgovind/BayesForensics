@@ -170,7 +170,7 @@ def main(args):
     #         load="y",
     #         n_images=args.n_images,
     #         v_images=args.v_images,
-    #         randomize=69,
+    #         seed=69,
     #         patch_size=64,
     #         scales="0.25,1.0",
     #         n_classes=31,

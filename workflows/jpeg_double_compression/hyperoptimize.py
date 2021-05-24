@@ -173,7 +173,7 @@ def main(args):
     #         load="y",
     #         n_images=args.n_images,
     #         v_images=args.v_images,
-    #         randomize=69,
+    #         seed=69,
     #         val_rgb_patch_size=64,
     #         calc_pywt_residual=False,
     #         qf_train="75,95",

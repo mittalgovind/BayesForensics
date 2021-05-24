@@ -29,11 +29,11 @@ def ensemble_model():
 @pytest.fixture
 def dataset():
     return Dataset(
-        data_directory="/scratch/jms1595/neural-imaging-dev/data/rgb/native12k",
+        data_dir="/scratch/jms1595/neural-imaging-dev/data/rgb/native12k",
         load="y",
         n_images=10,
         v_images=10,
-        randomize=69,
+        seed=69,
     )
 
 
