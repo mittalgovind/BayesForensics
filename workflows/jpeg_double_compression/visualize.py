@@ -18,6 +18,7 @@ def qf_plot(qf, accuracies, save_dir):
     """plotting function for confusion matrix between quality factors"""
     q_factors = np.arange(*qf)
     n_factors = len(q_factors)
+    step = q_factors[2] if len(q_factors) > 2 else 5
     if n_factors < 0:
         raise ValueError("Specify correct range of QF.")
 
@@ -29,11 +30,11 @@ def qf_plot(qf, accuracies, save_dir):
         accuracies, f"accuracy={m_accuracy:.2f} : []", axes=axes[0], cmap="seismic"
     )
 
-    axes[0].set_xticks(range(0, n_factors, 5))
-    axes[0].set_xticklabels(q_factors[::5])
+    axes[0].set_xticks(range(0, n_factors, step))
+    axes[0].set_xticklabels(q_factors[::step])
 
-    axes[0].set_yticks(range(0, n_factors, 5))
-    axes[0].set_yticklabels(q_factors[::5])
+    axes[0].set_yticks(range(0, n_factors, step))
+    axes[0].set_yticklabels(q_factors[::step])
 
     axes[0].set_ylabel("$Q_1$")
     axes[0].set_xlabel("$Q_2$")

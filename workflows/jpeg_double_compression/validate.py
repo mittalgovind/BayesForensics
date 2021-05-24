@@ -15,9 +15,11 @@ from loguru import logger
 
 # Internal libraries
 from helpers.utils import progress_bar
+from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, \
+    mutual_information
 
 
-def validate(model, data, batch_size, cache):
+def validate(model, data, batch_size, cache, num_runs):
     """
 
     Parameters
@@ -32,8 +34,11 @@ def validate(model, data, batch_size, cache):
     data.set_eval_mode()
     q_factors = np.arange(*data.qf_test)
     n_batches = data.count_validation // batch_size
-    accuracies = 0
 
+    accuracies = np.zeros((len(q_factors), len(q_factors)))
+    sizes = np.zeros((len(q_factors), len(q_factors)))
+
+    performance = None
     if cache:
         try:
             performance = cache.load()
@@ -47,24 +52,36 @@ def validate(model, data, batch_size, cache):
             )
 
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
+        qf1_ind, qf2_ind = np.where(np.isclose(q_factors, QF1))[0][0], \
+                           np.where(np.isclose(q_factors, QF2))[0][0]
         QF1, QF2 = int(QF1), int(QF2)
-        for batch_id in range(data.count_validation // batch_size):
-            batch = data.data["validation"]["y"][
-                    batch_id * batch_size: (batch_id + 1) * batch_size]
+        for batch in data.batched_data_val:
             images, labels = data.preprocess_batch(batch, QF1=QF1, QF2=QF2)
+            labels = tf.cast(labels, dtype=tf.int64)
 
-            # TODO (Marcelo) Add validation for MC dropout
-            # get logits, calibrate and calculate predictions.
-            logits = model(images, training=False)
-            calibrated_logits = logits / model.temperature
-            predictions = calibrated_logits.numpy().argmax(axis=1)
+            if model.method == "vanilla":
+                logits = model(images, training=False) / model.temperature
+                predictions = logits.numpy().argmax(axis=1)
 
-            accuracies += np.sum(predictions == labels)
+            else:
+                if model.method == "ensemble":
+                    logits = model(images, training=False) / model.temperature
 
-    accuracies /= data.count_validation
+                else:
+                    logits = tf.convert_to_tensor(
+                        [model(images, training=False) for _ in
+                         range(len(num_runs))])
+
+                predictions = tf.squeeze(get_pred(logits))
+                print(predictions, labels)
+
+            accuracies[qf1_ind, qf2_ind] += np.sum(predictions == labels)
+            sizes[qf1_ind, qf2_ind] += len(labels)
+
+    accuracies = np.divide(accuracies, sizes)
 
     if cache:
-        performance["accuracy"]["validation"].append(accuracies / n_batches)
+        performance["accuracy"]["validation"].append(accuracies)
         cache.save(performance, step="performance")
 
     return accuracies
