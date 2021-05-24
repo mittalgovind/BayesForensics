@@ -123,13 +123,13 @@ def create_search_space():
         "dropout": hp.choice("dropout", [0.0, 0.05, 0.5])
     }
     good = {
-        "conv_layers": 4,
-        "dense_layers": 1,
+        "conv_layers": 3,
+        "dense_layers": 4,
         "dense_units": 256,
         "filters": 64,
         "kernel": 3,
         "pool_size": 2,
-        "filter_multiplier": 2,
+        "filter_multiplier": 1,
         "dropout": 0.05
     }
 
