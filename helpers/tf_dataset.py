@@ -90,11 +90,11 @@ class Dataset(object):
         self.data = {"training": {}, "validation": {}}
         self.presample_epochs = 1
         self.patch_size = val_rgb_patch_size
-        if data_train:
+        if data_train is not None:
             self.data["training"]['y'] = tf.math.divide(data_train, (2 ** 8 - 1))
             self.batched_data_train = tf.data.Dataset.from_tensor_slices(
                 self.data["training"]['y']).batch(batch_size, drop_remainder=True)
-        if data_val:
+        if data_val is not None:
             self.batched_data_val = tf.data.Dataset.from_tensor_slices(
                 self.data["validation"]['y']).batch(batch_size, drop_remainder=True)
             self.data["validation"]['y'] = tf.math.divide(data_val, (2 ** 8 - 1))
