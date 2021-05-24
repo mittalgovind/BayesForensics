@@ -87,13 +87,13 @@ class Dataset(object):
 
         self.data["training"] = {}
         self.data["validation"] = {}
-        self.data["training"]['y'] = tf.math.divide(data_train, (2 ** 8 - 1))
         self.data["validation"]['y'] = tf.math.divide(data_val, (2 ** 8 - 1))
         self.presample_epochs = 1
         self.patch_size = val_rgb_patch_size
-
-        self.batched_data_train = tf.data.Dataset.from_tensor_slices(
-            self.data["training"]['y']).batch(batch_size, drop_remainder=True)
+        if data_train:
+            self.data["training"]['y'] = tf.math.divide(data_train, (2 ** 8 - 1))
+            self.batched_data_train = tf.data.Dataset.from_tensor_slices(
+                self.data["training"]['y']).batch(batch_size, drop_remainder=True)
         self.batched_data_val = tf.data.Dataset.from_tensor_slices(
             self.data["validation"]['y']).batch(batch_size, drop_remainder=True)
 

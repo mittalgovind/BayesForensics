@@ -48,7 +48,9 @@ def validate(model, data, batch_size, cache):
 
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
         QF1, QF2 = int(QF1), int(QF2)
-        for batch in data.get_validation_generator(batch_size=batch_size):
+        for batch_id in range(data.count_validation // batch_size):
+            batch = data.data["validation"]["y"][
+                    batch_id * batch_size: (batch_id + 1) * batch_size]
             images, labels = data.preprocess_batch(batch, QF1=QF1, QF2=QF2)
 
             # TODO (Marcelo) Add validation for MC dropout

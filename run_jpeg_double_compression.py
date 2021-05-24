@@ -60,9 +60,9 @@ def main():
 
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
 
-    data_train = np.load(
-        os.path.join(args.use_presampled, 'data/rgb/native12k_1M_1.npy'))[
-                 :512 * args.n_train_images]
+    # data_train = np.load(
+    #     os.path.join(args.use_presampled, 'data/rgb/native12k_1M_1.npy'))[
+    #              :512 * args.n_train_images]
     data_val = np.load(
         os.path.join(args.use_presampled, 'data/rgb/native12k_20k_val.npy'))[
                :20 * args.n_val_images]
@@ -80,7 +80,7 @@ def main():
         codec=JPEG(codec=args.codec),
         presample_epochs=args.presample,
         data_val=data_val,
-        data_train=data_train,
+        data_train=None,#data_train,
         use_presampled=args.use_presampled,  # TODO hacky fix
         batch_size=args.batch_size,
     )
