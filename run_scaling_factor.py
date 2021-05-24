@@ -124,7 +124,7 @@ def main():
             validation_data=val_data,
             epochs=args.epochs,
             batch_size=args.batch_size,
-            verbose=args.verbose,
+            verbose=0,
             callbacks=callbacks,
             validation_freq=args.validation_freq,
         )

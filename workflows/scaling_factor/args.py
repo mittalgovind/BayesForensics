@@ -234,6 +234,12 @@ def parse_args():
         default=1.0,
         help="Percentage of total epochs to use as patience. (def : 1 or None).",
     )
+    parser.add_argument(
+        "--use-presampled",
+        default=None,
+        type=str,
+        help="Uses presampled data. Pass the path to npy file.",
+    )
     return parser.parse_args()
 
 
