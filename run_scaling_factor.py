@@ -56,7 +56,7 @@ def main():
     else:
         os.mkdir(args.save_dir)
 
-    args.codec = args.codec if args.jpeg_compression else None,
+    args.codec = args.codec if args.jpeg_compression else None
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
     strategy = tf.distribute.MirroredStrategy()
     logger.info(
