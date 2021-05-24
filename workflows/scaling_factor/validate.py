@@ -46,9 +46,9 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                 else:
                     logits = np.zeros(
                         (data.count_validation, len(data.classes)))
-                for batch in data.batched_data_val:
+                for i, batch in enumerate(data.batched_data_val):
                     images, labels = data.preprocess_batch(batch, sf=sf)
-                    bindex = batch_id * batch_size
+                    bindex = i * batch_size
 
                     if "mc" in uncertainty_method:
                         # even if you set training=False, if the model is

@@ -81,7 +81,7 @@ class Trainable:
             load="y",
             n_images=self.n_images,
             v_images=self.v_images,
-            randomize=69,
+            seed=69,
             patch_size=64,
             scales="0.25,1.0",
             n_classes=11,
