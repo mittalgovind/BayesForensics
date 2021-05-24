@@ -120,6 +120,7 @@ def create_search_space():
         "kernel": hp.choice("kernel", [3, 5]),
         "pool_size": hp.choice("pool_size", [1, 2]),
         "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
+        "dropout": hp.choice("dropout", [0.0, 0.05, 0.5])
     }
     good = {
         "conv_layers": 4,
@@ -129,6 +130,7 @@ def create_search_space():
         "kernel": 3,
         "pool_size": 2,
         "filter_multiplier": 2,
+        "dropout": 0.05
     }
 
     return hspace, good
@@ -165,23 +167,7 @@ def main(args):
     data_val = np.load(
         os.path.join(args.root, 'data/rgb/native12k_20k_val.npy'))[
                :20 * args.v_images]
-    # from dataset import ScalingFactorDataset
-    # data = ScalingFactorDataset(
-    #         load="y",
-    #         n_images=args.n_images,
-    #         v_images=args.v_images,
-    #         seed=69,
-    #         patch_size=64,
-    #         scales="0.25,1.0",
-    #         n_classes=31,
-    #         sampling_method="lanczos3",
-    #         codec=None,
-    #         data_train=data_train,
-    #         data_val=data_val
-    #     )
-    # train_data = data.get_training_pipeline(1, 64)
-    # for sample in train_data:
-    #     import time; time.sleep(1)
+
     if args.days > 0:
         time_budget_s = int(args.days * 24 * 3600 - 30 * 60)
     else:
