@@ -95,9 +95,9 @@ class Dataset(object):
             self.batched_data_train = tf.data.Dataset.from_tensor_slices(
                 self.data["training"]['y']).batch(batch_size, drop_remainder=True)
         if data_val is not None:
+            self.data["validation"]['y'] = tf.math.divide(data_val, (2 ** 8 - 1))
             self.batched_data_val = tf.data.Dataset.from_tensor_slices(
                 self.data["validation"]['y']).batch(batch_size, drop_remainder=True)
-            self.data["validation"]['y'] = tf.math.divide(data_val, (2 ** 8 - 1))
 
     def __getitem__(self, key):
         if key in ["training", "validation", "calibration"]:
