@@ -83,8 +83,8 @@ class Trainable:
             randomize=69,
             val_rgb_patch_size=64,
             calc_pywt_residual=False,
-            qf_train="60,95,5",
-            qf_test="50,95,5",
+            qf_train="75,95",
+            qf_test="60,95,5",
             codec=JPEG(codec='soft'),
             data_train=tf.convert_to_tensor(data_train),
             data_val=tf.convert_to_tensor(data_val),
@@ -166,22 +166,7 @@ def main(args):
     data_val = np.load(
         os.path.join(args.root, 'data/rgb/native12k_20k_val.npy'))[
                :20 * args.v_images]
-    # from dataset import DoubleCompressionDataset
-    # from models.jpeg import JPEG
-    # import tensorflow as tf
-    # data = DoubleCompressionDataset(
-    #         load="y",
-    #         n_images=args.n_images,
-    #         v_images=args.v_images,
-    #         seed=69,
-    #         val_rgb_patch_size=64,
-    #         calc_pywt_residual=False,
-    #         qf_train="75,95",
-    #         qf_test="75,95",
-    #         codec=JPEG(codec='soft'),
-    #         data_train=tf.convert_to_tensor(data_train),
-    #         data_val=tf.convert_to_tensor(data_val)
-    #     )
+
     if args.days > 0:
         time_budget_s = int(args.days * 24 * 3600 - 30 * 60)
     else:
