@@ -33,12 +33,15 @@ class ScalingFactor(BayesBaseModel):
             filter_multiplier=2,
             conv_layers=4,
             kernel=5,
-            dropout=0.0,
+            dense_dropout=0.0,
+            conv_dropout=0.0,
             use_gap=True,
+            use_bn=False,
+            conv_dropout_after=2,
             dense_layers=0,
             dense_units=200,
             activation="leaky_relu",
-            pool_size=2,
+            pool_size=3,
             channels=3,
             **kwargs
     ):
@@ -80,8 +83,11 @@ class ScalingFactor(BayesBaseModel):
                 "filter_multiplier": (2, float, (0.25, 4)),
                 "conv_layers": (4, int, (1, 32)),
                 "kernel": (5, int, (3, 11)),
-                "dropout": (0, float, (0, 1)),
+                "dense_dropout": (0, float, (0, 1)),
+                "conv_dropout": (0, float, (0, 1)),
+                "conv_dropout_after": (3, int, (1, 32)),
                 "use_gap": (True, bool, None),
+                "use_bn": (False, bool, None),
                 "dense_layers": (2, int, (0, 4)),
                 "activation": (
                     "prelu", str, set(activation_mapping.keys())),
@@ -100,7 +106,7 @@ class ScalingFactor(BayesBaseModel):
         self.performance = dict()
         self.patch_size = patch_size
         self.channels = channels
-        self._create_model()
+        self.create_model()
 
     def _create_model(self):
         # Constrained convolution with a learned residual filter
@@ -111,22 +117,25 @@ class ScalingFactor(BayesBaseModel):
         ]
         # Standard convolutional layers
         filters = self._h.filters
-        for _ in range(self._h.conv_layers):
-            layers.extend([
-                tf.keras.layers.Conv2D(filters, kernel_size=self._h.kernel,
-                                       padding='same'),
-                # tf.keras.layers.BatchNormalization(),
-                self.activation,
-                tf.keras.layers.MaxPool2D(self._h.pool_size)
-            ])
-            filters = int(self._h.filters * self._h.filter_multiplier)
+        for i in range(self._h.conv_layers):
+            layers.append(tf.keras.layers.Conv2D(filters,
+                                                 kernel_size=self._h.kernel,
+                                                 padding='same',
+                                                 activation=self.activation))
+            if self._h.use_bn:
+                layers.append(tf.keras.layers.BatchNormalization())
+            if self._h.conv_dropout > 0 and i + 1 >= self._h.conv_dropout_after:
+                layers.append(
+                    tf.keras.layers.SpatialDropout2D(self._h.conv_dropout))
+            layers.append(tf.keras.layers.MaxPool2D(self._h.pool_size))
+            filters = int(filters * self._h.filter_multiplier)
 
         # Final 1 x 1 convolution
         layers.extend([
             tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
-                                   kernel_size=1, padding='same'),
-            # tf.keras.layers.BatchNormalization(),
-            self.activation
+                                   kernel_size=1, padding='same',
+                                   activation=self.activation),
+            # tf.keras.layers.SpatialDropout2D(self._h.conv_dropout),
         ])
 
         # GAP / Feature formation
@@ -140,8 +149,8 @@ class ScalingFactor(BayesBaseModel):
             layers.append(
                 self.dense(self._h.dense_units, activation=self.activation)
             )
-            if self._h.dropout > 0:
-                layers.append(self.dropout(self._h.dropout))
+            if self._h.dense_dropout > 0:
+                layers.append(self.dropout(self._h.dense_dropout))
 
         # final classification head
         layers.append(
