@@ -116,7 +116,7 @@ def create_search_space():
     hspace = {
         "conv_layers": hp.choice("conv_layers", [2, 3, 4, 5]),
         "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
-        "dense_units": hp.choice("dense_units", [128, 256, 400]),
+        "dense_units": hp.choice("dense_units", [128, 256, 384]),
         "filters": hp.choice("filters", [16, 32, 64, 128]),
         "kernel": hp.choice("kernel", [3, 5]),
         "pool_size": hp.choice("pool_size", [1, 2]),
