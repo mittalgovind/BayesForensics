@@ -52,7 +52,8 @@ class Trainable:
 
         if self.set_once and self.memory_growth:
             physical_devices = tf.config.list_physical_devices("GPU")
-            tf.config.experimental.set_memory_growth(physical_devices[0], True)
+            for device in physical_devices:
+                tf.config.experimental.set_memory_growth(device, True)
             self.set_once = False
 
         strategy = tf.distribute.MirroredStrategy()
@@ -115,7 +116,7 @@ def create_search_space():
     hspace = {
         "conv_layers": hp.choice("conv_layers", [2, 3, 4, 5]),
         "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
-        "dense_units": hp.choice("dense_units", [128, 256, 512]),
+        "dense_units": hp.choice("dense_units", [128, 256, 384]),
         "filters": hp.choice("filters", [16, 32, 64, 128]),
         "kernel": hp.choice("kernel", [3, 5]),
         "pool_size": hp.choice("pool_size", [1, 2]),
@@ -124,8 +125,8 @@ def create_search_space():
     }
     good = {
         "conv_layers": 4,
-        "dense_layers": 3,
-        "dense_units": 128,
+        "dense_layers": 1,
+        "dense_units": 256,
         "filters": 32,
         "kernel": 5,
         "pool_size": 2,
