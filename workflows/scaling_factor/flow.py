@@ -116,15 +116,15 @@ class ScalingFactor(BayesBaseModel):
         for i in range(self.n_models):
             layers.append([])
             # Constrained convolution with a learned residual filter
-            layers[i] = [ConstrainedConv2D()]
+            layers[i].append(ConstrainedConv2D())
             # Standard convolutional layers
             filters = self._h.filters
             for j in range(self._h.conv_layers):
                 layers[i].append(
                     tf.keras.layers.Conv2D(filters,
-                                            kernel_size=self._h.kernel,
-                                            padding='same',
-                                            ctivation=self.activation))
+                                           kernel_size=self._h.kernel,
+                                           padding='same',
+                                           activation=self.activation))
                 if self._h.use_bn:
                     layers[i].append(tf.keras.layers.BatchNormalization())
                 if self._h.conv_dropout > 0 and j + 1 >= self._h.conv_dropout_after:
