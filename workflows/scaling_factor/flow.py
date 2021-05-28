@@ -16,6 +16,7 @@ from helpers.paramspec import ParamSpec
 from helpers.tf_helpers import activation_mapping
 from models.layers import ConstrainedConv2D
 from models.bayes import BayesBaseModel
+from tensorflow.keras.layers import Input
 
 
 class ScalingFactor(BayesBaseModel):
@@ -43,6 +44,7 @@ class ScalingFactor(BayesBaseModel):
             activation="leaky_relu",
             pool_size=3,
             channels=3,
+            num_models=1,
             **kwargs
     ):
         """
@@ -106,59 +108,72 @@ class ScalingFactor(BayesBaseModel):
         self.performance = dict()
         self.patch_size = patch_size
         self.channels = channels
+        self.n_models = num_models
         self.create_model()
 
     def _create_model(self):
-        # Constrained convolution with a learned residual filter
-        layers = [
-            tf.keras.layers.Input(shape=(None, None,
-                                         self.channels)),
-            ConstrainedConv2D()
-        ]
-        # Standard convolutional layers
-        filters = self._h.filters
-        for i in range(self._h.conv_layers):
-            layers.append(tf.keras.layers.Conv2D(filters,
-                                                 kernel_size=self._h.kernel,
-                                                 padding='same',
-                                                 activation=self.activation))
-            if self._h.use_bn:
-                layers.append(tf.keras.layers.BatchNormalization())
-            if self._h.conv_dropout > 0 and i + 1 >= self._h.conv_dropout_after:
-                layers.append(
-                    tf.keras.layers.SpatialDropout2D(self._h.conv_dropout))
-            layers.append(tf.keras.layers.MaxPool2D(self._h.pool_size))
-            filters = int(filters * self._h.filter_multiplier)
+        layers = []
+        for i in range(self.n_models):
+            layers.append([])
+            # Constrained convolution with a learned residual filter
+            layers[i] = [ConstrainedConv2D()]
+            # Standard convolutional layers
+            filters = self._h.filters
+            for i in range(self._h.conv_layers):
+                layers[i].append(tf.keras.layers.Conv2D(filters,
+                                                     kernel_size=self._h.kernel,
+                                                     padding='same',
+                                                     activation=self.activation))
+                if self._h.use_bn:
+                    layers[i].append(tf.keras.layers.BatchNormalization())
+                if self._h.conv_dropout > 0 and i + 1 >= self._h.conv_dropout_after:
+                    layers[i].append(
+                        tf.keras.layers.SpatialDropout2D(self._h.conv_dropout))
+                layers[i].append(tf.keras.layers.MaxPool2D(self._h.pool_size))
+                filters = int(filters * self._h.filter_multiplier)
 
-        # Final 1 x 1 convolution
-        layers.extend([
-            tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
-                                   kernel_size=1, padding='same',
-                                   activation=self.activation),
-            # tf.keras.layers.SpatialDropout2D(self._h.conv_dropout),
-        ])
+            # Final 1 x 1 convolution
+            layers[i].extend([
+                tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
+                                       kernel_size=1, padding='same',
+                                       activation=self.activation),
+                # tf.keras.layers.SpatialDropout2D(self._h.conv_dropout),
+            ])
 
-        # GAP / Feature formation
-        if self._h.use_gap:
-            layers.append(tf.keras.layers.GlobalAveragePooling2D())
-        else:
-            layers.append(tf.keras.layers.Flatten())
+            # GAP / Feature formation
+            if self._h.use_gap:
+                layers[i].append(tf.keras.layers.GlobalAveragePooling2D())
+            else:
+                layers[i].append(tf.keras.layers.Flatten())
 
-        # Fully-connected classifier
-        for _ in range(self._h.dense_layers):
-            layers.append(
-                self.dense(self._h.dense_units, activation=self.activation)
+            # Fully-connected classifier
+            for _ in range(self._h.dense_layers):
+                layers[i].append(
+                    self.dense(self._h.dense_units, activation=self.activation)
+                )
+                if self._h.dense_dropout > 0:
+                    layers[i].append(self.dropout(self._h.dense_dropout))
+
+            # final classification head
+            layers[i].append(
+                tf.keras.layers.Dense(self._h.n_classes, activation=None)
             )
-            if self._h.dense_dropout > 0:
-                layers.append(self.dropout(self._h.dense_dropout))
 
-        # final classification head
-        layers.append(
-            tf.keras.layers.Dense(self._h.n_classes, activation=None)
-        )
+        inputs = Input(shape=(None, None, self.channels))
+        outputs_list = []
 
-        # make a keras model out of the layers
-        self._model = tf.keras.Sequential(layers)
+        for i in range(self.n_models):
+            outputs = inputs
+
+            for layer in layers[i]:
+                outputs = layer(outputs)
+
+            outputs_list.append(outputs)
+
+        if self.n_models == 1:
+            outputs_list = outputs_list[0]
+
+        self._model = tf.keras.models.Model(inputs, outputs_list)
 
     def reset_performance_stats(self):
         self.performance = {

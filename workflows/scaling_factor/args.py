@@ -235,6 +235,13 @@ def parse_args():
         help="Percentage of total epochs to use as patience. (def : 1 or None).",
     )
     parser.add_argument(
+        "--n-models",
+        dest="num_models",
+        default=1,
+        type=int,
+        help="Number of models to use for ensemble."
+    )
+    parser.add_argument(
         "--use-presampled",
         default=None,
         type=str,

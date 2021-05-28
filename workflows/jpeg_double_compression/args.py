@@ -27,7 +27,7 @@ def parse_args():
         type=str,
         help="Uncertainty method."
              " Can be 'vanilla', 'mc-dropout', 'temp-scaling', 'mc-temp',"
-             " 'flipout', or 'reparameterization'.",
+             " 'flipout', 'ensemble', or 'reparameterization'.",
     )
     parser.add_argument(
         "--qf-train",
@@ -215,6 +215,13 @@ def parse_args():
         default=None,
         type=str,
         help="Uses presampled data. Pass the path to npy file.",
+    )
+    parser.add_argument(
+        "--n-models",
+        dest="num_models",
+        default=1,
+        type=int,
+        help="Number of models to use for ensemble."
     )
 
     return parser.parse_args()

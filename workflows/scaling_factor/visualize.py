@@ -12,18 +12,17 @@ import os
 
 
 def get_uncertainties(summary, classes):
-    # TODO (Marcelo) Fix this for new format summary[m][sf] = logits
     results = []
     classes = (classes * 128).astype(int)
 
-    for method, method_value in summary.iter_items():
-        for sf, logits in method_value.iter_items():
-            correct = np.where(classes == elm["sf"])[0][0]
+    for method in summary.keys():
+        for sf in summary[method].keys():
+            correct = np.where(classes == sf)[0][0]
 
-            if len(elm["logits"].shape) == 2:
-                logits = tf.convert_to_tensor([elm["logits"]])
+            if len(summary[method][sf].shape) == 2:
+                logits = tf.convert_to_tensor([summary[method][sf]])
             else:
-                logits = elm["logits"]
+                logits = summary[method][sf]
 
             pred = get_pred(logits)
             vr = variation_ratio(logits)
@@ -33,7 +32,7 @@ def get_uncertainties(summary, classes):
             for i in range(len(pred)):
                 results.append(
                     {
-                        "method": elm["method"],
+                        "method": method,
                         "correct": correct,
                         "pred": pred[i][0],
                         "variation_ratio": vr[i],
@@ -45,11 +44,7 @@ def get_uncertainties(summary, classes):
     return results
 
 
-def sf_plot(summary, classes, training_method, save_dir):
-    # TODO (Marcelo) Fix this for new format summary[m][sf] = logits
-
-    summary = get_uncertainties(summary, classes)
-
+def sf_plot(summary, conf_matrix, classes, training_method, save_dir):
     text_classes = [f"{x:.2f}" for x in classes]
     methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
     method_titles = ["Nearest", "Bilinear", "Bicubic", "Lanczos 3"]
@@ -60,7 +55,20 @@ def sf_plot(summary, classes, training_method, save_dir):
         "Mutual Information",
     ]
 
-    acc = [np.zeros((len(classes), len(classes))) for _ in methods]
+    acc_fig, acc_axes = sub(4, ncols=2, figwidth=12)
+    for i in range(len(methods)):
+        confusion_matrix(
+            conf_matrix[i],
+            classes=text_classes,
+            axes=acc_axes[i],
+            title=f"Tested using {method_titles[i]}",
+            cbar=False,
+            cmap="Greys",
+        )
+
+    acc_fig.savefig(os.path.join(save_dir, "acc_matrix.pdf"))
+
+    summary = get_uncertainties(summary, classes)
 
     vr = [{} for _ in methods]
     pe = [{} for _ in methods]
@@ -95,15 +103,6 @@ def sf_plot(summary, classes, training_method, save_dir):
     mi_fig, mi_axes = sub(4, ncols=2, figwidth=12)
 
     for i in range(len(methods)):
-        confusion_matrix(
-            acc[i],
-            classes=text_classes,
-            axes=acc_axes[i],
-            title=f"Tested using {method_titles[i]}",
-            cbar=False,
-            cmap="Greys",
-        )
-
         sns.lineplot(vr[i].keys(), vr[i].values(), ax=vr_axes[i])
         sns.lineplot(pe[i].keys(), pe[i].values(), ax=pe_axes[i])
         sns.lineplot(mi[i].keys(), mi[i].values(), ax=mi_axes[i])
