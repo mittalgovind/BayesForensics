@@ -119,14 +119,15 @@ class ScalingFactor(BayesBaseModel):
             layers[i] = [ConstrainedConv2D()]
             # Standard convolutional layers
             filters = self._h.filters
-            for i in range(self._h.conv_layers):
-                layers[i].append(tf.keras.layers.Conv2D(filters,
-                                                     kernel_size=self._h.kernel,
-                                                     padding='same',
-                                                     activation=self.activation))
+            for j in range(self._h.conv_layers):
+                layers[i].append(
+                    tf.keras.layers.Conv2D(filters,
+                                            kernel_size=self._h.kernel,
+                                            padding='same',
+                                            ctivation=self.activation))
                 if self._h.use_bn:
                     layers[i].append(tf.keras.layers.BatchNormalization())
-                if self._h.conv_dropout > 0 and i + 1 >= self._h.conv_dropout_after:
+                if self._h.conv_dropout > 0 and j + 1 >= self._h.conv_dropout_after:
                     layers[i].append(
                         tf.keras.layers.SpatialDropout2D(self._h.conv_dropout))
                 layers[i].append(tf.keras.layers.MaxPool2D(self._h.pool_size))
