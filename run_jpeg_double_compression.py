@@ -30,9 +30,6 @@ from workflows.jpeg_double_compression import (
     qf_plot,
 )
 
-# necessary here, as slurm executes a copy
-sys.path.append(os.path.abspath("/"))
-
 
 def main():
     args = parse_args()

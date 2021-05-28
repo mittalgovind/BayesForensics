@@ -27,10 +27,6 @@ from workflows.scaling_factor import (
     load_parameters
 )
 
-# TODO (Marcelo) Do you still need this?
-# necessary here, as slurm executes a copy
-sys.path.append(os.path.abspath("/"))
-
 
 def main():
     setup_logging()

@@ -15,8 +15,7 @@ from loguru import logger
 
 # Internal libraries
 from helpers.utils import progress_bar
-from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, \
-    mutual_information
+from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, mutual_information
 
 
 def validate(model, data, batch_size, cache, num_runs):
@@ -34,6 +33,7 @@ def validate(model, data, batch_size, cache, num_runs):
     data.set_eval_mode()
     q_factors = np.arange(*data.qf_test)
     n_batches = data.count_validation // batch_size
+    accuracies = 0
 
     accuracies = np.zeros((len(q_factors), len(q_factors)))
     sizes = np.zeros((len(q_factors), len(q_factors)))
@@ -55,7 +55,8 @@ def validate(model, data, batch_size, cache, num_runs):
         qf1_ind, qf2_ind = np.where(np.isclose(q_factors, QF1))[0][0], \
                            np.where(np.isclose(q_factors, QF2))[0][0]
         QF1, QF2 = int(QF1), int(QF2)
-        for batch in data.batched_data_val:
+        for batch_id in range(n_batches):
+            batch = data.next_validation_batch(batch_id, batch_size)
             images, labels = data.preprocess_batch(batch, QF1=QF1, QF2=QF2)
             labels = tf.cast(labels, dtype=tf.int64)
 

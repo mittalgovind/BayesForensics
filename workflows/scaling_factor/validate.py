@@ -13,10 +13,12 @@ import numpy as np
 
 # Internal libraries
 from helpers.utils import progress_bar
+from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, mutual_information
 
 
 def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
     tests_summary = {}
+    performance = None
     if cache:
         try:
             performance = cache.load()
@@ -40,40 +42,47 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
             tests_summary[method] = {}
             data.sampling_method = method
             for s, sf in enumerate(data.classes):
-                if "mc" in uncertainty_method:
-                    logits = np.zeros((data.count_validation, num_runs,
-                                       len(data.classes)))
-                else:
+                if uncertainty_method == "vanilla":
                     logits = np.zeros(
                         (data.count_validation, len(data.classes)))
-                for i, batch in enumerate(data.batched_data_val):
-                    images, labels = data.preprocess_batch(batch, sf=sf)
-                    bindex = i * batch_size
 
-                    if "mc" in uncertainty_method:
-                        # even if you set training=False, if the model is
-                        # created for MC dropout, it should still work.
-                        logits[
-                        bindex: bindex + batch_size] = (tf.convert_to_tensor(
-                            [model(images, training=False) for _ in
-                             range(num_runs)]) / model.temperature).numpy()
-                    else:
+                elif uncertainty_method == "ensemble":
+                    logits = np.zeros((data.count_validation, model.n_models,
+                                       len(data.classes)))
+
+                else:
+                    logits = np.zeros((data.count_validation, num_runs,
+                                       len(data.classes)))
+
+                for batch_id in range(n_batches):
+                    batch = data.next_validation_batch(batch_id, batch_size)
+                    images, labels = data.preprocess_batch(batch, sf=sf)
+                    bindex = batch_id * batch_size
+
+                    if uncertainty_method == "vanilla" or uncertainty_method == "ensemble":
                         logits[bindex: bindex + batch_size] = (model(
                             images,
                             training=False) / model.temperature).numpy()
 
-                predictions = logits.argmax(axis=-1)
+                    else:
+                        logits[
+                        bindex: bindex + batch_size] = np.array(
+                            [model(images, training=False) / model.temperature
+                             for _ in range(num_runs)])
 
-                if 'mc' in uncertainty_method:
-                    # TODO (Marcelo) finish calculating accuracy for mc
-                    pass
+                if uncertainty_method == "vanilla":
+                    predictions = logits.argmax(axis=-1)
                 else:
-                    labels, counts = np.unique(predictions, return_counts=True)
-                    for label, count in zip(labels, counts):
-                        conf_matrix[m][s][label] += count
-                    conf_matrix[m][s] /= data.count_validation
+                    predictions = get_pred(logits)
+
+                labels, counts = np.unique(predictions, return_counts=True)
+                for label, count in zip(labels, counts):
+                    conf_matrix[m][s][label] += count
+                conf_matrix[m][s] /= data.count_validation
+
                 tests_summary[method][sf.numpy()] = logits
                 pbar.update(1)
+
     if cache:
         performance["accuracy"]["validation"] = conf_matrix
         cache.save(tests_summary, step="tests")
