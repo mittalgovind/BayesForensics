@@ -91,21 +91,24 @@ class Dataset(object):
         self._val_discard = val_discard
         if "y" in load:
             self.train_image_shape_rgb = (
-            train_rgb_patch_size, train_rgb_patch_size, 3)
+                train_rgb_patch_size, train_rgb_patch_size, 3)
         else:
             self.train_image_shape_rgb = (
-            2 * train_rgb_patch_size, 2 * train_rgb_patch_size, 4)
+                2 * train_rgb_patch_size, 2 * train_rgb_patch_size, 4)
         self.val_patch_size_rgb = val_rgb_patch_size
+
+        if data_dir:
+            # Discover images files to sample from.
+            self.files["training"], self.files["validation"], self.files[
+                "calibration"] = loading.discover_images(
+                data_dir, randomize=seed, n_images=n_images,
+                v_images=v_images, c_images=c_images,
+            )
+        else:
+            logger.info("No data directory given.")
 
         # flags for storing way train data was prepared, with default values.
         self.preloading_train = 0
-
-        # Discover images files to sample from.
-        self.files["training"], self.files["validation"], self.files[
-            "calibration"] = loading.discover_images(
-            data_dir, randomize=seed, n_images=n_images,
-            v_images=v_images, c_images=c_images,
-        )
 
         # Preparing training data
         if preloaded_rgb_train_data is not None:
@@ -146,14 +149,15 @@ class Dataset(object):
             )
 
         # Prepare calibration data. Only one method available, similar to val.
-        self.data["calibration"] = loading.load_patches(
-            self.files["calibration"],
-            data_dir,
-            patch_size=val_rgb_patch_size // 2,
-            n_patches=val_n_patches,
-            load=load,
-            discard=val_discard,
-        )
+        if calibrate:
+            self.data["calibration"] = loading.load_patches(
+                self.files["calibration"],
+                data_dir,
+                patch_size=val_rgb_patch_size // 2,
+                n_patches=val_n_patches,
+                load=load,
+                discard=val_discard,
+            )
 
         # Conversion to tensor and batching of loaded data
         if "x" in load:
@@ -168,9 +172,11 @@ class Dataset(object):
             self.data["validation"]["x"] = tf.data.Dataset.from_tensor_slices(
                 self.data["validation"]["x"]).batch(batch_size,
                                                     drop_remainder=True)
-            self.data["calibration"]["x"] = tf.data.Dataset.from_tensor_slices(
-                self.data["calibration"]["x"]).batch(batch_size,
-                                                     drop_remainder=True)
+            if calibrate:
+                self.data["calibration"][
+                    "x"] = tf.data.Dataset.from_tensor_slices(
+                    self.data["calibration"]["x"]).batch(batch_size,
+                                                         drop_remainder=True)
         if "y" in load:
             if self.preloading_train:
                 self.data["training"][
@@ -183,9 +189,10 @@ class Dataset(object):
             self.data["validation"]["y"] = tf.data.Dataset.from_tensor_slices(
                 self.data["validation"]["y"]).batch(batch_size,
                                                     drop_remainder=True)
-            self.data["calibration"]["y"] = tf.data.Dataset.from_tensor_slices(
-                self.data["calibration"]["y"]).batch(batch_size,
-                                                     drop_remainder=True)
+            if calibrate:
+                self.data["calibration"]["y"] = tf.data.Dataset.from_tensor_slices(
+                    self.data["calibration"]["y"]).batch(batch_size,
+                                                         drop_remainder=True)
 
     def __getitem__(self, key):
         if key in ["training", "validation", "calibration"]:
