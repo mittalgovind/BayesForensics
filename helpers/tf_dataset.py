@@ -54,7 +54,7 @@ class Dataset(object):
                 "(when presample_epochs>0). Otherwise, full resolution images are loaded."
             )
 
-        if not os.path.isdir(data_dir):
+        if data_dir and not os.path.isdir(data_dir):
             if "/" in data_dir or "\\" in data_dir:
                 raise ValueError(
                     f"Cannot find the data directory: {data_dir}")

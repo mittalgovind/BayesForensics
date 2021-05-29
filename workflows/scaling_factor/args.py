@@ -123,7 +123,7 @@ def parse_args():
     parser.add_argument(
         "--data-dir",
         type=str,
-        default="/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k",
+        default=None,
         help="Data directory for getting images from.",
     )
     parser.add_argument(
