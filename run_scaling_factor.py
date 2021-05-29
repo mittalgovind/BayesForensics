@@ -23,7 +23,7 @@ from workflows.scaling_factor import (
     validate,
     parse_args,
     ScalingFactor,
-    sf_plot, plot_conf_matrix,
+    sf_plot,
     load_parameters
 )
 
@@ -41,19 +41,19 @@ def main():
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     uncertainty_method = args.uncertainty_method
-    num_models = args.num_models
     if args.num_models > 1 and args.uncertainty_method != "ensemble":
-        logger.warning("Number of models is greater than 1 but uncertainty method is not ensemble. " +
-                       "Setting uncertainty method to ensemble.")
+        logger.warning("Number of models is greater than 1 but uncertainty "
+                       "method is not ensemble. Setting it to ensemble mode.")
 
         uncertainty_method = "ensemble"
 
     elif args.num_models == 1 and args.uncertainty_method == "ensemble":
-        logger.warning("Uncertainty method is ensemble but number of models is 1. Setting number of models to 5.")
+        logger.warning("Uncertainty method is ensemble but number of models is"
+                       " 1. Setting number of models to 5.")
 
-        num_models = 5
+        args.num_models = 5
 
-    # Change json to npz
+    # Check for saving directory
     if os.path.isdir(os.path.abspath(args.save_dir)):
         if not args.overwrite:
             raise IsADirectoryError(
@@ -65,12 +65,14 @@ def main():
     else:
         os.mkdir(args.save_dir)
 
+    # initializations
     args.codec = args.codec if args.jpeg_compression else None
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
     strategy = tf.distribute.MirroredStrategy()
     logger.info(
         'Number of devices: {}'.format(strategy.num_replicas_in_sync))
-    # Open a strategy scope.
+
+    # Prepare model with mirrored strategy.
     with strategy.scope():
         model = ScalingFactor(
             uncertainty_method=args.uncertainty_method,
@@ -83,23 +85,29 @@ def main():
             from_logits=True)
         model._model.compile(optimizer, loss=loss_criterion,
                              metrics=["accuracy"])
+
+    # load presampled validation data
     if args.use_presampled:
+        val_n_patches = 20
         loaded_val_data = np.load(
-            os.path.join(args.use_presampled, 'data/rgb/native12k_20k_val.npy'))[
-                   :20 * args.n_val_images]
+            os.path.join(args.use_presampled, 'native12k_20k_val.npy'))[
+                   :val_n_patches * args.n_val_images]
+
     else:
         loaded_val_data = None
+        val_n_patches = 1
 
     if args.load_model:
-        model.load_model(os.path.abspath(args.load_model))
         data = ScalingFactorDataset(
             load="y",
             n_images=0,
-            v_images=len(loaded_val_data),
-            data_val=loaded_val_data,
+            v_images=args.n_val_images,
+            preloaded_rgb_val_data=loaded_val_data,
+            val_n_patches=val_n_patches,
+            val_rgb_patch_size=args.patch_size,
             **vars(args)
         )
-
+        model.load_model(os.path.abspath(args.load_model))
     else:
         save_freq = args.save_every * args.n_train_images // args.batch_size
         callbacks = get_callbacks(
@@ -110,28 +118,38 @@ def main():
             patience=int(args.epochs * args.patience_percent),
             verbose=args.verbose
         )
-        # Data prep
+
+        # load presampled validation data
         if args.use_presampled:
-            data_train = np.load(
-                os.path.join(args.use_presampled, 'data/rgb/native12k_1M_1.npy'))[
-                         :512 * args.n_train_images]
+            train_n_patches = 25
+            loaded_train_data = np.load(
+                os.path.join(args.use_presampled, 'native12k_qM.npy'))[
+                         :train_n_patches * args.n_train_images]
         else:
             loaded_train_data = None
+            train_n_patches = 1
+
+        # Data pipeline prep
         data = ScalingFactorDataset(
             load="y",
-            n_images=0,
-            v_images=len(loaded_val_data),
-            data_train=loaded_train_data,
-            data_val=loaded_val_data,
+            n_images=args.n_train_images,
+            preloaded_rgb_train_data=loaded_train_data,
+            train_n_patches=train_n_patches,
+            v_images=args.n_val_images,
+            preloaded_rgb_val_data=loaded_val_data,
+            val_n_patches=val_n_patches,
+            val_rgb_patch_size=args.patch_size,
             **vars(args)
         )
-        train_data = data.get_training_pipeline(args.batch_size, 64).prefetch(
-            tf.data.AUTOTUNE)
-        val_data = data.get_validation_pipeline(args.batch_size).prefetch(
-            tf.data.AUTOTUNE)
+
+        train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
+        val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
         options = tf.data.Options()
         options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+        train_data = train_data.with_options(options)
+        val_data = val_data.with_options(options)
 
+        # Start training
         train_performance = model._model.fit(
             x=train_data,
             validation_data=val_data,
@@ -156,7 +174,6 @@ def main():
     )
 
     sf_plot(tests_summary, conf_matrix, data.classes, args.sampling_method, args.save_dir)
-    # plot_conf_matrix(conf_matrix, data.methods, data.classes, args.save_dir)
 
 
 if __name__ == "__main__":

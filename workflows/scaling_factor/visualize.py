@@ -6,7 +6,7 @@ from helpers.uncertainty import (
 )
 import tensorflow as tf
 import numpy as np
-from helpers.plots import sub, confusion_matrix, image
+from helpers.plots import sub, confusion_matrix
 import seaborn as sns
 import os
 
@@ -130,20 +130,3 @@ def sf_plot(summary, conf_matrix, classes, training_method, save_dir):
     vr_fig.savefig(os.path.join(save_dir, "vr_matrix.pdf"))
     pe_fig.savefig(os.path.join(save_dir, "pe_matrix.pdf"))
     mi_fig.savefig(os.path.join(save_dir, "mi_matrix.pdf"))
-
-
-def plot_conf_matrix(conf_matrix, methods, classes, save_dir):
-    # TODO (Govind) remove in future release
-    acc_fig, acc_axes = sub(4, ncols=2, figwidth=12)
-    text_classes = [f"{x:.2f}" for x in classes]
-    method_titles = ["Nearest", "Bilinear", "Bicubic", "Lanczos 3"]
-    for i in range(len(methods)):
-        confusion_matrix(
-            conf_matrix[i],
-            classes=text_classes,
-            axes=acc_axes[i],
-            title=f"Tested using {method_titles[i]}",
-            cbar=False,
-            cmap="Greys",
-        )
-    acc_fig.savefig(os.path.join(save_dir, "acc_matrix.pdf"))

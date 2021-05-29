@@ -23,12 +23,10 @@ class ScalingFactorDataset(Dataset):
     def __init__(
             self,
             scales,
-            patch_size,
             sampling_method,
             n_classes,
             codec=None,
             jpeg_quality=100,
-            batch_size=64,
             **kwargs,
     ):
         """
@@ -50,11 +48,9 @@ class ScalingFactorDataset(Dataset):
         jpeg_quality : int
             JPEG quality to compress with.
         """
-        super().__init__(val_rgb_patch_size=patch_size, batch_size=batch_size,
-                         **kwargs)
+        super().__init__(**kwargs)
         self.scales = (float(scales.split(",")[0]),
                        float(scales.split(",")[1]))
-        self.patch_size = patch_size
         self.sampling_method = sampling_method
         self.methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
         self.random_method = self.sampling_method == "random"
@@ -66,7 +62,7 @@ class ScalingFactorDataset(Dataset):
         else:
             self.codec = None
 
-    def preprocess_batch(self, batch, **kwargs):
+    def preprocess_batch(self, batch, training=True, **kwargs):
         """
         Resize a batch with the desired scaling factor and sampling method.
         Includes JPEG compression when required.
@@ -90,7 +86,10 @@ class ScalingFactorDataset(Dataset):
         else:
             sf = tf.random.uniform((1,), *self.scales)[0].numpy() - 1e-10
 
-        resized_size = tf.cast(tf.math.multiply(sf, self.patch_size), tf.int32)
+        patch_size = self.train_image_shape_rgb[0] \
+            if training else self.valid_patch_size_rgb
+
+        resized_size = tf.cast(tf.math.multiply(sf, patch_size), tf.int32)
         resized_size = tf.broadcast_to(resized_size, shape=(2,))
         # Choose sampling method.
         if self.random_method:
@@ -112,54 +111,28 @@ class ScalingFactorDataset(Dataset):
 
         return rescaled_images, sf_labels
 
-    def get_training_generator(self, batch_size, patch_size, discard="flat",
-                               **kwargs):
-        """
-        Get a generator for training data. Can be used to construct a data pipeline:
-
-        dp = tf.data.Dataset.from_generator(lambda: data.get_training_generator(batch_size, rgb_patch_size, discard),
-            output_types=len(self._loaded_data) * (tf.float32, ))
-        """
-        for batch in self.batched_data_train:
-            images, labels = self.preprocess_batch(batch, **kwargs)
-            yield images, labels
-
-    def get_validation_generator(self, batch_size, **kwargs):
-        """
-        Get a generator for validation data. Can be used to construct a data pipeline:
-
-        dp = tf.data.Dataset.from_generator(lambda: data.get_validation_generator(batch_size),
-            output_types=len(self._loaded_data) * (tf.float32, ))
-        """
-        for batch in self.batched_data_val:
-            images, labels = self.preprocess_batch(batch, **kwargs)
-            yield images, labels
-
-    def get_training_pipeline(self, batch_size, rgb_patch_size,
-                              discard="flat"):
+    def get_training_pipeline(self, discard="flat"):
 
         return tf.data.Dataset.from_generator(
             self.get_training_generator,
-            args=(batch_size, rgb_patch_size, discard),
-            output_signature=(tf.TensorSpec((batch_size, None, None, 3),
+            args=(discard,),
+            output_signature=(tf.TensorSpec((self.batch_size, None, None, 3),
                                             tf.float32),
-                              tf.TensorSpec((batch_size,), tf.float32)),
+                              tf.TensorSpec((self.batch_size,), tf.float32)),
         )
 
-    def get_validation_pipeline(self, batch_size):
+    def get_validation_pipeline(self):
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
-            args=(batch_size,),
-            output_signature=(tf.TensorSpec((batch_size, None, None, 3),
+            output_signature=(tf.TensorSpec((self.batch_size, None, None, 3),
                                             tf.float32),
-                              tf.TensorSpec((batch_size,), tf.float32)),
+                              tf.TensorSpec((self.batch_size,), tf.float32)),
         )
 
-    def get_calibration_pipeline(self, batch_size):
+    def get_calibration_pipeline(self):
         return tf.data.Dataset.from_generator(
             self.get_calibration_generator,
-            args=(batch_size,),
-            output_signature=(tf.TensorSpec((batch_size, None, None, 3),
+            output_signature=(tf.TensorSpec((self.batch_size, None, None, 3),
                                             tf.float32),
-                              tf.TensorSpec((batch_size,), tf.float32)),
+                              tf.TensorSpec((self.batch_size,), tf.float32)),
         )

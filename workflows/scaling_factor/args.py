@@ -44,7 +44,7 @@ def parse_args():
         "--epochs",
         dest="epochs",
         action="store",
-        default=10000,
+        default=100,
         type=int,
         help="Number of epochs",
     )
@@ -79,7 +79,7 @@ def parse_args():
         "--train-images",
         dest="n_train_images",
         action="store",
-        default=1024,
+        default=10240,
         type=int,
         help="Number of images for training set",
     )
@@ -88,7 +88,7 @@ def parse_args():
         "--validation-images",
         dest="n_val_images",
         action="store",
-        default=256,
+        default=1024,
         type=int,
         help="Number of images for validation set",
     )
