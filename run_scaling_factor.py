@@ -116,7 +116,8 @@ def main():
             save_freq=save_freq,
             tensorboard=args.tensorboard,
             patience=int(args.epochs * args.patience_percent),
-            verbose=args.verbose
+            verbose=args.verbose,
+            update_freq=args.validation_freq
         )
 
         # load presampled validation data
