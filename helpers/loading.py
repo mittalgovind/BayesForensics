@@ -285,6 +285,8 @@ def tf_sample_patch(
         rgb_shape=None, seed=10
 ):
     xx, yy = 0, 0
+    if isinstance(discard, bytes):
+        discard = discard.decode('utf-8')
 
     if rgb_shape is None:
         max_x = rgb_image.shape[1] - rgb_patch_size
@@ -292,9 +294,6 @@ def tf_sample_patch(
     else:
         max_x = rgb_shape[1] - rgb_patch_size
         max_y = rgb_shape[0] - rgb_patch_size
-
-    max_x = 128
-    max_y = 128
 
     max_x2 = max_x // 2
     max_y2 = max_y // 2

@@ -86,8 +86,8 @@ class ScalingFactorDataset(Dataset):
         else:
             sf = tf.random.uniform((1,), *self.scales)[0].numpy() - 1e-10
 
-        patch_size = self.train_image_shape_rgb[0] \
-            if training else self.valid_patch_size_rgb
+        patch_size = self.train_rgb_patch_size \
+            if training else self.val_rgb_patch_size
 
         resized_size = tf.cast(tf.math.multiply(sf, patch_size), tf.int32)
         resized_size = tf.broadcast_to(resized_size, shape=(2,))
