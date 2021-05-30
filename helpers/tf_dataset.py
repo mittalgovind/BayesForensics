@@ -217,8 +217,8 @@ class Dataset(object):
             raise ValueError(
                 "Cannot discard patches if RGB data is not loaded.")
 
-        by = tf.zeros((self.batch_size, self.train_rgb_patch_size,
-                       self.train_rgb_patch_size, 3))
+        patches = tf.zeros((0, self.train_rgb_patch_size,
+                            self.train_rgb_patch_size, 3), dtype=tf.uint8)
         for i in range(self.batch_size):
             xx, yy = tf_sample_patch(
                 batch[i],
@@ -231,11 +231,11 @@ class Dataset(object):
             patch = tf.slice(batch[i], begin=[xx, yy, 0],
                              size=[self.train_rgb_patch_size,
                                    self.train_rgb_patch_size, 3])
-            patch = tf.math.divide(patch, 2 ** 8 - 1)
             patch = tf.expand_dims(patch, axis=0)
-            by = tf.tensor_scatter_nd_update(by, [[i]], patch)
+            patches = tf.concat((patches, patch))
 
-        return by
+        patches = tf.math.divide(patches, 2 ** 8 - 1)
+        return patches
 
     def is_raw_and_rgb(self):
         return len(self._loaded_data) == 2
