@@ -89,13 +89,10 @@ class Dataset(object):
             val_n_patches,
         )
         self._val_discard = val_discard
-        if "y" in load:
-            self.train_image_shape_rgb = (
-                train_rgb_patch_size, train_rgb_patch_size, 3)
-        else:
-            self.train_image_shape_rgb = (
-                2 * train_rgb_patch_size, 2 * train_rgb_patch_size, 4)
         self.val_patch_size_rgb = val_rgb_patch_size
+        self.train_rgb_patch_size = train_rgb_patch_size
+        self.seed = seed
+        tf.random.set_seed(seed)
 
         if data_dir:
             # Discover images files to sample from.
@@ -168,7 +165,9 @@ class Dataset(object):
                                                       drop_remainder=True)
             else:
                 self.data["training"][
-                    "x"] = tf.convert_to_tensor(self.data["training"]["x"])
+                    "x"] = tf.data.Dataset.from_tensor_slices(
+                    self.data["training"]["x"]).batch(batch_size,
+                                                      drop_remainder=True)
             self.data["validation"]["x"] = tf.data.Dataset.from_tensor_slices(
                 self.data["validation"]["x"]).batch(batch_size,
                                                     drop_remainder=True)
@@ -185,12 +184,15 @@ class Dataset(object):
                                                       drop_remainder=True)
             else:
                 self.data["training"][
-                    "y"] = tf.convert_to_tensor(self.data["training"]["y"])
+                    "y"] = tf.data.Dataset.from_tensor_slices(
+                    self.data["training"]["y"]).batch(batch_size,
+                                                      drop_remainder=True)
             self.data["validation"]["y"] = tf.data.Dataset.from_tensor_slices(
                 self.data["validation"]["y"]).batch(batch_size,
                                                     drop_remainder=True)
             if calibrate:
-                self.data["calibration"]["y"] = tf.data.Dataset.from_tensor_slices(
+                self.data["calibration"][
+                    "y"] = tf.data.Dataset.from_tensor_slices(
                     self.data["calibration"]["y"]).batch(batch_size,
                                                          drop_remainder=True)
 
@@ -200,67 +202,63 @@ class Dataset(object):
         else:
             raise KeyError("Key: {} not found!".format(key))
 
-    def next_training_batch(
-            self, batch_id, batch_size, rgb_patch_size=0, discard="flat",
-            max_attempts=25
-    ):
-        """
-        Sample a new batch of training patches.
-        :param batch_id: integer from 0 to (#training images // batch_size - 1)
-        :param batch_size: integer, self explanatory
-        :param rgb_patch_size: patch size (in full-resolution RGB coordinates; RAW patches [RGGB] have half the size)
-        :param discard: patch discard mode (for validation data)
-        :param max_attempts: maximum number of sampling attempts (if unsuccessful)
-        :return: tuple of np arrays (RAW, RGB) or np array (RGB)
-        """
-        if rgb_patch_size == 0:
-            rgb_patch_size = min(128, *self.train_image_shape_rgb[:2])
-
-        if discard is not None and "y" not in self.data["training"]:
-            raise ValueError(
-                "Cannot discard patches if RGB data is not loaded.")
-
-        if (batch_id + 1) * batch_size > self.count_training:
-            raise ValueError(
-                "Not enough images for the requested batch_id & batch_size"
-            )
-
-        # Allocate memory for the batch
-        has_rgb = "y" in self._loaded_data
-        by = (
-            tf.zeros((batch_size, rgb_patch_size, rgb_patch_size, 3),
-                     dtype=tf.float32)
-            if has_rgb
-            else None
-        )
-
-        if rgb_patch_size > min(self.train_image_shape_rgb[:2]):
-            raise ValueError("Requested patch size is too big!")
-
-        if "y" not in self.data["training"] and discard is not None:
-            raise ValueError(
-                "Cannot use a patch discard policy when RGB data is not loaded!"
-            )
-
-        for b in range(batch_size):
-            bid = batch_id * batch_size + b
-            current_rgb = self.data["training"]["y"][bid]
-            xx, yy = tf_sample_patch(
-                current_rgb,
-                rgb_patch_size,
-                discard,
-                max_attempts,
-                self.train_image_shape_rgb,
-            )
-            by[b] = tf.cast(current_rgb[
-                            yy: yy + rgb_patch_size,
-                            xx: xx + rgb_patch_size
-                            ], tf.float32) / (2 ** 8 - 1)
-
-        return by
+    # def next_training_batch(self, batch_id, discard="flat",
+    #                         max_attempts=25):
+    #     """
+    #     Sample a new batch of training patches.
+    #     :param batch_id: integer from 0 to (#training images // batch_size - 1)
+    #     :param discard: patch discard mode (for validation data)
+    #     :param max_attempts: maximum number of sampling attempts (if unsuccessful)
+    #     :return: tuple of np arrays (RAW, RGB) or np array (RGB)
+    #     """
+    #
+    #     if discard is not None and "y" not in self.data["training"]:
+    #         raise ValueError(
+    #             "Cannot discard patches if RGB data is not loaded.")
+    #
+    #     if (batch_id + 1) * self.batch_size > self.count_training:
+    #         raise ValueError(
+    #             "Not enough images for the requested batch_id & batch_size"
+    #         )
+    #
+    #     # Allocate memory for the batch
+    #     xxs = tf.zeros(self.batch_size)
+    #     yys = tf.zeros(self.batch_size)
+    #
+    #     if self.train_rgb_patch_size > min(self.train_image_shape_rgb[:-1]):
+    #         raise ValueError("Requested patch size is too big!")
+    #
+    #     if "y" not in self.data["training"] and discard is not None:
+    #         raise ValueError(
+    #             "Cannot use a patch discard policy when RGB data is not loaded!"
+    #         )
+    #     current_rgbs = self.data["training"]["y"][batch_id * self.batch_size:
+    #                                               (
+    #                                                           batch_id + 1) * self.batch_size]
+    #     for b in range(self.batch_size):
+    #         xxs[b], yys[b] = tf_sample_patch(
+    #             current_rgbs[b],
+    #             self.train_rgb_patch_size,
+    #             discard,
+    #             max_attempts,
+    #             self.train_image_shape_rgb,
+    #             self.seed
+    #         )
+    #     by = current_rgbs[yys: yys + self.train_rgb_patch_size,
+    #          xxs: xxs + self.train_rgb_patch_size]
+    #     by = tf.divide(by, 2 ** 8 - 1)
+    #     return by
 
     def is_raw_and_rgb(self):
         return len(self._loaded_data) == 2
+
+    @property
+    def train_image_shape_rgb(self):
+        if "y" in self._loaded_data:
+            image_shape = self.data['training']['y'].element_spec.shape
+        else:
+            image_shape = self.data['training']['x'].element_spec.shape
+        return image_shape
 
     @property
     def valid_patch_size_rgb(self):

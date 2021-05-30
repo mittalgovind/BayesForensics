@@ -275,9 +275,14 @@ def sample_patch(
     return xx, yy
 
 
+def randint(minval=0, maxval=None, seed=10):
+    return tf.random.uniform(minval=minval, maxval=maxval, shape=[],
+                             dtype=tf.int32, seed=seed)
+
+
 def tf_sample_patch(
         rgb_image, rgb_patch_size=128, discard=None, max_attempts=25,
-        rgb_shape=None
+        rgb_shape=None, seed=10
 ):
     xx, yy = 0, 0
 
@@ -297,8 +302,8 @@ def tf_sample_patch(
 
         while not found:
             # Sample a random patch - the number needs to be even to ensure proper Bayer alignment
-            xx = 2 * tf.random.uniform(maxval=max_x2) if max_x > 0 else 0
-            yy = 2 * tf.random.uniform(max_val=max_y2) if max_y > 0 else 0
+            xx = 2 * randint(maxval=max_x2, seed=seed) if max_x > 0 else 0
+            yy = 2 * randint(maxval=max_y2, seed=seed) if max_y > 0 else 0
 
             if not discard:
                 found = True
@@ -307,8 +312,8 @@ def tf_sample_patch(
             patch = tf.math.divide(rgb_image[yy: yy + rgb_patch_size,
                                    xx: xx + rgb_patch_size], 255)
 
-            patch_variance = tf.reduce_variance(patch)
-            patch_intensity = tf.reduce_mean(patch)
+            patch_variance = tf.math.reduce_variance(patch)
+            patch_intensity = tf.math.reduce_mean(patch)
             # Check if the sampled patch is acceptable
             if discard == "flat":
 
