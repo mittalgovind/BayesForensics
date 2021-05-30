@@ -232,7 +232,7 @@ class Dataset(object):
                              size=[self.train_rgb_patch_size,
                                    self.train_rgb_patch_size, 3])
             patch = tf.expand_dims(patch, axis=0)
-            patches = tf.concat((patches, patch))
+            patches = tf.concat((patches, patch), axis=0)
 
         patches = tf.math.divide(patches, 2 ** 8 - 1)
         return patches
