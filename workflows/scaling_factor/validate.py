@@ -13,7 +13,8 @@ import numpy as np
 
 # Internal libraries
 from helpers.utils import progress_bar
-from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, mutual_information
+from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, \
+    mutual_information
 
 
 def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
@@ -54,21 +55,18 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                     logits = np.zeros((data.count_validation, num_runs,
                                        len(data.classes)))
 
-                for batch_id in range(n_batches):
-                    batch = data.next_validation_batch(batch_id, batch_size)
-                    images, labels = data.preprocess_batch(batch, sf=sf)
-                    bindex = batch_id * batch_size
-
+                i = 0
+                for images, labels in data.get_validation_generator(sf=sf):
                     if uncertainty_method == "vanilla" or uncertainty_method == "ensemble":
-                        logits[bindex: bindex + batch_size] = (model(
-                            images,
-                            training=False) / model.temperature).numpy()
+                        logits[i: i + batch_size] = (model(
+                            images, training=False) / model.temperature).numpy()
 
                     else:
-                        logits[
-                        bindex: bindex + batch_size] = np.array(
+                        logits[i: i + batch_size] = np.array(
                             [model(images, training=False) / model.temperature
                              for _ in range(num_runs)])
+
+                    i += batch_size
 
                 if uncertainty_method == "vanilla":
                     predictions = logits.argmax(axis=-1)

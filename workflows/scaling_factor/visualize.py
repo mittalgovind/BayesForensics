@@ -1,19 +1,20 @@
+import os
+
+import tensorflow as tf
+import numpy as np
+import seaborn as sns
+
+from helpers.plots import sub, confusion_matrix
 from helpers.uncertainty import (
     variation_ratio,
     predictive_entropy,
     mutual_information,
     get_pred,
 )
-import tensorflow as tf
-import numpy as np
-from helpers.plots import sub, confusion_matrix
-import seaborn as sns
-import os
 
 
 def get_uncertainties(summary, classes):
     results = []
-    classes = (classes * 128).astype(int)
 
     for method in summary.keys():
         for sf in summary[method].keys():
@@ -76,11 +77,6 @@ def sf_plot(summary, conf_matrix, classes, training_method, save_dir):
 
     for elm in summary:
         ind = methods.index(elm["method"])
-
-        acc[ind][elm["correct"], elm["pred"]] += 1 / (
-                len(summary) / len(classes) / len(methods)
-        )
-
         err = np.abs(elm["correct"] - elm["pred"])
         if err not in vr[ind].keys():
             vr[ind][err] = []
@@ -97,15 +93,14 @@ def sf_plot(summary, conf_matrix, classes, training_method, save_dir):
             pe[i][j] = np.mean(pe[i][j])
             mi[i][j] = np.mean(mi[i][j])
 
-    acc_fig, acc_axes = sub(4, ncols=2, figwidth=12)
     vr_fig, vr_axes = sub(4, ncols=2, figwidth=12)
     pe_fig, pe_axes = sub(4, ncols=2, figwidth=12)
     mi_fig, mi_axes = sub(4, ncols=2, figwidth=12)
 
     for i in range(len(methods)):
-        sns.lineplot(vr[i].keys(), vr[i].values(), ax=vr_axes[i])
-        sns.lineplot(pe[i].keys(), pe[i].values(), ax=pe_axes[i])
-        sns.lineplot(mi[i].keys(), mi[i].values(), ax=mi_axes[i])
+        sns.lineplot(x=vr[i].keys(), y=vr[i].values(), ax=vr_axes[i])
+        sns.lineplot(x=pe[i].keys(), y=pe[i].values(), ax=pe_axes[i])
+        sns.lineplot(x=mi[i].keys(), y=mi[i].values(), ax=mi_axes[i])
 
     for axes in [acc_axes, vr_axes, pe_axes, mi_axes]:
         for i in range(len(axes)):
@@ -117,13 +112,15 @@ def sf_plot(summary, conf_matrix, classes, training_method, save_dir):
                 axes[i].yaxis.tick_right()
                 axes[i].yaxis.set_label_position("right")
 
-            axes[i].set_yticklabels(axes[i].get_yticklabels(), rotation="horizontal")
+            axes[i].set_yticklabels(axes[i].get_yticklabels(),
+                                    rotation="horizontal")
             axes[i].set_title(f"Tested using {method_titles[i]}")
 
     figs = [acc_fig, vr_fig, pe_fig, mi_fig]
     for i in range(len(figs)):
         figs[i].suptitle(
-            f"{measure_titles[i]} for model trained on {training_method}", size=24
+            f"{measure_titles[i]} for model trained on {training_method}",
+            size=24
         )
 
     acc_fig.savefig(os.path.join(save_dir, "acc_matrix.pdf"))

@@ -154,7 +154,6 @@ def main():
             x=train_data,
             validation_data=val_data,
             epochs=args.epochs,
-            batch_size=args.batch_size,
             verbose=0,
             callbacks=callbacks,
             validation_freq=args.validation_freq,
@@ -173,7 +172,8 @@ def main():
         uncertainty_method=uncertainty_method, num_runs=args.num_runs
     )
 
-    sf_plot(tests_summary, conf_matrix, data.classes, args.sampling_method, args.save_dir)
+    sf_plot(tests_summary, conf_matrix, data.classes.numpy(),
+            args.sampling_method, args.save_dir)
 
 
 if __name__ == "__main__":

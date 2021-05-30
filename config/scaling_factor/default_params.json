@@ -5,8 +5,8 @@
   "kernel": 3,
   "dropout": 0.1,
   "use_gap": true,
-  "dense_layers": 2,
-  "dense_units": 128,
+  "dense_layers": 1,
+  "dense_units": 256,
   "activation": "leaky_relu",
-  "pool_size": 1
+  "pool_size": 2
 }

@@ -26,7 +26,6 @@ class Dataset(object):
             *,
             seed=2468,
             load="xy",
-            presample_epochs=0,
             n_images=120,
             preloaded_rgb_train_data=None,
             train_rgb_patch_size=0,
@@ -48,11 +47,6 @@ class Dataset(object):
 
         if train_rgb_patch_size == 0:
             train_rgb_patch_size = val_rgb_patch_size
-        elif presample_epochs == 0:
-            raise ValueError(
-                "Setting training patch size here only works when preloading the patches "
-                "(when presample_epochs>0). Otherwise, full resolution images are loaded."
-            )
 
         if data_dir and not os.path.isdir(data_dir):
             if "/" in data_dir or "\\" in data_dir:
@@ -69,11 +63,10 @@ class Dataset(object):
                 raise ValueError(
                     f"Cannot find the data directory: {data_dir}")
 
-        if presample_epochs > 0:
-            logger.info(
-                "Sampling {} patches per training image beforehand.".format(
-                    presample_epochs))
-            train_n_patches = presample_epochs
+        logger.info(
+            "Sampling {} patches per training image and {} per validation "
+            "image beforehand.".format(train_n_patches, val_n_patches)
+        )
 
         # Initializations
         c_images = c_images if calibrate else 0
@@ -104,9 +97,6 @@ class Dataset(object):
         else:
             logger.info("No data directory given.")
 
-        # flags for storing way train data was prepared, with default values.
-        self.preloading_train = 0
-
         # Preparing training data
         if preloaded_rgb_train_data is not None:
             self.data["training"]['y'] = tf.math.divide(
@@ -114,9 +104,7 @@ class Dataset(object):
             self.batched_data_train = tf.data.Dataset.from_tensor_slices(
                 self.data["training"]['y']).batch(batch_size,
                                                   drop_remainder=True)
-            self.preloading_train = 1
-
-        elif presample_epochs != 0:
+        else:
             self.data["training"] = loading.load_patches(
                 self.files["training"],
                 data_dir,
@@ -124,11 +112,6 @@ class Dataset(object):
                 n_patches=train_n_patches,
                 load=load,
                 discard=val_discard,
-            )
-            self.preloading_train = 1
-        else:
-            self.data["training"] = loading.load_images(
-                self.files["training"], data_dir, load=load
             )
 
         # Prepare validation data
@@ -158,16 +141,10 @@ class Dataset(object):
 
         # Conversion to tensor and batching of loaded data
         if "x" in load:
-            if self.preloading_train:
-                self.data["training"][
-                    "x"] = tf.data.Dataset.from_tensor_slices(
-                    self.data["training"]["x"]).batch(batch_size,
-                                                      drop_remainder=True)
-            else:
-                self.data["training"][
-                    "x"] = tf.data.Dataset.from_tensor_slices(
-                    self.data["training"]["x"]).batch(batch_size,
-                                                      drop_remainder=True)
+            self.data["training"][
+                "x"] = tf.data.Dataset.from_tensor_slices(
+                self.data["training"]["x"]).batch(batch_size,
+                                                  drop_remainder=True)
             self.data["validation"]["x"] = tf.data.Dataset.from_tensor_slices(
                 self.data["validation"]["x"]).batch(batch_size,
                                                     drop_remainder=True)
@@ -177,16 +154,10 @@ class Dataset(object):
                     self.data["calibration"]["x"]).batch(batch_size,
                                                          drop_remainder=True)
         if "y" in load:
-            if self.preloading_train:
-                self.data["training"][
-                    "y"] = tf.data.Dataset.from_tensor_slices(
-                    self.data["training"]["y"]).batch(batch_size,
-                                                      drop_remainder=True)
-            else:
-                self.data["training"][
-                    "y"] = tf.data.Dataset.from_tensor_slices(
-                    self.data["training"]["y"]).batch(batch_size,
-                                                      drop_remainder=True)
+            self.data["training"][
+                "y"] = tf.data.Dataset.from_tensor_slices(
+                self.data["training"]["y"]).batch(batch_size,
+                                                  drop_remainder=True)
             self.data["validation"]["y"] = tf.data.Dataset.from_tensor_slices(
                 self.data["validation"]["y"]).batch(batch_size,
                                                     drop_remainder=True)
@@ -201,53 +172,6 @@ class Dataset(object):
             return self.data[key]
         else:
             raise KeyError("Key: {} not found!".format(key))
-
-    # def next_training_batch(self, batch_id, discard="flat",
-    #                         max_attempts=25):
-    #     """
-    #     Sample a new batch of training patches.
-    #     :param batch_id: integer from 0 to (#training images // batch_size - 1)
-    #     :param discard: patch discard mode (for validation data)
-    #     :param max_attempts: maximum number of sampling attempts (if unsuccessful)
-    #     :return: tuple of np arrays (RAW, RGB) or np array (RGB)
-    #     """
-    #
-    #     if discard is not None and "y" not in self.data["training"]:
-    #         raise ValueError(
-    #             "Cannot discard patches if RGB data is not loaded.")
-    #
-    #     if (batch_id + 1) * self.batch_size > self.count_training:
-    #         raise ValueError(
-    #             "Not enough images for the requested batch_id & batch_size"
-    #         )
-    #
-    #     # Allocate memory for the batch
-    #     xxs = tf.zeros(self.batch_size)
-    #     yys = tf.zeros(self.batch_size)
-    #
-    #     if self.train_rgb_patch_size > min(self.train_image_shape_rgb[:-1]):
-    #         raise ValueError("Requested patch size is too big!")
-    #
-    #     if "y" not in self.data["training"] and discard is not None:
-    #         raise ValueError(
-    #             "Cannot use a patch discard policy when RGB data is not loaded!"
-    #         )
-    #     current_rgbs = self.data["training"]["y"][batch_id * self.batch_size:
-    #                                               (
-    #                                                           batch_id + 1) * self.batch_size]
-    #     for b in range(self.batch_size):
-    #         xxs[b], yys[b] = tf_sample_patch(
-    #             current_rgbs[b],
-    #             self.train_rgb_patch_size,
-    #             discard,
-    #             max_attempts,
-    #             self.train_image_shape_rgb,
-    #             self.seed
-    #         )
-    #     by = current_rgbs[yys: yys + self.train_rgb_patch_size,
-    #          xxs: xxs + self.train_rgb_patch_size]
-    #     by = tf.divide(by, 2 ** 8 - 1)
-    #     return by
 
     def is_raw_and_rgb(self):
         return len(self._loaded_data) == 2
@@ -348,7 +272,8 @@ class Dataset(object):
         """
         Implement this method to return the processed batch and its labels.
         """
-        return batch
+        labels = None
+        return batch, labels
 
     def get_training_generator(self, discard="flat", **kwargs):
         """
@@ -357,15 +282,9 @@ class Dataset(object):
         dp = tf.data.Dataset.from_generator(lambda: data.get_training_generator(batch_size, rgb_patch_size, discard),
             output_types=len(self._loaded_data) * (tf.float32, ))
         """
-        if self.preloading_train:
-            for batch in self.batched_data_train:
-                images, labels = self.preprocess_batch(batch, **kwargs)
-                yield images, labels
-        else:
-            for batch_id in range(self.count_training // self.batch_size):
-                batch = self.next_training_batch(batch_id, discard)
-                images, labels = self.preprocess_batch(batch, **kwargs)
-                yield images, labels
+        for batch in self.data["training"]["y"]:
+            images, labels = self.preprocess_batch(batch, **kwargs)
+            yield images, labels
 
     def get_validation_generator(self, **kwargs):
         """
@@ -390,6 +309,7 @@ class Dataset(object):
             yield images, labels
 
     def get_training_pipeline(self, discard="flat"):
+        """training pipeline. override for giving correct shape for labels"""
         types = (
             tf.float32, tf.float32) if self.is_raw_and_rgb() else tf.float32
         shapes = (
@@ -399,19 +319,22 @@ class Dataset(object):
              self.train_image_shape_rgb[1], 3),
         )
         return tf.data.Dataset.from_generator(
-            lambda: self.get_training_generator(discard),
+            self.get_training_generator,
+            args=(discard,),
             output_types=types,
             output_shapes=shapes,
         )
 
     def get_validation_pipeline(self):
+        """validation pipeline. override for giving correct shape for labels"""
         return tf.data.Dataset.from_generator(
-            lambda: self.get_validation_generator(),
+            self.get_validation_generator,
             output_types=len(self._loaded_data) * (tf.float32,),
         )
 
     def get_calibration_pipeline(self):
+        """calibration pipeline. override for giving correct shape for labels"""
         return tf.data.Dataset.from_generator(
-            lambda: self.get_calibration_generator(),
+            self.get_calibration_generator,
             output_types=len(self._loaded_data) * (tf.float32,),
         )
