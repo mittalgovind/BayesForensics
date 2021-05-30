@@ -142,7 +142,8 @@ def main():
             val_rgb_patch_size=args.patch_size,
             **vars(args)
         )
-
+        for batch in data.data["training"]["y"]:
+            by = data.sample_patches(batch)
         train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
         val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
         options = tf.data.Options()

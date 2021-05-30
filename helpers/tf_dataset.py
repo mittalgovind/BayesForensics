@@ -6,10 +6,10 @@
 
 # Standard libraries
 import os
-
 # External Libraries
 import tensorflow as tf
 from loguru import logger
+import numpy as np
 
 # Internal Libraries
 from helpers import loading
@@ -267,6 +267,46 @@ class Dataset(object):
 
         return "\n".join(label)
 
+    def map_patch(self, batch, xxs, yys):
+        for i, xxyy in enumerate(zip(xxs, yys)):
+            xx, yy = xxyy
+            batch[i] = tf.slice(batch[i], begin=[xx, yy, 0],
+                                size=[self.train_rgb_patch_size,
+                                      self.train_rgb_patch_size, 3])
+        return batch
+
+    def sample_patches(self, batch, discard="flat",
+                       max_attempts=25):
+        """
+        Sample a new batch of training patches.
+        :param batch: integer from 0 to (#training images // batch_size - 1)
+        :param discard: patch discard mode (for validation data)
+        :param max_attempts: maximum number of sampling attempts (if unsuccessful)
+        :return: tuple of np arrays (RAW, RGB) or np array (RGB)
+        """
+
+        if discard is not None and "y" not in self.data["training"]:
+            raise ValueError(
+                "Cannot discard patches if RGB data is not loaded.")
+
+        # Allocate memory for the batch
+        xxs = np.zeros(self.batch_size)
+        yys = np.zeros(self.batch_size)
+
+        for b in range(self.batch_size):
+            xxs[b], yys[b] = loading.tf_sample_patch(
+                batch[b],
+                self.train_rgb_patch_size,
+                discard,
+                max_attempts,
+                self.train_image_shape_rgb,
+                self.seed
+            )
+        by = tf.py_function(self.map_patch, inp=[batch, xxs, yys],
+                            Tout=tf.float32)
+        by = tf.divide(by, 2 ** 8 - 1)
+        return by
+
     def preprocess_batch(self, batch, **kwargs):
         """
         Implement this method to return the processed batch and its labels.
@@ -282,6 +322,7 @@ class Dataset(object):
             output_types=len(self._loaded_data) * (tf.float32, ))
         """
         for batch in self.data["training"]["y"]:
+            by = self.sample_patches(batch)
             images, labels = self.preprocess_batch(batch, **kwargs)
             yield images, labels
 
