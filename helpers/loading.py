@@ -6,7 +6,6 @@ import os
 import numpy as np
 import imageio
 from helpers import fsutil, utils
-import tensorflow as tf
 from loguru import logger
 
 
@@ -234,94 +233,6 @@ def sample_patch(
                     found = False if panic_counter > 0 else True
                 elif patch_variance < 0.01:
                     found = np.random.uniform() > 0.5
-                else:
-                    found = True
-
-            elif discard == "flat-aggressive":
-
-                if patch_variance < 0.02:
-                    if panic_counter == max_attempts or patch_variance > \
-                            best_patch[-1]:
-                        best_patch = (xx, yy, patch_variance)
-                    panic_counter -= 1
-                    found = False if panic_counter > 0 else True
-                    if found:
-                        xx, yy, patch_variance = best_patch
-                else:
-                    found = True
-
-            elif discard == "dark-n-textured":
-
-                if 0 < patch_variance < 0.005 and 0.35 < patch_intensity < 0.99:
-                    found = True
-                else:
-                    if panic_counter == max_attempts or (
-                            patch_variance < 2 * best_patch[-1]
-                            and patch_intensity > 1.1 * best_patch[-2]
-                    ):
-                        best_patch = (xx, yy, patch_intensity, patch_variance)
-                    panic_counter -= 1
-                    found = False if panic_counter > 0 else True
-                    if found:
-                        xx, yy, patch_intensity, patch_variance = best_patch
-
-            elif discard is None:
-                found = True
-
-            else:
-                raise ValueError(
-                    "Unrecognized discard mode: {}".format(discard))
-
-    return xx, yy
-
-
-def randint(minval=0, maxval=None, seed=10):
-    return tf.random.uniform(minval=minval, maxval=maxval, shape=[],
-                             dtype=tf.int32, seed=seed)
-
-
-def tf_sample_patch(
-        rgb_image, rgb_patch_size=128, discard=None, max_attempts=25,
-        rgb_shape=None, seed=10
-):
-    xx, yy = 0, 0
-
-    if rgb_shape is None:
-        max_x = rgb_image.shape[1] - rgb_patch_size
-        max_y = rgb_image.shape[0] - rgb_patch_size
-    else:
-        max_x = rgb_shape[1] - rgb_patch_size
-        max_y = rgb_shape[0] - rgb_patch_size
-
-    max_x2 = max_x // 2
-    max_y2 = max_y // 2
-
-    if max_x > 0 or max_y > 0:
-        found = False
-        panic_counter = max_attempts
-
-        while not found:
-            # Sample a random patch - the number needs to be even to ensure proper Bayer alignment
-            xx = 2 * randint(maxval=max_x2, seed=seed) if max_x > 0 else 0
-            yy = 2 * randint(maxval=max_y2, seed=seed) if max_y > 0 else 0
-
-            if not discard:
-                found = True
-                continue
-
-            patch = tf.math.divide(rgb_image[yy: yy + rgb_patch_size,
-                                   xx: xx + rgb_patch_size], 255)
-
-            patch_variance = tf.math.reduce_variance(patch)
-            patch_intensity = tf.math.reduce_mean(patch)
-            # Check if the sampled patch is acceptable
-            if discard == "flat":
-
-                if patch_variance < 0.005:
-                    panic_counter -= 1
-                    found = False if panic_counter > 0 else True
-                elif patch_variance < 0.01:
-                    found = (tf.random.uniform(shape=(1,)) > 0.5)[0]
                 else:
                     found = True
 

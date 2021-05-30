@@ -13,7 +13,6 @@ from loguru import logger
 
 # Internal Libraries
 from helpers import loading
-from helpers.loading import tf_sample_patch
 
 
 class Dataset(object):
