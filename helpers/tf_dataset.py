@@ -203,6 +203,7 @@ class Dataset(object):
         else:
             raise KeyError("Key: {} not found!".format(key))
 
+    @tf.function(experimental_compile=True)
     def sample_patches(self, batch, discard="flat",
                        max_attempts=25, **kwargs):
         """
@@ -212,10 +213,6 @@ class Dataset(object):
         :param max_attempts: maximum number of sampling attempts (if unsuccessful)
         :return: tuple of np arrays (RAW, RGB) or np array (RGB)
         """
-
-        if discard is not None and "y" not in self.data["training"]:
-            raise ValueError(
-                "Cannot discard patches if RGB data is not loaded.")
 
         patches = tf.zeros((0, self.train_rgb_patch_size,
                             self.train_rgb_patch_size, 3), dtype=tf.uint8)
@@ -234,7 +231,6 @@ class Dataset(object):
             patch = tf.expand_dims(patch, axis=0)
             patches = tf.concat((patches, patch), axis=0)
 
-        patches = tf.math.divide(patches, 2 ** 8 - 1)
         return patches
 
     def is_raw_and_rgb(self):

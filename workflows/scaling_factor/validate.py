@@ -23,11 +23,13 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
     if cache:
         try:
             performance = cache.load()
-            performance["accuracy"]["validation"] = []
+            performance["conf_matrices"] = []
+            performance["tests_summary"] = []
         except:
-            performance = {"accuracy": {}}
+            performance = {"test_accuracy": [], "tests_summary": []}
             logger.warning(
-                "performance cache from training could not be loaded. Making a new one."
+                "performance cache from training could not be loaded."
+                " Making a new one."
             )
 
     conf_matrix = np.zeros((len(data.methods), len(data.classes),
@@ -81,8 +83,8 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                 pbar.update(1)
 
     if cache:
-        performance["accuracy"]["validation"] = conf_matrix
-        cache.save(tests_summary, step="tests")
+        performance["conf_matrices"] = conf_matrix
+        performance["tests_summary"] = tests_summary
         cache.save(performance, step="performance")
 
     return tests_summary, conf_matrix

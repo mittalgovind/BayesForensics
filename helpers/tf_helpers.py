@@ -544,6 +544,6 @@ def get_callbacks(path, model_name=None, save_freq=0, monitor='loss',
 
     if tensorboard:
         callbacks.append(tf.keras.callbacks.TensorBoard(
-            os.path.join(path, 'tensorboard_logs'), update_freq=update_freq))
+            os.path.join(path, 'tensorboard_logs'), profile_batch=(1, 8)))
 
     return callbacks

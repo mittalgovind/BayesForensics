@@ -64,7 +64,8 @@ def setup_logging(filename=None, long_date=False, level="INFO"):
 
     config = {
         "handlers": [
-            {"sink": sys.stderr, "format": log_format, "level": level, "colorize": True}
+            {"sink": sys.stderr, "format": log_format, "level": level,
+             "colorize": True}
         ],
     }
 
@@ -72,7 +73,8 @@ def setup_logging(filename=None, long_date=False, level="INFO"):
         if "/" not in filename:
             filename = os.path.join("logs", filename)
         config["handlers"].append(
-            {"sink": filename, "serialize": False, "format": log_format, "level": level}
+            {"sink": filename, "serialize": False, "format": log_format,
+             "level": level}
         )
 
     logger.configure(**config)
@@ -97,11 +99,10 @@ def is_nan(value):
 
 
 def is_vector(data):
-
     if isinstance(data, list) and all(is_number(x) for x in data):
         return True
     elif isinstance(data, np.ndarray) and (
-        data.ndim == 1 or (data.ndim == 2 and 1 in data.shape)
+            data.ndim == 1 or (data.ndim == 2 and 1 in data.shape)
     ):
         return True
     else:
@@ -132,7 +133,8 @@ def format_sequence_rle(numbers, sep="-"):
         else:
             counter += 1
         if i == len(numbers) - 1:
-            items.append(f"{numbers[i]}x{counter}" if counter > 1 else f"{numbers[i]}")
+            items.append(
+                f"{numbers[i]}x{counter}" if counter > 1 else f"{numbers[i]}")
 
     return sep.join(items)
 
@@ -141,9 +143,10 @@ def format_number_order(n):
     n = float(n)
     suffix = ("", "k", "M", "B", "T")
     idx = max(
-        0, min(len(suffix) - 1, int(np.floor(0 if n == 0 else np.log10(abs(n)) / 3)))
+        0, min(len(suffix) - 1,
+               int(np.floor(0 if n == 0 else np.log10(abs(n)) / 3)))
     )
-    return f"{n / 10**(3 * idx):.0f}{suffix[idx]}"
+    return f"{n / 10 ** (3 * idx):.0f}{suffix[idx]}"
 
 
 def format_number(x, digits=3):
@@ -165,7 +168,6 @@ def format_number(x, digits=3):
 
 
 def match_option(x, options, regexp=False):
-
     if regexp:
         matches = [y for y in options if re.match(x, y)]
         if len(matches) == 1:
@@ -193,10 +195,11 @@ def logCall(func):
         args = func_args[: len(arg_names)]
         defaults = func.__defaults__ or ()
         args = (
-            args + defaults[len(defaults) - (func.__code__.co_argcount - len(args)) :]
+                args + defaults[len(defaults) - (
+                    func.__code__.co_argcount - len(args)):]
         )
         params = list(zip(arg_names, args))
-        args = func_args[len(arg_names) :]
+        args = func_args[len(arg_names):]
 
         if args:
             params.append(("args", args))
@@ -229,10 +232,11 @@ def mockCall(func):
         args = func_args[: len(arg_names)]
         defaults = func.__defaults__ or ()
         args = (
-            args + defaults[len(defaults) - (func.__code__.co_argcount - len(args)) :]
+                args + defaults[len(defaults) - (
+                    func.__code__.co_argcount - len(args)):]
         )
         params = list(zip(arg_names, args))
-        args = func_args[len(arg_names) :]
+        args = func_args[len(arg_names):]
 
         if args:
             params.append(("args", args))
@@ -309,9 +313,9 @@ def printd(d, filters=None, indent=2, level=1):
     for k, v in d.items():
 
         if (
-            filters is not None
-            and level <= len(filters)
-            and not re.match(filters[level - 1], k)
+                filters is not None
+                and level <= len(filters)
+                and not re.match(filters[level - 1], k)
         ):
             continue
 
@@ -349,7 +353,8 @@ def printd(d, filters=None, indent=2, level=1):
                     f"list of {len(v)} items: [{format_number(v[0])}, ..., {format_number(v[-1])}]"
                 )
             else:
-                print(f"list of {len(v)} items of type <{type(v[0]).__name__}>")
+                print(
+                    f"list of {len(v)} items of type <{type(v[0]).__name__}>")
 
         elif isinstance(v, tuple):
             if len(v) < 5:
@@ -379,7 +384,6 @@ def format_patch_shape(patch_size):
 
 
 def shell(command, log=None, verbosity=2):
-
     if verbosity == 2:
         logger.info(f">> {command}")
     elif verbosity == 1:
@@ -478,9 +482,9 @@ def factory(spec):
             args = get(spec, "args", {})
             for k in args.keys():
                 if (
-                    isinstance(args[k], str)
-                    and args[k][0] == "("
-                    and args[k][-1] == ")"
+                        isinstance(args[k], str)
+                        and args[k][0] == "("
+                        and args[k][-1] == ")"
                 ):
                     args[k] = eval(args[k])
             instance = cls(**args)
@@ -499,3 +503,10 @@ def factory(spec):
         raise ValueError("Model definition not supported!")
 
     return instance
+
+
+def standardize_keras_history(history):
+    return {"accuracy": {"training": history["accuracy"],
+                         "validation": history["val_accuracy"]},
+            "loss": {"training": history["loss"],
+                     "validation": history["val_loss"]}}

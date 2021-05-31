@@ -16,7 +16,7 @@ from loguru import logger
 # Internal libraries
 from helpers.results_data import ResultCache
 from helpers.plots import perf
-from helpers.utils import setup_logging
+from helpers.utils import setup_logging, standardize_keras_history
 from helpers.tf_helpers import disable_gpu, get_callbacks
 from workflows.scaling_factor import (
     ScalingFactorDataset,
@@ -26,6 +26,12 @@ from workflows.scaling_factor import (
     sf_plot,
     load_parameters
 )
+
+
+tf.debugging.experimental.enable_dump_debug_info(
+    '/home/govind/Workspace/neural-imaging-dev/outputs/sfp_gpu/tensorboard_logs',
+    tensor_debug_mode="FULL_HEALTH",
+    circular_buffer_size=-1)
 
 
 def main():
@@ -142,8 +148,7 @@ def main():
             val_rgb_patch_size=args.patch_size,
             **vars(args)
         )
-        for batch in data.data["training"]["y"]:
-            by = data.sample_patches(batch)
+
         train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
         val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
         options = tf.data.Options()
@@ -161,7 +166,9 @@ def main():
             validation_freq=args.validation_freq,
         )
         # save the training performance
-        fig = perf(train_performance.history)
+        history = standardize_keras_history(train_performance.history)
+        cache.save(history, step="performance")
+        fig = perf(history, alpha=1)
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
     # TODO Add calibration
