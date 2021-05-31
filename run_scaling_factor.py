@@ -168,7 +168,7 @@ def main():
         # save the training performance
         history = standardize_keras_history(train_performance.history)
         cache.save(history, step="performance")
-        fig = perf(history, alpha=1)
+        fig = perf(history, alpha=0.2)
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
     # TODO Add calibration
