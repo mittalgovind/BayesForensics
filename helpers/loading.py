@@ -303,13 +303,13 @@ def tf_sample_patch(
         found = 0
         panic_counter = max_attempts
 
-        while tf.math.eq(found, 0):
+        while tf.math.less(found, 1):
             # Sample a random patch - the number needs to be even to ensure proper Bayer alignment
             xx = 2 * randint(maxval=max_x2, seed=seed) if max_x > 0 else 0
             yy = 2 * randint(maxval=max_y2, seed=seed) if max_y > 0 else 0
 
             if not discard:
-                found = 1
+                found = 2
                 continue
 
             patch = tf.math.divide(rgb_image[yy: yy + rgb_patch_size,
@@ -322,12 +322,12 @@ def tf_sample_patch(
 
                 if patch_variance < 0.005:
                     panic_counter -= 1
-                    found = 0 if panic_counter > 0 else 1
+                    found = 0 if panic_counter > 0 else 2
                 elif patch_variance < 0.01:
-                    found = 1 if (tf.random.uniform(shape=(1,),
+                    found = 2 if (tf.random.uniform(shape=(1,),
                                                     seed=seed) > 0.5)[0] else 0
                 else:
-                    found = 1
+                    found = 2
 
             elif discard == "flat-aggressive":
 
@@ -336,16 +336,16 @@ def tf_sample_patch(
                             best_patch[-1]:
                         best_patch = (xx, yy, patch_variance)
                     panic_counter -= 1
-                    found = 0 if panic_counter > 0 else 1
+                    found = 0 if panic_counter > 0 else 2
                     if found:
                         xx, yy, patch_variance = best_patch
                 else:
-                    found = 1
+                    found = 2
 
             elif discard == "dark-n-textured":
 
                 if 0 < patch_variance < 0.005 and 0.35 < patch_intensity < 0.99:
-                    found = 1
+                    found = 2
                 else:
                     if panic_counter == max_attempts or (
                             patch_variance < 2 * best_patch[-1]
@@ -353,12 +353,12 @@ def tf_sample_patch(
                     ):
                         best_patch = (xx, yy, patch_intensity, patch_variance)
                     panic_counter -= 1
-                    found = 0 if panic_counter > 0 else 1
+                    found = 0 if panic_counter > 0 else 2
                     if found:
                         xx, yy, patch_intensity, patch_variance = best_patch
 
             elif discard is None:
-                found = 1
+                found = 2
 
             else:
                 raise ValueError(
