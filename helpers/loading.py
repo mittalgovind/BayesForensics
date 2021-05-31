@@ -302,7 +302,7 @@ def tf_sample_patch(
         found = 0
         panic_counter = max_attempts
 
-        while found is 0:
+        while found == 0:
             # Sample a random patch - the number needs to be even to ensure proper Bayer alignment
             xx = 2 * randint(maxval=max_x2, seed=seed) if max_x > 0 else 0
             yy = 2 * randint(maxval=max_y2, seed=seed) if max_y > 0 else 0
