@@ -285,6 +285,7 @@ def tf_sample_patch(
         rgb_shape=None, seed=10
 ):
     xx, yy = 0, 0
+    best_patch = tf.tuple((xx, yy, 0))
     if isinstance(discard, bytes):
         discard = discard.decode('utf-8')
 
@@ -302,7 +303,7 @@ def tf_sample_patch(
         found = 0
         panic_counter = max_attempts
 
-        while found == 0:
+        while tf.math.less(found, 1):
             # Sample a random patch - the number needs to be even to ensure proper Bayer alignment
             xx = 2 * randint(maxval=max_x2, seed=seed) if max_x > 0 else 0
             yy = 2 * randint(maxval=max_y2, seed=seed) if max_y > 0 else 0
