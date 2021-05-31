@@ -303,7 +303,7 @@ def tf_sample_patch(
         found = 0
         panic_counter = max_attempts
 
-        while tf.math.less(found, 1):
+        while tf.math.eq(found, 0):
             # Sample a random patch - the number needs to be even to ensure proper Bayer alignment
             xx = 2 * randint(maxval=max_x2, seed=seed) if max_x > 0 else 0
             yy = 2 * randint(maxval=max_y2, seed=seed) if max_y > 0 else 0
@@ -324,7 +324,8 @@ def tf_sample_patch(
                     panic_counter -= 1
                     found = 0 if panic_counter > 0 else 1
                 elif patch_variance < 0.01:
-                    found = 1 if (tf.random.uniform(shape=(1,)) > 0.5)[0] else 0
+                    found = 1 if (tf.random.uniform(shape=(1,),
+                                                    seed=seed) > 0.5)[0] else 0
                 else:
                     found = 1
 
