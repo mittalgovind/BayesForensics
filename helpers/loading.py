@@ -323,7 +323,8 @@ def tf_sample_patch(
                     panic_counter -= 1
                     found = 0 if panic_counter > 0 else 1
                 elif patch_variance < 0.01:
-                    found = 1 if (tf.random.uniform(shape=(1,)) > 0.5)[0] else 0
+                    found = 1 if (tf.random.uniform(shape=(1,),
+                                                    seed=seed) > 0.5)[0] else 0
                 else:
                     found = 1
 
