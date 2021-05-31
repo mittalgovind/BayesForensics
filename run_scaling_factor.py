@@ -28,12 +28,6 @@ from workflows.scaling_factor import (
 )
 
 
-tf.debugging.experimental.enable_dump_debug_info(
-    '/home/govind/Workspace/neural-imaging-dev/outputs/sfp_gpu/tensorboard_logs',
-    tensor_debug_mode="FULL_HEALTH",
-    circular_buffer_size=-1)
-
-
 def main():
     setup_logging()
     args = parse_args()
