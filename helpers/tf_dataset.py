@@ -110,11 +110,7 @@ class Dataset(object):
 
         # Preparing training data
         if preloaded_rgb_train_data is not None:
-            self.data["training"]['y'] = tf.math.divide(
-                preloaded_rgb_train_data, (2 ** 8 - 1))
-            self.batched_data_train = tf.data.Dataset.from_tensor_slices(
-                self.data["training"]['y']).batch(batch_size,
-                                                  drop_remainder=True)
+            self.data["training"]['y'] = preloaded_rgb_train_data
             self.preloading_train = 1
 
         elif presample_epochs != 0:
@@ -134,8 +130,7 @@ class Dataset(object):
 
         # Prepare validation data
         if preloaded_rgb_val_data is not None:
-            self.data["validation"]['y'] = tf.math.divide(
-                preloaded_rgb_val_data, (2 ** 8 - 1))
+            self.data["validation"]['y'] = preloaded_rgb_val_data
         else:
             self.data["validation"] = loading.load_patches(
                 self.files["validation"],
