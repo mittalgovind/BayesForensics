@@ -71,7 +71,7 @@ def main():
 
     # Prepare model with mirrored strategy.
     with strategy.scope():
-        model = JPEGDoubleCompression(**vars(args.parameters), **vars(args))
+        model = JPEGDoubleCompression(**args.parameters, **vars(args))
         optimizer = tf.keras.optimizers.Adam(args.lr)
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True)
