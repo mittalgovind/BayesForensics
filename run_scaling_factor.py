@@ -100,18 +100,7 @@ def main():
         )
         model.load_model(os.path.abspath(args.load_model))
     else:
-        save_freq = args.save_every * args.n_train_images // args.batch_size
-        callbacks = get_callbacks(
-            args.save_dir,
-            model_name=model.model_filename,
-            save_freq=save_freq,
-            tensorboard=args.tensorboard,
-            patience=int(args.epochs * args.patience_percent),
-            verbose=args.verbose,
-            update_freq=args.validation_freq
-        )
-
-        # load presampled validation data
+        # load presampled training data
         if args.use_presampled:
             train_n_patches = 25
             loaded_train_data = np.load(
@@ -121,7 +110,6 @@ def main():
             loaded_train_data = None
             train_n_patches = 1
 
-        # Data pipeline prep
         data = ScalingFactorDataset(
             load="y",
             n_images=args.n_train_images,
@@ -134,12 +122,25 @@ def main():
             **vars(args)
         )
 
+        # Data pipeline prep
         train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
         val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
         options = tf.data.Options()
         options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
         train_data = train_data.with_options(options)
         val_data = val_data.with_options(options)
+
+        # get callbacks using options
+        save_freq = args.save_every * args.n_train_images // args.batch_size
+        callbacks = get_callbacks(
+            args.save_dir,
+            model_name=model.model_filename,
+            save_freq=save_freq,
+            tensorboard=args.tensorboard,
+            patience=int(args.epochs * args.patience_percent),
+            verbose=args.verbose,
+            update_freq=args.validation_freq
+        )
 
         # Start training
         train_performance = model._model.fit(

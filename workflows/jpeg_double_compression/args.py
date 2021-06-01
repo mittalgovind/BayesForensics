@@ -36,7 +36,7 @@ def parse_args():
         default="75,100",
         type=str,
         help="Comma separated values for lower and upper bound of Quality "
-             "factor used for training, e.g. '75,100'",
+             "factor and step used for training, e.g. '75,100' or '75,95,5'",
     )
     parser.add_argument(
         "--qf-test",
@@ -45,7 +45,7 @@ def parse_args():
         default="60,100",
         type=str,
         help="Comma separated values for lower and upper bound of Quality "
-             "factor used for testing, e.g. '60,100'",
+             "factor and step used for training, e.g. '60,100' or '60,95,5'",
     )
     parser.add_argument(
         "--codec",

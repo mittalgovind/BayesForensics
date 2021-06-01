@@ -93,18 +93,14 @@ class ScalingFactor(BayesBaseModel):
                     "prelu", str, set(activation_mapping.keys())),
                 "pool_size": (2, int, (1, 4)),
                 "dense_units": (200, int, (100, 400))
-
             }
         )
         params = locals()
         self._h.update(**{k: params[k] for k in self._h.keys()})
-        self._layers = list()
-        self.optimizer = tf.keras.optimizers.Adam()
-        self.loss = tf.keras.losses.SparseCategoricalCrossentropy()
         self.performance = dict()
-        self.patch_size = patch_size
         self.channels = channels
         self.n_models = num_models
+        # Needs to be called as the last line in the subclass.
         self.create_model()
 
     def _create_model(self):
@@ -152,9 +148,7 @@ class ScalingFactor(BayesBaseModel):
                     layers[i].append(self.dropout(self._h.dense_dropout))
 
             # final classification head
-            layers[i].append(
-                tf.keras.layers.Dense(self._h.n_classes, activation=None)
-            )
+            layers[i].append(self.dense(self._h.n_classes, activation=None))
 
         inputs = Input(shape=(None, None, self.channels))
         outputs_list = []

@@ -14,6 +14,7 @@ import pywt
 
 # Internal libraries
 from helpers.tf_dataset import Dataset
+from helpers.loading import randint
 
 
 class DoubleCompressionDataset(Dataset):
@@ -36,46 +37,53 @@ class DoubleCompressionDataset(Dataset):
         qf_test = qf_test.split(",")
 
         if len(qf_train) == 2:
-            self.qf_train = (int(qf_train[0]), int(qf_train[1]))
+            qf_train = (int(qf_train[0]), int(qf_train[1]))
         elif len(qf_train) == 3:
-            self.qf_train = (int(qf_train[0]), int(qf_train[1]),
-                             int(qf_train[2]))
+            qf_train = (int(qf_train[0]), int(qf_train[1]), int(qf_train[2]))
         else:
             logger.error("Invalid training quality factor range")
+        self.qf_train = tf.convert_to_tensor(np.arange(*qf_train))
+        self.len_qf_train = len(self.qf_train)
 
         if len(qf_test) == 2:
-            self.qf_test = (int(qf_test[0]), int(qf_test[1]))
+            qf_test = (int(qf_test[0]), int(qf_test[1]))
         elif len(qf_test) == 3:
-            self.qf_test = (int(qf_test[0]), int(qf_test[1]),
-                            int(qf_test[2]))
+            qf_test = (int(qf_test[0]), int(qf_test[1]), int(qf_test[2]))
         else:
             logger.error("Invalid testing quality factor range")
+        self.qf_test = tf.convert_to_tensor(np.arange(*qf_test))
+        self.len_qf_test = len(self.qf_train)
+
         self.codec = codec
         self.eval_mode = False
+        self.channels = 3
         if calc_pywt_residual:
             self.extract_pywt_residual()
+            self.channels = 6
 
     def preprocess_batch(self, batch, **kwargs):
-        batch_size = len(batch)
-
         if not self.eval_mode:
             # sample quality factors
-            QF1 = int(np.random.choice(np.arange(*self.qf_train)))
-            QF2 = int(np.random.choice(np.arange(*self.qf_train)))
+            QF1 = self.qf_train[randint(maxval=self.len_qf_train,
+                                        seed=self.seed)]
+            QF2 = self.qf_train[randint(maxval=self.len_qf_train,
+                                        seed=self.seed)]
             while QF1 == QF2:
-                QF2 = int(np.random.choice(np.arange(*self.qf_train)))
+                QF2 = self.qf_train[randint(maxval=self.len_qf_train,
+                                            seed=self.seed)]
         else:
             QF1 = int(kwargs["QF1"])
             QF2 = int(kwargs["QF2"])
 
         batch_single_compressed = self.codec.process(batch, QF2)
-
         # compressing with QF1 before QF2, to give compression history.
         batch_double_compressed = self.codec.process(
             self.codec.process(batch, QF1), QF2)
         images = tf.concat((batch_single_compressed, batch_double_compressed),
                            axis=0)
-        labels = tf.concat((tf.zeros(batch_size), tf.ones(batch_size)), axis=0)
+
+        labels = tf.concat((tf.zeros(self.batch_size),
+                            tf.ones(self.batch_size)), axis=0)
 
         return images, labels
 
@@ -153,63 +161,39 @@ class DoubleCompressionDataset(Dataset):
     def set_eval_mode(self):
         self.eval_mode = True
 
-    def get_training_generator(self, batch_size, patch_size, discard="flat",
-                               **kwargs):
-        """
-        Get a generator for training data. Can be used to construct a data pipeline:
-
-        dp = tf.data.Dataset.from_generator(lambda: data.get_training_generator(batch_size, rgb_patch_size, discard),
-            output_types=len(self._loaded_data) * (tf.float32, ))
-        """
-        for batch in self.batched_data_train:
-            images, labels = self.preprocess_batch(batch, **kwargs)
-            yield images, labels
-
-    def get_validation_generator(self, batch_size, **kwargs):
-        """
-        Get a generator for validation data. Can be used to construct a data pipeline:
-
-        dp = tf.data.Dataset.from_generator(lambda: data.get_validation_generator(batch_size),
-            output_types=len(self._loaded_data) * (tf.float32, ))
-        """
-        for batch in self.batched_data_val:
-            images, labels = self.preprocess_batch(batch, **kwargs)
-            yield images, labels
-
-    def get_training_pipeline(self, batch_size, rgb_patch_size,
-                              discard="flat"):
-
+    def get_training_pipeline(self, discard="flat"):
         return tf.data.Dataset.from_generator(
             self.get_training_generator,
-            args=(batch_size, rgb_patch_size, discard),
+            args=(discard,),
             output_signature=(
                 tf.TensorSpec(
-                    shape=(batch_size * 2, rgb_patch_size, rgb_patch_size, 3),
+                    shape=(self.batch_size * 2, self.train_rgb_patch_size,
+                           self.train_image_shape_rgb, self.channels),
                     dtype=tf.float32),
-                tf.TensorSpec(shape=batch_size * 2, dtype=tf.float32)
+                tf.TensorSpec(shape=self.batch_size * 2, dtype=tf.float32)
             )
         )
 
-    def get_validation_pipeline(self, batch_size):
+    def get_validation_pipeline(self):
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
-            args=(batch_size,),
             output_signature=(
                 tf.TensorSpec(shape=(
-                    batch_size * 2, self.patch_size, self.patch_size, 3),
+                    self.batch_size * 2, self.valid_patch_size_rgb,
+                    self.valid_patch_size_rgb, self.channels),
                     dtype=tf.float32),
-                tf.TensorSpec(shape=batch_size * 2, dtype=tf.float32)
+                tf.TensorSpec(shape=self.batch_size * 2, dtype=tf.float32)
             )
         )
 
-    def get_calibration_pipeline(self, batch_size):
+    def get_calibration_pipeline(self):
         return tf.data.Dataset.from_generator(
             self.get_calibration_generator,
-            args=(batch_size,),
             output_signature=(
                 tf.TensorSpec(shape=(
-                    batch_size * 2, self.patch_size, self.patch_size, 3),
+                    self.batch_size * 2, self.calib_patch_size_rgb,
+                    self.calib_patch_size_rgb, self.channels),
                     dtype=tf.float32),
-                tf.TensorSpec(shape=batch_size * 2, dtype=tf.float32)
+                tf.TensorSpec(shape=self.batch_size * 2, dtype=tf.float32)
             )
         )

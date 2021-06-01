@@ -238,6 +238,7 @@ class Dataset(object):
 
     @property
     def train_image_shape_rgb(self):
+        """returns shape - (patch_size, patch_size, channels)"""
         if "y" in self._loaded_data:
             image_shape = self.data['training']['y'].element_spec.shape
         else:
@@ -370,7 +371,7 @@ class Dataset(object):
             yield images, labels
 
     def get_training_pipeline(self, discard="flat"):
-        """training pipeline. override for giving correct shape for labels"""
+        """training pipeline. override for giving correct shape for batch."""
         types = (
             tf.float32, tf.float32) if self.is_raw_and_rgb() else tf.float32
         shapes = (
@@ -387,14 +388,14 @@ class Dataset(object):
         )
 
     def get_validation_pipeline(self):
-        """validation pipeline. override for giving correct shape for labels"""
+        """validation pipeline. override for giving correct shape for batch."""
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
             output_types=len(self._loaded_data) * (tf.float32,),
         )
 
     def get_calibration_pipeline(self):
-        """calibration pipeline. override for giving correct shape for labels"""
+        """calibration pipeline. override for giving correct shape for batch"""
         return tf.data.Dataset.from_generator(
             self.get_calibration_generator,
             output_types=len(self._loaded_data) * (tf.float32,),
