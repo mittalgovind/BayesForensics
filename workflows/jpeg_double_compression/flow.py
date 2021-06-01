@@ -9,7 +9,6 @@
 # External libraries
 from abc import ABC
 import tensorflow as tf
-
 from tensorflow.keras.layers import Input, MaxPool2D
 
 # Internal libraries
@@ -21,25 +20,25 @@ from helpers.tf_helpers import activation_mapping
 
 class JPEGDoubleCompression(BayesBaseModel, ABC):
     def __init__(
-        self,
-        conv_layers,
-        dense_layers,
-        filters,
-        dense_units,
-        pool_size,
-        kernel,
-        dense_multiplier,
-        filter_multiplier,
-        use_bn=True,
-        activation="leaky_relu",
-        trainable_residual=True,
-        dense_dropout=0.0,
-        conv_dropout=0.0,
-        conv_dropout_after=2,
-        residual_type="trainable",
-        patch_size=64,
-        num_models=1,
-        **kwargs
+            self,
+            conv_layers,
+            dense_layers,
+            filters,
+            dense_units,
+            pool_size,
+            kernel,
+            dense_multiplier,
+            filter_multiplier,
+            use_bn=True,
+            activation="leaky_relu",
+            trainable_residual=True,
+            dense_dropout=0.0,
+            conv_dropout=0.0,
+            conv_dropout_after=2,
+            residual_type="trainable",
+            patch_size=64,
+            num_models=1,
+            **kwargs
     ):
         """
         c_filters: int
@@ -53,7 +52,8 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         trainable_residual: bool
             flag to make the residual trainable (see layers.ConstrainedConv2D)
         """
-        super().__init__(activation=activation, drop_rate=dense_dropout, **kwargs)
+        super().__init__(activation=activation, drop_rate=dense_dropout,
+                         **kwargs)
 
         # Set-up and validate hyper-parameters
         self._h = ParamSpec(
@@ -108,11 +108,11 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
                                            padding='same',
                                            activation=self.activation))
                 if self._h.use_bn:
-                    layers[i].append(tf.keras.layers.BatchNormalization())
+                    layers[j].append(tf.keras.layers.BatchNormalization())
                 if self._h.conv_dropout > 0 and i + 1 >= self._h.conv_dropout_after:
-                    layers[i].append(
+                    layers[j].append(
                         tf.keras.layers.SpatialDropout2D(self._h.conv_dropout))
-                layers[i].append(tf.keras.layers.MaxPool2D(self._h.pool_size))
+                layers[j].append(tf.keras.layers.MaxPool2D(self._h.pool_size))
                 filters = int(filters * self._h.filter_multiplier)
 
             layers[j].append(
@@ -153,3 +153,4 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             outputs_list = outputs_list[0]
 
         self._model = tf.keras.models.Model(inputs, outputs_list)
+

@@ -13,7 +13,6 @@ import tensorflow as tf
 from loguru import logger
 
 # Internal libraries
-from models.jpeg import JPEG
 from helpers.results_data import ResultCache
 from helpers.plots import perf
 from helpers.utils import setup_logging
@@ -23,6 +22,7 @@ from workflows.jpeg_double_compression import (
     parse_args,
     validate,
     JPEGDoubleCompression,
+    TFJPEG,
     load_parameters,
     qf_plot,
 )
@@ -64,7 +64,7 @@ def main():
 
     # initializations
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
-    args.codec = JPEG(codec=args.codec)
+    args.codec = TFJPEG(codec=args.codec)
     strategy = tf.distribute.MirroredStrategy()
     logger.info(
         'Number of devices: {}'.format(strategy.num_replicas_in_sync))

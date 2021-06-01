@@ -10,7 +10,6 @@ import os
 # External Libraries
 import tensorflow as tf
 from loguru import logger
-import numpy as np
 
 # Internal Libraries
 from helpers import loading
