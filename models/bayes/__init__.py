@@ -12,3 +12,6 @@
 
 from models.bayes.base import BayesBaseModel
 from models.bayes.deep_ensemble import DeepEnsemble
+from models.bayes.temp_scaling import TemperatureScaling
+
+

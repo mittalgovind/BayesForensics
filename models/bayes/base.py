@@ -83,6 +83,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             self.dropout = tf.keras.layers.Dropout
             self.dense = tf.keras.layers.Dense
 
+        self.temperature = 1.0
 
     def create_model(self):
         """Top-level model creator and corresponding modifier."""
