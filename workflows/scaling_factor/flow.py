@@ -27,7 +27,6 @@ class ScalingFactor(BayesBaseModel):
 
     def __init__(
             self,
-            uncertainty_method,
             n_classes,
             patch_size=None,
             filters=32,
@@ -74,8 +73,7 @@ class ScalingFactor(BayesBaseModel):
             activation function.
             (see helpers.tf_helpers.activation_mapping for more activations).
         """
-        super().__init__(method=uncertainty_method, activation=activation,
-                         **kwargs)
+        super().__init__(activation=activation, **kwargs)
 
         # Set-up and validate hyper-parameters
         self._h = ParamSpec(
@@ -100,9 +98,7 @@ class ScalingFactor(BayesBaseModel):
         )
         params = locals()
         self._h.update(**{k: params[k] for k in self._h.keys()})
-        self.activation = activation_mapping[self._h.activation]
         self._layers = list()
-
         self.optimizer = tf.keras.optimizers.Adam()
         self.loss = tf.keras.losses.SparseCategoricalCrossentropy()
         self.performance = dict()

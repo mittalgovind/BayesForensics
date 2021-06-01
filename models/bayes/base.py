@@ -35,7 +35,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
 
     def __init__(
             self,
-            method: str,
+            uncertainty_method: str,
             activation: str,
             drop_rate=0.5,
             mc_num_samples=50,
@@ -56,24 +56,24 @@ class BayesBaseModel(TFModel, TemperatureScaling):
 
         self.mc_num_samples = mc_num_samples
         self.drop_rate = min(max(drop_rate, 0.0), 1.0)
-        self.method = method.lower()
+        self.uncertainty_method = uncertainty_method.lower()
         self.activation = tfh.activation_mapping[activation]
 
         # hard-coded to False, because model will need to be created.
         self.model_created = False
 
         # Depending on method, Conv2D, Dense and Dropout layers are chosen.
-        if "mc" in method:
+        if "mc" in uncertainty_method:
             self.conv2d = PaddedConv2D
             self.dropout = MCDropoutLayer
             self.dense = tf.keras.layers.Dense
 
-        elif method == "flipout":
+        elif uncertainty_method == "flipout":
             self.conv2d = tfp.layers.Convolution2DFlipout
             self.dropout = tf.keras.layers.Dropout
             self.dense = tfp.layers.DenseFlipout
 
-        elif method == "reparameterization":
+        elif uncertainty_method == "reparameterization":
             self.conv2d = tfp.layers.Convolution2DReparameterization
             self.dropout = tf.keras.layers.Dropout
             self.dense = tfp.layers.DenseReparameterization
@@ -90,12 +90,9 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         # store the vanilla model definition in self._model
         try:
             self._create_model()
-            # n_parameters = self.count_parameters()
         except RuntimeError:
             logger.error("Model creation FAILED.")
         self.model_created = True
-        # logger.info("Model created successfully. Number of parameters "
-        #             "in the model = {}".format(n_parameters))
         logger.info("Layers : {}".format(self._model.layers))
 
     @abstractmethod

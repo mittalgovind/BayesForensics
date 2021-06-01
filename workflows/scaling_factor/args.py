@@ -30,6 +30,15 @@ def parse_args():
              "Can be 'nearest', 'bilinear', 'bicubic', 'lanczos3' or 'random'",
     )
     parser.add_argument(
+        "-um",
+        "--uncertainty-method",
+        action="store",
+        default="vanilla",
+        type=str,
+        help="Uncertainty method. Can be 'vanilla', 'mc-dropout',"
+             "'temp-scaling', 'mc-temp', 'flipout', 'reparameterization'.",
+    )
+    parser.add_argument(
         "-s",
         "--scales",
         dest="scales",
@@ -100,15 +109,6 @@ def parse_args():
         default=10,
         type=int,
         help="Number of test runs per image in validation set",
-    )
-    parser.add_argument(
-        "-um",
-        "--uncertainty-method",
-        action="store",
-        default="vanilla",
-        type=str,
-        help="Uncertainty method. Can be 'vanilla', 'mc-dropout',"
-             "'temp-scaling', 'mc-temp', 'flipout', 'reparameterization'.",
     )
     parser.add_argument(
         "--seed",
