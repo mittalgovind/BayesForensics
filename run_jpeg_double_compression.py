@@ -18,14 +18,13 @@ from loguru import logger
 from models.jpeg import JPEG
 from helpers.results_data import ResultCache
 from helpers.plots import perf
-from helpers.utils import setup_logging
+from helpers.utils import setup_logging, standardize_keras_history
 from helpers.tf_helpers import disable_gpu, get_callbacks
 from workflows.jpeg_double_compression import (
     DoubleCompressionDataset,
     parse_args,
     validate,
     JPEGDoubleCompression,
-    EnsembleJPEGDoubleCompression,
     load_parameters,
     qf_plot,
 )
@@ -46,15 +45,14 @@ def main():
     uncertainty_method = args.uncertainty_method
     num_models = args.num_models
     if args.num_models > 1 and args.uncertainty_method != "ensemble":
-        logger.warning("Number of models is greater than 1 but uncertainty method is not ensemble. " +
-                       "Setting uncertainty method to ensemble.")
-
+        logger.warning("Number of models is greater than 1 but uncertainty "
+                       "method is not ensemble. Setting it to ensemble.")
         uncertainty_method = "ensemble"
 
     elif args.num_models == 1 and args.uncertainty_method == "ensemble":
-        logger.warning("Uncertainty method is ensemble but number of models is 1. Setting number of models to 5.")
-
-        num_models = 5
+        logger.warning("Uncertainty method is ensemble but number of models is"
+                       " 1. Setting number of models to 5.")
+        args.num_models = 5
 
     # Change json to npz
     if os.path.isdir(os.path.abspath(args.save_dir)):
@@ -68,11 +66,24 @@ def main():
     else:
         os.mkdir(args.save_dir)
 
+    # initializations
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
+    strategy = tf.distribute.MirroredStrategy()
+    logger.info(
+        'Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
-    # preloaded_rgb_train_data = np.load(
-    #     os.path.join(args.use_presampled, 'data/rgb/native12k_1M_1.npy'))[
-    #              :512 * args.n_train_images]
+    # Prepare model with mirrored strategy.
+    with strategy.scope():
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True)
+        optimizer = tf.keras.optimizers.Adam(args.lr)
+        model = JPEGDoubleCompression(
+            method=uncertainty_method,
+            **args.parameters,
+        )
+        model._model.compile(optimizer, loss=loss_criterion,
+                                 metrics=["accuracy"])
+
     data_val = np.load(
         os.path.join(args.use_presampled, 'data/rgb/native12k_20k_val.npy'))[
                :20 * args.n_val_images]
@@ -106,17 +117,7 @@ def main():
         'Number of devices: {}'.format(strategy.num_replicas_in_sync))
     # Open a strategy scope.
     with strategy.scope():
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True)
-        optimizer = tf.keras.optimizers.Adam(args.lr)
-        model = JPEGDoubleCompression(
-            num_models=num_models,
-            method=uncertainty_method,
-            patch_size=args.patch_size,
-            **args.parameters,
-        )
-        model._model.compile(optimizer, loss=loss_criterion,
-                                 metrics=["accuracy"])
+
 
 
     if args.load_model:

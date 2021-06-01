@@ -5,7 +5,6 @@
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
-import sys
 import os
 
 # External libraries
@@ -16,7 +15,7 @@ from loguru import logger
 # Internal libraries
 from helpers.results_data import ResultCache
 from helpers.plots import perf
-from helpers.utils import setup_logging, standardize_keras_history
+from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu, get_callbacks
 from workflows.scaling_factor import (
     ScalingFactorDataset,
@@ -40,17 +39,14 @@ def main():
         physical_devices = tf.config.list_physical_devices("GPU")
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-    uncertainty_method = args.uncertainty_method
     if args.num_models > 1 and args.uncertainty_method != "ensemble":
         logger.warning("Number of models is greater than 1 but uncertainty "
                        "method is not ensemble. Setting it to ensemble mode.")
-
-        uncertainty_method = "ensemble"
+        args.uncertainty_method = "ensemble"
 
     elif args.num_models == 1 and args.uncertainty_method == "ensemble":
         logger.warning("Uncertainty method is ensemble but number of models is"
                        " 1. Setting number of models to 5.")
-
         args.num_models = 5
 
     # Check for saving directory
@@ -74,12 +70,7 @@ def main():
 
     # Prepare model with mirrored strategy.
     with strategy.scope():
-        model = ScalingFactor(
-            uncertainty_method=args.uncertainty_method,
-            n_classes=args.n_classes,
-            patch_size=args.patch_size,
-            **args.parameters
-        )
+        model = ScalingFactor(**vars(args), **vars(args.parameters))
         optimizer = tf.keras.optimizers.Adam(args.lr)
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True)
@@ -160,9 +151,10 @@ def main():
             validation_freq=args.validation_freq,
         )
         # save the training performance
-        history = standardize_keras_history(train_performance.history)
+        history = train_performance.history
         cache.save(history, step="performance")
-        fig = perf(history, alpha=0.2)
+
+        fig = perf(history, alpha=0.1)
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
     # TODO Add calibration
@@ -172,7 +164,7 @@ def main():
     logger.info("Started Testing")
     tests_summary, conf_matrix = validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
-        uncertainty_method=uncertainty_method, num_runs=args.num_runs
+        uncertainty_method=args.uncertainty_method, num_runs=args.num_runs
     )
 
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(),
