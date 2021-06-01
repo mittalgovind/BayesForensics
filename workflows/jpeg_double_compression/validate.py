@@ -15,7 +15,8 @@ from loguru import logger
 
 # Internal libraries
 from helpers.utils import progress_bar
-from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, mutual_information
+from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, \
+    mutual_information
 
 
 def validate(model, data, batch_size, cache, num_runs):
@@ -31,10 +32,7 @@ def validate(model, data, batch_size, cache, num_runs):
     cache
     """
     data.set_eval_mode()
-    q_factors = np.arange(*data.qf_test)
-    n_batches = data.count_validation // batch_size
-    accuracies = 0
-
+    q_factors = np.array(data.qf_test)
     accuracies = np.zeros((len(q_factors), len(q_factors)))
     sizes = np.zeros((len(q_factors), len(q_factors)))
 
@@ -42,36 +40,34 @@ def validate(model, data, batch_size, cache, num_runs):
     if cache:
         try:
             performance = cache.load()
-            performance["loss"]["validation"] = []
-            performance["accuracy"]["validation"] = []
+            performance["accuracy"]["testing"] = []
         except:
             performance = {"loss": {"validation": []},
                            "accuracy": {"validation": []}}
             logger.warning(
-                "performance cache from training could not be loaded. Making a new one."
+                "performance cache from training could not be loaded."
+                " Making a new one."
             )
 
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
         qf1_ind, qf2_ind = np.where(np.isclose(q_factors, QF1))[0][0], \
                            np.where(np.isclose(q_factors, QF2))[0][0]
         QF1, QF2 = int(QF1), int(QF2)
-        for batch_id in range(n_batches):
-            batch = data.next_validation_batch(batch_id, batch_size)
-            images, labels = data.preprocess_batch(batch, QF1=QF1, QF2=QF2)
-            labels = tf.cast(labels, dtype=tf.int64)
-
-            if model.method == "vanilla":
+        for images, labels in data.get_validation_generator(QF1=QF1, QF2=QF2):
+            labels = np.array(labels.astype(int))
+            if model.uncertainty_method == "vanilla":
                 logits = model(images, training=False) / model.temperature
                 predictions = logits.numpy().argmax(axis=1)
 
             else:
-                if model.method == "ensemble":
-                    logits = model(images, training=False) / model.temperature
+                if model.uncertainty_method == "ensemble":
+                    logits = (model(images, training=False) /
+                              model.temperature).numpy()
 
                 else:
-                    logits = tf.convert_to_tensor(
-                        [model(images, training=False) for _ in
-                         range(len(num_runs))])
+                    logits = np.array(
+                        [model(images, training=False) / model.temperature
+                         for _ in range(num_runs)])
 
                 predictions = tf.squeeze(get_pred(logits))
                 print(predictions, labels)
