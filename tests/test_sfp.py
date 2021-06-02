@@ -68,11 +68,13 @@ def model_ens():
 def test_dataset(dataset_nojpeg, dataset_jpeg):
     for data in [dataset_nojpeg, dataset_jpeg]:
         for images, labels in data.get_validation_generator(sf=SF):
-            print(type(images), type(labels))
             assert tf.is_tensor(images) or isinstance(images, np.ndarray)
             assert tf.is_tensor(labels) or isinstance(labels, np.ndarray)
 
             assert images.shape[0] == labels.shape[0]
             assert images.shape[1] == int(SF * PATCH_SIZE)
             assert images.shape[2] == int(SF * PATCH_SIZE)
-        print('***')
+
+
+def test_model(model_mcd, model_ens):
+    pass
