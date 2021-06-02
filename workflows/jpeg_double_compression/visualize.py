@@ -16,9 +16,9 @@ import helpers.plots as plots
 
 def qf_plot(qf, accuracies, save_dir):
     """plotting function for confusion matrix between quality factors"""
-    q_factors = np.array(*qf)
-    n_factors = len(q_factors)
-    step = max(q_factors[1] - q_factors[0], 5)
+    qf = np.array(qf)
+    n_factors = len(qf)
+    step = max(qf[1] - qf[0], 5)
     if n_factors < 0:
         raise ValueError("Specify correct range of QF.")
 
@@ -29,10 +29,10 @@ def qf_plot(qf, accuracies, save_dir):
     )
 
     axes[0].set_xticks(range(0, n_factors, step))
-    axes[0].set_xticklabels(q_factors[::step])
+    axes[0].set_xticklabels(qf[::step])
 
     axes[0].set_yticks(range(0, n_factors, step))
-    axes[0].set_yticklabels(q_factors[::step])
+    axes[0].set_yticklabels(qf[::step])
 
     axes[0].set_ylabel("$Q_1$")
     axes[0].set_xlabel("$Q_2$")

@@ -32,7 +32,7 @@ def validate(model, data, batch_size, cache, num_runs):
     cache
     """
     data.set_eval_mode()
-    q_factors = np.array(data.qf_test)
+    q_factors = data.qf_test
     accuracies = np.zeros((len(q_factors), len(q_factors)))
     sizes = np.zeros((len(q_factors), len(q_factors)))
 
@@ -52,9 +52,8 @@ def validate(model, data, batch_size, cache, num_runs):
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
         qf1_ind, qf2_ind = np.where(np.isclose(q_factors, QF1))[0][0], \
                            np.where(np.isclose(q_factors, QF2))[0][0]
-        QF1, QF2 = int(QF1), int(QF2)
-        for images, labels in data.get_validation_generator(QF1=QF1, QF2=QF2):
-            labels = np.array(labels.astype(int))
+        for images, labels in data.get_training_generator(QF1=QF1, QF2=QF2):
+            labels = labels.numpy()
             if model.uncertainty_method == "vanilla":
                 logits = model(images, training=False) / model.temperature
                 predictions = logits.numpy().argmax(axis=1)

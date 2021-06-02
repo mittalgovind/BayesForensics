@@ -72,8 +72,8 @@ class DoubleCompressionDataset(Dataset):
                 QF2 = self.qf_train[randint(maxval=self.len_qf_train,
                                             seed=self.seed)]
         else:
-            QF1 = int(kwargs["QF1"])
-            QF2 = int(kwargs["QF2"])
+            QF1 = kwargs["QF1"]
+            QF2 = kwargs["QF2"]
 
         batch_single_compressed = self.codec.process(batch, QF2)
         # compressing with QF1 before QF2, to give compression history.
