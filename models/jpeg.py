@@ -151,6 +151,7 @@ class DifferentiableJPEG(tf.keras.Model):
         self.quantization = Quantization(
             self.rounding_approximation, self.rounding_approximation_steps, latent_bpf=9
         )
+        self._paddings = tf.constant([[0, 0], [0, 0], [0, 0], [1, 0]])
 
     def call(self, inputs):
         block_size = 8
@@ -160,12 +161,12 @@ class DifferentiableJPEG(tf.keras.Model):
             # Color conversion (RGB -> YCbCr)
             with tf.name_scope("rgb_to_ycbcr"):
 
-                xc = tf.pad(
-                    255.0 * inputs,
-                    [[0, 0], [0, 0], [0, 0], [1, 0]],
+                xc = tf.cast(tf.pad(
+                    255 * inputs,
+                    self._paddings,
                     "CONSTANT",
                     constant_values=1,
-                )
+                ), dtype=tf.float32)
                 ycbcr = tf.nn.conv2d(
                     xc,
                     tf.reshape(tf.transpose(self._color_F), [1, 1, 4, 3]),
@@ -218,6 +219,7 @@ class DifferentiableJPEG(tf.keras.Model):
                 )
                 Q = tf.concat((Ql, Qc), axis=0)
                 Q = tf.tile(Q, [(tf.shape(inputs)[0]), 1, 1])
+                Q = tf.cast(Q, tf.float32)
                 X = X / Q
                 X = self.quantization(X)
                 X = X * Q
@@ -264,7 +266,7 @@ class DifferentiableJPEG(tf.keras.Model):
             with tf.name_scope("ycbcr_to_rgb"):
                 qc = tf.pad(
                     q + 127,
-                    [[0, 0], [0, 0], [0, 0], [1, 0]],
+                    self._paddings,
                     "CONSTANT",
                     constant_values=1,
                 )

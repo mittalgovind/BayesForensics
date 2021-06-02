@@ -10,7 +10,6 @@ import os
 # External Libraries
 import tensorflow as tf
 from loguru import logger
-import numpy as np
 
 # Internal Libraries
 from helpers import loading
@@ -37,7 +36,6 @@ class Dataset(object):
             val_rgb_patch_size=128,
             val_n_patches=1,
             val_discard="flat-aggressive",
-            c_images=50,
             batch_size=64,
             calibrate=False,
             **kwargs
@@ -77,7 +75,7 @@ class Dataset(object):
             train_n_patches = presample_epochs
 
         # Initializations
-        c_images = c_images if calibrate else 0
+        c_images = v_images if calibrate else 0
         self.data = {"training": {}, "validation": {}, "calibration": {}}
         self.files = {}
         self.batch_size = batch_size

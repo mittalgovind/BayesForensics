@@ -52,7 +52,7 @@ class DoubleCompressionDataset(Dataset):
         else:
             logger.error("Invalid testing quality factor range")
         self.qf_test = tf.convert_to_tensor(np.arange(*qf_test))
-        self.len_qf_test = len(self.qf_train)
+        self.len_qf_test = len(self.qf_test)
 
         self.codec = codec
         self.eval_mode = False
@@ -72,8 +72,8 @@ class DoubleCompressionDataset(Dataset):
                 QF2 = self.qf_train[randint(maxval=self.len_qf_train,
                                             seed=self.seed)]
         else:
-            QF1 = int(kwargs["QF1"])
-            QF2 = int(kwargs["QF2"])
+            QF1 = kwargs["QF1"]
+            QF2 = kwargs["QF2"]
 
         batch_single_compressed = self.codec.process(batch, QF2)
         # compressing with QF1 before QF2, to give compression history.
@@ -168,7 +168,7 @@ class DoubleCompressionDataset(Dataset):
             output_signature=(
                 tf.TensorSpec(
                     shape=(self.batch_size * 2, self.train_rgb_patch_size,
-                           self.train_image_shape_rgb, self.channels),
+                           self.train_rgb_patch_size, self.channels),
                     dtype=tf.float32),
                 tf.TensorSpec(shape=self.batch_size * 2, dtype=tf.float32)
             )

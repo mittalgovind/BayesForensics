@@ -158,9 +158,8 @@ def main():
         fig = perf(history, alpha=0.1)
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
-    # TODO Add calibration
-    # if args.calibrate:
-    #     model.set_temp(data)
+    if args.calibrate:
+        model.set_temp(data)
 
     logger.info("Started Testing")
     tests_summary, conf_matrix = validate(

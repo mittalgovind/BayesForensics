@@ -13,7 +13,6 @@ import tensorflow as tf
 from loguru import logger
 
 # Internal libraries
-from models.jpeg import JPEG
 from helpers.results_data import ResultCache
 from helpers.plots import perf
 from helpers.utils import setup_logging
@@ -23,6 +22,7 @@ from workflows.jpeg_double_compression import (
     parse_args,
     validate,
     JPEGDoubleCompression,
+    TFJPEG,
     load_parameters,
     qf_plot,
 )
@@ -64,7 +64,7 @@ def main():
 
     # initializations
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
-    args.codec = JPEG(codec=args.codec)
+    args.codec = TFJPEG(codec=args.codec)
     strategy = tf.distribute.MirroredStrategy()
     logger.info(
         'Number of devices: {}'.format(strategy.num_replicas_in_sync))
@@ -92,7 +92,7 @@ def main():
     if args.load_model:
         data = DoubleCompressionDataset(
             load="y",
-            n_images=0,
+            n_images=1024,
             v_images=args.n_val_images,
             preloaded_rgb_val_data=loaded_val_data,
             val_n_patches=val_n_patches,
@@ -158,18 +158,16 @@ def main():
         history = train_performance.history
         cache.save(history, step="performance")
 
-        fig = perf(history, alpha=0.1)
+        fig = perf(history, alpha=0.01)
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
-    # TODO Add calibration
-    # if args.calibrate:
-    #     model.set_temp(data)
+    if args.calibrate:
+        model.set_temp(data)
 
     logger.info("Started Testing")
     accuracies = validate(
         model=model,
         data=data,
-        batch_size=args.batch_size,
         cache=cache,
         num_runs=args.n_runs
     )
