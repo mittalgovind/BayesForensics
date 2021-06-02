@@ -13,6 +13,7 @@ from workflows.scaling_factor import (
 
 PATCH_SIZE = 128
 SF = 0.25
+NUM_MODELS = 2
 
 
 @pytest.fixture
@@ -24,6 +25,7 @@ def dataset_nojpeg():
         sampling_method="nearest",
         n_classes=31,
         n_images=10,
+        v_images=10,
         seed=2468,
         batch_size=10,
         patch_size=PATCH_SIZE,
@@ -39,6 +41,7 @@ def dataset_jpeg():
         sampling_method="nearest",
         n_classes=31,
         n_images=10,
+        v_images=10,
         seed=2468,
         codec="libjpeg",
         jpeg_quality=60,
@@ -52,7 +55,7 @@ def model_mcd():
     return ScalingFactor(
         n_classes=31,
         uncertainty_method="mc-dropout",
-        num_models=1,
+        dense_dropout=0.5,
     )
 
 
@@ -61,20 +64,54 @@ def model_ens():
     return ScalingFactor(
         n_classes=31,
         uncertainty_method="ensemble",
-        num_models=2,
+        num_models=NUM_MODELS,
     )
 
 
 def test_dataset(dataset_nojpeg, dataset_jpeg):
     for data in [dataset_nojpeg, dataset_jpeg]:
         for images, labels in data.get_validation_generator(sf=SF):
-            assert tf.is_tensor(images) or isinstance(images, np.ndarray)
-            assert tf.is_tensor(labels) or isinstance(labels, np.ndarray)
+            assert tf.is_tensor(images)
+            assert tf.is_tensor(labels)
 
             assert images.shape[0] == labels.shape[0]
             assert images.shape[1] == int(SF * PATCH_SIZE)
             assert images.shape[2] == int(SF * PATCH_SIZE)
 
 
-def test_model(model_mcd, model_ens):
-    pass
+def test_model(dataset_nojpeg, model_mcd, model_ens):
+    optimizer = tf.keras.optimizers.Adam(0.001)
+    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+        from_logits=True
+    )
+
+    model_mcd._model.compile(
+        optimizer,
+        loss=loss_criterion,
+        metrics=["accuracy"]
+    )
+
+    for images, labels in dataset_nojpeg.get_validation_generator(sf=SF):
+        preds = [model_mcd(images, training=False) for _ in range(10)]
+
+        for i in range(len(preds) - 1):
+            assert tf.is_tensor(preds[i])
+            assert preds[i].shape == preds[i + 1].shape
+            assert not tf.reduce_all(tf.equal(preds[i], preds[i + 1]))
+
+    model_ens._model.compile(
+        optimizer,
+        loss=loss_criterion,
+        metrics=["accuracy"]
+    )
+
+    for images, labels in dataset_nojpeg.get_validation_generator(sf=SF):
+        preds = model_ens(images, training=False)
+
+        assert tf.is_tensor(preds)
+        assert preds.shape[0] == NUM_MODELS
+
+        for i in range(NUM_MODELS - 1):
+            assert preds[i].shape == preds[i + 1].shape
+            assert not tf.reduce_all(tf.equal(preds[i], preds[i + 1]))
+        
