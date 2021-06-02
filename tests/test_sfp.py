@@ -65,14 +65,11 @@ def model_ens():
 
 
 def test_dataset(dataset_nojpeg, dataset_jpeg):
-    no_jpeg = dataset_nojpeg
-    jpeg = dataset_jpeg
-
-    no_jpeg_batch = no_jpeg.get_validation_generator(sf=SF)
-    jpeg_batch = jpeg.get_validation_generator(sf=SF)
-
-    assert tf.is_tensor(no_jpeg_batch)
-    assert tf.is_tensor(jpeg_batch)
-
-    assert no_jpeg_batch.shape[1] == int(SF * PATCH_SIZE)
-    assert jpeg_batch.shape[1] == int(SF * PATCH_SIZE)
+    for data in [dataset_nojpeg, dataset_jpeg]:
+        for images, labels in data.get_validation_generator(sf=SF):
+            assert tf.is_tensor(images)
+            assert tf.is_tensor(labels)
+    
+            assert images.shape[0] == labels.shape[0]
+            assert images.shape[1] == int(SF * PATCH_SIZE)
+            assert images.shape[2] == int(SF * PATCH_SIZE)
