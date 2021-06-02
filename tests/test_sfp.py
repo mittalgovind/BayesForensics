@@ -18,6 +18,7 @@ SF = 0.25
 def dataset_nojpeg():
     return ScalingFactorDataset(
         data_dir="native12k",
+        load="y",
         scales="0.25,1.00",
         sampling_method="nearest",
         n_classes=31,
@@ -25,7 +26,6 @@ def dataset_nojpeg():
         seed=2468,
         batch_size=10,
         patch_size=PATCH_SIZE,
-        preloaded_rgb_train_data=None,
     )
 
 
@@ -33,6 +33,7 @@ def dataset_nojpeg():
 def dataset_jpeg():
     return ScalingFactorDataset(
         data_dir="native12k",
+        load="y",
         scales="0.25,1.00",
         sampling_method="nearest",
         n_classes=31,
@@ -42,7 +43,6 @@ def dataset_jpeg():
         jpeg_quality=60,
         batch_size=10,
         patch_size=PATCH_SIZE,
-        preloaded_rgb_train_data=None,
     )
 
 
