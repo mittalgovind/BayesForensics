@@ -52,7 +52,7 @@ def validate(model, data, batch_size, cache, num_runs):
     for QF1, QF2 in progress_bar(product(q_factors, repeat=2)):
         qf1_ind, qf2_ind = np.where(np.isclose(q_factors, QF1))[0][0], \
                            np.where(np.isclose(q_factors, QF2))[0][0]
-        for images, labels in data.get_training_generator(QF1=QF1, QF2=QF2):
+        for images, labels in data.get_validation_generator(QF1=QF1, QF2=QF2):
             labels = labels.numpy()
             if model.uncertainty_method == "vanilla":
                 logits = model(images, training=False) / model.temperature
