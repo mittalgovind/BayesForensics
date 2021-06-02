@@ -6,7 +6,6 @@
 
 # Standard libraries
 from itertools import product
-import os
 
 # External libraries
 import tensorflow as tf
@@ -19,7 +18,7 @@ from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, \
     mutual_information
 
 
-def validate(model, data, batch_size, cache, num_runs):
+def validate(model, data, cache, num_runs):
     """
 
     Parameters
@@ -27,7 +26,6 @@ def validate(model, data, batch_size, cache, num_runs):
     model : BayesModel()
         Bayes model for running tests
     data
-    batch_size
     num_runs
     cache
     """

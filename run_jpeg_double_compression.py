@@ -168,7 +168,6 @@ def main():
     accuracies = validate(
         model=model,
         data=data,
-        batch_size=args.batch_size,
         cache=cache,
         num_runs=args.n_runs
     )
