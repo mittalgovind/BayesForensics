@@ -21,7 +21,8 @@ from loguru import logger
 def create_keras_model(parameters):
     try:
         from flow import JPEGDoubleCompression
-        model = JPEGDoubleCompression(method='vanilla', patch_size=64,
+        model = JPEGDoubleCompression(uncertainty_method='vanilla',
+                                      patch_size=64,
                                       **parameters)
         return model._model
     except RuntimeError:
@@ -46,7 +47,7 @@ class Trainable:
     def train(self, config, data_train=None, data_val=None):
         import tensorflow as tf
         from dataset import DoubleCompressionDataset
-        from models.jpeg import JPEG
+        from tf_jpeg import TFJPEG
         from helpers.tf_helpers import TuneReporter
         from tqdm.keras import TqdmCallback
 
@@ -55,6 +56,8 @@ class Trainable:
             for device in physical_devices:
                 tf.config.experimental.set_memory_growth(device, True)
             self.set_once = False
+
+        tf.keras.backend.clear_session()
 
         strategy = tf.distribute.MirroredStrategy()
         logger.info(
@@ -81,35 +84,31 @@ class Trainable:
             load="y",
             n_images=self.n_images,
             v_images=self.v_images,
-            randomize=69,
+            seed=69,
             val_rgb_patch_size=64,
             calc_pywt_residual=False,
             qf_train="75,95",
             qf_test="60,95,5",
-            codec=JPEG(codec='soft'),
-            data_train=tf.convert_to_tensor(data_train),
-            data_val=tf.convert_to_tensor(data_val),
+            codec=TFJPEG(codec='soft'),
+            preloaded_rgb_train_data=data_train,
+            preloaded_rgb_val_data=data_val,
             batch_size=self.batch_size
         )
-        train_data = data.get_training_pipeline(self.batch_size, 64).prefetch(
-            tf.data.AUTOTUNE)
-        val_data = data.get_validation_pipeline(self.batch_size).prefetch(
-            tf.data.AUTOTUNE)
+        train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
+        val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
         options = tf.data.Options()
         options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-
+        train_data = train_data.with_options(options)
+        val_data = val_data.with_options(options)
         history = model.fit(
             x=train_data,
             validation_data=val_data,
             epochs=self.epochs,
-            batch_size=self.batch_size,
             verbose=0,
             callbacks=[TuneReporter(), TqdmCallback(verbose=self.verbose)],
         )
+
         return history
-
-
-np.random.seed(5)
 
 
 def create_search_space():
@@ -162,10 +161,10 @@ def main(args):
 
     logger.info("Initializing ray Trainable")
     data_train = np.load(
-        os.path.join(args.root, 'data/rgb/native12k_1M_1.npy'))[
-                 :512 * args.n_images]
+        os.path.join(args.root, 'native12k_qM.npy'))[
+                 :25 * args.n_images]
     data_val = np.load(
-        os.path.join(args.root, 'data/rgb/native12k_20k_val.npy'))[
+        os.path.join(args.root, 'native12k_20k_val.npy'))[
                :20 * args.v_images]
 
     if args.days > 0:
@@ -215,19 +214,19 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Hyperopt")
         parser.add_argument("--gpus", default=1, type=int)
         parser.add_argument("--cpus", default=2, type=int)
-        parser.add_argument("--epochs", default=6, type=int)
+        parser.add_argument("--epochs", default=15, type=int)
         parser.add_argument("--days", default=0, type=int)
         parser.add_argument("--verbose", default=0, type=int)
         parser.add_argument("--bs", default=2048, type=int)
-        parser.add_argument("--num-samples", default=250, type=int)
-        parser.add_argument("--n-images", default=512, type=int)
+        parser.add_argument("--num-samples", default=350, type=int)
+        parser.add_argument("--n-images", default=1024, type=int)
         parser.add_argument("--v-images", default=1024, type=int)
         parser.add_argument("--lr", default=0.001, type=float)
         parser.add_argument("--save-dir",
                             default='/scratch/gm2724/nip_runs/ray_results/',
                             type=str)
         parser.add_argument("--root",
-                            default='/scratch/gm2724',
+                            default='/scratch/gm2724/data/rgb',
                             type=str)
         parser.add_argument("--memory-growth", action='store_true',
                             default=False, )

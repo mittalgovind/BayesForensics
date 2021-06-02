@@ -83,29 +83,38 @@ class Trainable:
             n_images=self.n_images,
             v_images=self.v_images,
             seed=69,
-            patch_size=64,
+            val_rgb_patch_size=64,
             scales="0.25,1.0",
-            n_classes=11,
+            n_classes=21,
             sampling_method="bilinear",
             codec=None,
-            data_train=tf.convert_to_tensor(data_train),
-            data_val=tf.convert_to_tensor(data_val),
+            preloaded_rgb_train_data=data_train,
+            preloaded_rgb_val_data=data_val,
             batch_size=self.batch_size,
         )
+        train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
+        val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
         options = tf.data.Options()
         options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+        train_data = train_data.with_options(options)
+        val_data = val_data.with_options(options)
 
-        train_data = data.get_training_pipeline(self.batch_size, 64).prefetch(
-            tf.data.AUTOTUNE)
-        val_data = data.get_validation_pipeline(self.batch_size).prefetch(
-            tf.data.AUTOTUNE)
-        history = model.fit(
-            x=train_data, validation_data=val_data,
-            epochs=self.epochs,
-            batch_size=self.batch_size,
-            verbose=0,
-            callbacks=[TuneReporter(), TqdmCallback(verbose=self.verbose)],
-        )
+        try:
+            history = model.fit(
+                x=train_data,
+                validation_data=val_data,
+                epochs=self.epochs,
+                verbose=0,
+                callbacks=[TuneReporter(), TqdmCallback(verbose=self.verbose)],
+            )
+            tf.keras.backend.clear_session()
+        except Exception as e:
+            print(e)
+            tf.keras.backend.clear_session()
+            history = tf.keras.callbacks.History()
+            history.history = {'loss': np.inf, 'accuracy': 0, 'val_acc': 0,
+                                   'val_loss': np.inf}
+
         return history
 
 
@@ -163,10 +172,10 @@ def main(args):
 
     logger.info("Initializing ray Trainable")
     data_train = np.load(
-        os.path.join(args.root, 'data/rgb/native12k_1M_1.npy'))[
-                 :512 * args.n_images]
+        os.path.join(args.root, 'native12k_qM.npy'))[
+                 :25 * args.n_images]
     data_val = np.load(
-        os.path.join(args.root, 'data/rgb/native12k_20k_val.npy'))[
+        os.path.join(args.root, 'native12k_20k_val.npy'))[
                :20 * args.v_images]
 
     if args.days > 0:
@@ -216,19 +225,19 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Hyperopt")
         parser.add_argument("--gpus", default=1, type=int)
         parser.add_argument("--cpus", default=2, type=int)
-        parser.add_argument("--epochs", default=6, type=int)
+        parser.add_argument("--epochs", default=100, type=int)
         parser.add_argument("--days", default=0, type=int)
         parser.add_argument("--verbose", default=0, type=int)
         parser.add_argument("--bs", default=2048, type=int)
         parser.add_argument("--num-samples", default=250, type=int)
-        parser.add_argument("--n-images", default=512, type=int)
+        parser.add_argument("--n-images", default=1024, type=int)
         parser.add_argument("--v-images", default=1024, type=int)
         parser.add_argument("--lr", default=0.001, type=float)
         parser.add_argument("--save-dir",
                             default='/scratch/gm2724/nip_runs/ray_results/',
                             type=str)
         parser.add_argument("--root",
-                            default='/scratch/gm2724',
+                            default='/scratch/gm2724/data/rgb',
                             type=str)
         parser.add_argument("--memory-growth", action='store_true',
                             default=False, )
