@@ -25,6 +25,7 @@ def dataset_nojpeg():
         seed=2468,
         batch_size=10,
         patch_size=PATCH_SIZE,
+        preloaded_rgb_train_data=None,
     )
 
 
@@ -41,6 +42,7 @@ def dataset_jpeg():
         jpeg_quality=60,
         batch_size=10,
         patch_size=PATCH_SIZE,
+        preloaded_rgb_train_data=None,
     )
 
 
