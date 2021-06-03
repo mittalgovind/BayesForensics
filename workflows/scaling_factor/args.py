@@ -184,7 +184,7 @@ def parse_args():
     parser.add_argument(
         "--codec",
         action="store",
-        default="libjpeg",
+        default="soft",
         type=str,
         help="Type of codec. Possible choices - libjpeg, soft, sin, harmonic."
              " (default: libjpeg)",
