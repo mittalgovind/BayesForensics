@@ -78,6 +78,8 @@ def test_dataset(dataset_nojpeg, dataset_jpeg):
             assert images.shape[1] == int(SF * PATCH_SIZE)
             assert images.shape[2] == int(SF * PATCH_SIZE)
 
+    print('Dataset tests passed.')
+
 
 def test_model(dataset_nojpeg, model_mcd, model_ens):
     optimizer = tf.keras.optimizers.Adam(0.001)
@@ -100,6 +102,8 @@ def test_model(dataset_nojpeg, model_mcd, model_ens):
             assert preds[i].shape == preds[i + 1].shape
             assert not tf.reduce_all(tf.equal(preds[i], preds[i + 1]))
 
+    print('MC Dropout tests passed.')
+
     model = model_ens
     model._model.compile(
         optimizer,
@@ -116,3 +120,5 @@ def test_model(dataset_nojpeg, model_mcd, model_ens):
         for i in range(NUM_MODELS - 1):
             assert preds[i].shape == preds[i + 1].shape
             assert not tf.reduce_all(tf.equal(preds[i], preds[i + 1]))
+
+    print('Ensemble tests passed.')
