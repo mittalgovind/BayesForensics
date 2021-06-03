@@ -85,28 +85,30 @@ def test_model(dataset_nojpeg, model_mcd, model_ens):
         from_logits=True
     )
 
-    model_mcd._model.compile(
+    model = model_mcd
+    model._model.compile(
         optimizer,
         loss=loss_criterion,
         metrics=["accuracy"]
     )
 
     for images, labels in dataset_nojpeg.get_validation_generator(sf=SF):
-        preds = [model_mcd(images, training=False) for _ in range(10)]
+        preds = [model(images, training=False) for _ in range(10)]
 
         for i in range(len(preds) - 1):
             assert tf.is_tensor(preds[i])
             assert preds[i].shape == preds[i + 1].shape
             assert not tf.reduce_all(tf.equal(preds[i], preds[i + 1]))
 
-    model_ens._model.compile(
+    model = model_ens
+    model._model.compile(
         optimizer,
         loss=loss_criterion,
         metrics=["accuracy"]
     )
 
     for images, labels in dataset_nojpeg.get_validation_generator(sf=SF):
-        preds = model_ens(images, training=False)
+        preds = model(images, training=False)
 
         assert tf.is_tensor(preds)
         assert preds.shape[0] == NUM_MODELS
