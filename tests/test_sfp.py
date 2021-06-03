@@ -43,7 +43,7 @@ def dataset_jpeg():
         n_images=20,
         v_images=20,
         seed=2468,
-        codec="libjpeg",
+        codec="soft",
         jpeg_quality=60,
         batch_size=10,
         patch_size=PATCH_SIZE,
