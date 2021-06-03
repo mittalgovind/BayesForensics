@@ -24,8 +24,8 @@ def dataset_nojpeg():
         scales="0.25,1.00",
         sampling_method="nearest",
         n_classes=31,
-        n_images=10,
-        v_images=10,
+        n_images=20,
+        v_images=20,
         seed=2468,
         batch_size=10,
         patch_size=PATCH_SIZE,
@@ -40,8 +40,8 @@ def dataset_jpeg():
         scales="0.25,1.00",
         sampling_method="nearest",
         n_classes=31,
-        n_images=10,
-        v_images=10,
+        n_images=20,
+        v_images=20,
         seed=2468,
         codec="libjpeg",
         jpeg_quality=60,
@@ -71,6 +71,7 @@ def model_ens():
 def test_dataset(dataset_nojpeg, dataset_jpeg):
     for data in [dataset_nojpeg, dataset_jpeg]:
         for images, labels in data.get_validation_generator(sf=SF):
+            print('*****')
             assert tf.is_tensor(images)
             assert tf.is_tensor(labels)
 
