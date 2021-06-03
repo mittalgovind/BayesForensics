@@ -82,7 +82,7 @@ def test_dataset(dataset_nojpeg, dataset_jpeg):
     print('Dataset tests passed.')
 
 
-def test_model(dataset_nojpeg, model_mcd, model_ens):
+def test_mcdropout(dataset_nojpeg, model_mcd):
     optimizer = tf.keras.optimizers.Adam(0.001)
     loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
         from_logits=True
@@ -104,7 +104,7 @@ def test_model(dataset_nojpeg, model_mcd, model_ens):
             assert not tf.reduce_all(tf.equal(preds[i], preds[i + 1]))
 
     print('MC Dropout tests passed.')
-
+'''
     model = model_ens
     model._model.compile(
         optimizer,
@@ -123,4 +123,4 @@ def test_model(dataset_nojpeg, model_mcd, model_ens):
             assert not tf.reduce_all(tf.equal(preds[i], preds[i + 1]))
 
     print('Ensemble tests passed.')
-
+'''
