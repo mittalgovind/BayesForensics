@@ -23,7 +23,7 @@ def create_keras_model(parameters):
         from flow import ScalingFactor
         model = ScalingFactor(
             uncertainty_method="vanilla",
-            n_classes=31,
+            n_classes=11,
             patch_size=64,
             use_bn=True,
             **parameters
@@ -85,7 +85,6 @@ class Trainable:
             seed=69,
             val_rgb_patch_size=64,
             scales="0.25,1.0",
-            n_classes=21,
             sampling_method="bilinear",
             codec=None,
             preloaded_rgb_train_data=data_train,
@@ -130,7 +129,7 @@ def create_search_space():
         "kernel": hp.choice("kernel", [3, 5]),
         "pool_size": hp.choice("pool_size", [1, 2]),
         "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
-        "dropout": hp.choice("dropout", [0.0, 0.05, 0.5])
+        "dense_dropout": hp.choice("dense_dropout", [0.0, 0.05, 0.5])
     }
     good = {
         "conv_layers": 4,
@@ -140,7 +139,7 @@ def create_search_space():
         "kernel": 5,
         "pool_size": 2,
         "filter_multiplier": 2,
-        "dropout": 0.05
+        "dense_dropout": 0.05
     }
 
     return hspace, good
