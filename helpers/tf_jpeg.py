@@ -79,7 +79,7 @@ class TFJPEG(JPEG):
             s = io.BytesIO()
             imageio.imsave(
                 s,
-                tf.cast((255 * batch[r]), tf.uint8).squeeze(),
+                tf.squeeze(tf.cast((255 * batch[r]), tf.uint8)),
                 format="jpg",
                 quality=quality,
                 subsampling=subsampling,
