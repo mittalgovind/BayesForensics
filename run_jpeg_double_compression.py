@@ -17,12 +17,12 @@ from helpers.results_data import ResultCache
 from helpers.plots import perf
 from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu, get_callbacks
+from helpers.tf_jpeg import TFJPEG
 from workflows.jpeg_double_compression import (
     DoubleCompressionDataset,
     parse_args,
     validate,
     JPEGDoubleCompression,
-    TFJPEG,
     load_parameters,
     qf_plot,
 )

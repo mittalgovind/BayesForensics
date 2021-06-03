@@ -11,7 +11,6 @@
 # Internal libraries
 
 from .flow import JPEGDoubleCompression
-from .tf_jpeg import TFJPEG
 from .dataset import DoubleCompressionDataset
 from .validate import validate
 from .visualize import qf_plot
