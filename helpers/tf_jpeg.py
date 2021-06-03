@@ -72,14 +72,14 @@ class TFJPEG(JPEG):
         return t
 
     @staticmethod
-    # @tf.function(experimental_compile=True)
+    @tf.function(experimental_compile=True)
     def compress_batch(batch, quality, subsampling="4:4:4"):
         batch_j = tf.zeros((0, *batch.shape[1:]))
         for r in range(batch.shape[0]):
             s = io.BytesIO()
             imageio.imsave(
                 s,
-                tf.squeeze(tf.cast((255 * batch[r]), tf.uint8)).numpy(),
+                tf.make_ndarray(tf.squeeze(tf.cast((255 * batch[r]), tf.uint8))),
                 format="jpg",
                 quality=quality,
                 subsampling=subsampling,
