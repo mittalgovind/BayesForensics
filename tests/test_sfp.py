@@ -80,7 +80,7 @@ def test_dataset(dataset_nojpeg, dataset_jpeg):
 
     print('Dataset tests passed.')
 
-
+'''
 def test_model(dataset_nojpeg, model_mcd, model_ens):
     optimizer = tf.keras.optimizers.Adam(0.001)
     loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
@@ -122,3 +122,4 @@ def test_model(dataset_nojpeg, model_mcd, model_ens):
             assert not tf.reduce_all(tf.equal(preds[i], preds[i + 1]))
 
     print('Ensemble tests passed.')
+'''
