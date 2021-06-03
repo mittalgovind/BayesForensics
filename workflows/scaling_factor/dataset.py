@@ -80,6 +80,7 @@ class ScalingFactorDataset(Dataset):
         sf_labels : tf.Tensor
             Tensor containing the target labels.
         """
+        # TODO
         # Convert to JPEG if a codec is passed.
         if self.codec:
             batch = self.codec.process(batch)

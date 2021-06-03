@@ -18,7 +18,6 @@ from models.jpeg import JPEG
 
 
 class TFJPEG(JPEG):
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
