@@ -13,7 +13,7 @@ import tensorflow as tf
 
 # Internal libraries
 from helpers.tf_dataset import Dataset
-from models.jpeg import JPEG
+from helpers.tf_jpeg import TFJPEG
 
 # Hacky fix
 sys.path.append("/scratch/jms1595/neural-imaging-dev/")
@@ -58,7 +58,7 @@ class ScalingFactorDataset(Dataset):
         self.class_multiplier = tf.convert_to_tensor(
             n_classes / (self.scales[1] - self.scales[0]))
         if codec:
-            self.codec = JPEG(quality=jpeg_quality, codec=codec)
+            self.codec = TFJPEG(quality=jpeg_quality, codec=codec)
         else:
             self.codec = None
 
