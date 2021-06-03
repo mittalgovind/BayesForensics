@@ -114,4 +114,3 @@ def test_model(dataset_nojpeg, model_mcd, model_ens):
         for i in range(NUM_MODELS - 1):
             assert preds[i].shape == preds[i + 1].shape
             assert not tf.reduce_all(tf.equal(preds[i], preds[i + 1]))
-        
