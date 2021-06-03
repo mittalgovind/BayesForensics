@@ -38,6 +38,7 @@ class Dataset(object):
             val_discard="flat-aggressive",
             batch_size=64,
             calibrate=False,
+            preprocess_data=False,
             **kwargs
     ):
 
@@ -87,6 +88,7 @@ class Dataset(object):
             c_images,
             val_n_patches,
         )
+        self.channels = 3
         self._val_discard = val_discard
         self.val_rgb_patch_size = val_rgb_patch_size
         self.train_rgb_patch_size = train_rgb_patch_size
@@ -150,7 +152,8 @@ class Dataset(object):
                 discard=val_discard,
             )
 
-        self.preprocess_dataset()
+        if preprocess_data:
+            self.preprocess_dataset()
 
         # Conversion to tensor and batching of loaded data
         if "x" in load:
@@ -210,21 +213,22 @@ class Dataset(object):
         """
 
         patches = tf.zeros((0, self.train_rgb_patch_size,
-                            self.train_rgb_patch_size, 3), dtype=tf.uint8)
+                            self.train_rgb_patch_size, self.channels),
+                           dtype=tf.float32)
         for i in range(self.batch_size):
-            patch, xx, yy = tf_sample_patch(
+            xx, yy = tf_sample_patch(
                 batch[i],
                 self.train_rgb_patch_size,
                 discard,
                 max_attempts,
                 self.train_image_shape_rgb,
-                self.seed
+                self.seed,
             )
-            patch = tf.cast(tf.math.multiply(patch, 255), tf.uint8)
-            # TODO Ask Pawel - I did not divide the patch by 255 and it helped it to train
-            # patch = tf.slice(batch[i], begin=[xx, yy, 0],
-            #                  size=[self.train_rgb_patch_size,
-            #                        self.train_rgb_patch_size, 3])  * 255
+            # TODO Ask Pawel - I did not divide the patch by 255
+            #  and it helped it to train
+            patch = tf.slice(batch[i], begin=[xx, yy, 0],
+                             size=[self.train_rgb_patch_size,
+                                   self.train_rgb_patch_size, self.channels])
             patch = tf.expand_dims(patch, axis=0)
             patches = tf.concat((patches, patch), axis=0)
 
@@ -379,7 +383,7 @@ class Dataset(object):
             (self.batch_size, self.train_image_shape_rgb[0] // 2,
              self.train_image_shape_rgb[1] // 2, 4),
             (self.batch_size, self.train_image_shape_rgb[0],
-             self.train_image_shape_rgb[1], 3),
+             self.train_image_shape_rgb[1], self.channels),
         )
         return tf.data.Dataset.from_generator(
             self.get_training_generator,

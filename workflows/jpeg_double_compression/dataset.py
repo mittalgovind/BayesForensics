@@ -11,15 +11,18 @@ import tensorflow as tf
 import numpy as np
 from loguru import logger
 import pywt
+from tqdm import tqdm
 
 # Internal libraries
 from helpers.tf_dataset import Dataset
 from helpers.loading import randint
 from helpers.tf_jpeg import TFJPEG
+
 try:
     from prnulib import commons
 except RuntimeError:
-    raise RuntimeError("Could NOT load prnulib. Download ")
+    raise RuntimeError(
+        "Could NOT load prnulib. Run git submodule init & git submodule update ")
 
 
 class DoubleCompressionDataset(Dataset):
@@ -37,7 +40,7 @@ class DoubleCompressionDataset(Dataset):
         calc_pywt_residual : bool
             Flag for calculate PyWavelet residual
         """
-        super().__init__(**kwargs)
+        super().__init__(preprocess_data=calc_pywt_residual, **kwargs)
 
         qf_train = qf_train.split(",")
         if len(qf_train) == 2:
@@ -64,9 +67,7 @@ class DoubleCompressionDataset(Dataset):
             logger.info('Using libjpeg will be slowing the computation.')
 
         self.eval_mode = False
-        self.channels = 3
         if calc_pywt_residual:
-            self.preprocess_dataset()
             self.channels = 6
 
     def preprocess_batch(self, batch, **kwargs):
@@ -150,27 +151,30 @@ class DoubleCompressionDataset(Dataset):
     def extract_pywt_residual(self):
         """Calculate and append an external filter to all the patches."""
         logger.info("Calculating PyWavelet residuals ...")
-        # TODO remove tensorflow usage!
-        # TODO be mindful of dataset being used, e.g., list comprehensions
+        # TODO Ask Pawel to verify this
         color_F = np.array(
             [[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5],
              [128, 0.5, -0.418688, -0.081312]], dtype=np.float32)
         color_F = tf.reshape(tf.transpose(color_F), [1, 1, 4, 3])
         for split in ["training", "validation", "calibration"]:
-            data = tf.cast(self.data[split]["y"], tf.float32)
-            if len(data) == 0:
+            if 'y' not in self.data[split].keys():
                 continue
 
+            data = tf.cast(self.data[split]['y'], tf.float32)
             xc = tf.pad(data, [[0, 0], [0, 0], [0, 0], [1, 0]], 'CONSTANT',
                         constant_values=1)
             ycbcrs = tf.nn.conv2d(xc, color_F, [1, 1, 1, 1], 'SAME').numpy()
 
-            residuals = [self._noise_extract(ycbcr) for ycbcr in ycbcrs]
-
-            self.data[split] = tf.concat(self.data[split], residuals, axis=-1)
+            residuals = list()
+            for ycbcr in tqdm(ycbcrs):
+                residuals.append(self._noise_extract(ycbcr))
+            residuals = np.array(residuals)
+            self.data[split]["y"] = np.concatenate((self.data[split]["y"],
+                                                    residuals), axis=-1)
         logger.info("Residuals appended to each patch.")
 
     def preprocess_dataset(self, **kwargs):
+        """Append pywt residual"""
         return self.extract_pywt_residual()
 
     def set_eval_mode(self):

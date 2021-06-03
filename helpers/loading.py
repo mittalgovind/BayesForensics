@@ -282,7 +282,7 @@ def randint(minval=0, maxval=None, seed=10):
 
 def tf_sample_patch(
         rgb_image, rgb_patch_size=128, discard=None, max_attempts=25,
-        rgb_shape=None, seed=10
+        rgb_shape=None, seed=10,
 ):
     xx, yy = 0, 0
     if isinstance(discard, bytes):
@@ -298,8 +298,6 @@ def tf_sample_patch(
     max_x2 = max_x // 2
     max_y2 = max_y // 2
 
-    patch = tf.divide(tf.slice(rgb_image, begin=[xx, yy, 0],
-                               size=[rgb_patch_size, rgb_patch_size, 3]), 255)
     if max_x > 0 or max_y > 0:
         found = 0
         panic_counter = max_attempts
@@ -314,8 +312,8 @@ def tf_sample_patch(
                 continue
 
             patch = tf.divide(tf.slice(rgb_image, begin=[xx, yy, 0],
-                                       size=[rgb_patch_size, rgb_patch_size,
-                                             3]), 255)
+                                       size=[rgb_patch_size, rgb_patch_size, 3]),
+                              255)
             patch_variance = tf.math.reduce_variance(patch)
             patch_intensity = tf.math.reduce_mean(patch)
             # Check if the sampled patch is acceptable
@@ -365,4 +363,4 @@ def tf_sample_patch(
                 raise ValueError(
                     "Unrecognized discard mode: {}".format(discard))
 
-    return patch, xx, yy
+    return xx, yy

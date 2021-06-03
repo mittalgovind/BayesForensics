@@ -133,7 +133,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             # Final classification head
             layers[j].append(self.dense(2, activation=None))
 
-        inputs = Input(shape=(self.patch_size, self.patch_size, 3))
+        inputs = Input(shape=(self.patch_size, self.patch_size, self.channels))
         outputs_list = []
 
         for i in range(self.n_models):
