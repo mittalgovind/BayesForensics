@@ -94,7 +94,7 @@ class TFJPEG(JPEG):
             )
             image_compressed = tf.io.decode_jpeg(image_compressed)
 
-            batch_j = tf.concat((batch_j, tf.divide(image_compressed, 255)))
+            batch_j = tf.concat((batch_j, tf.divide(image_compressed, 255)), axis=0)
 
         return batch_j
 
