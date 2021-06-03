@@ -80,6 +80,9 @@ class ScalingFactorDataset(Dataset):
         sf_labels : tf.Tensor
             Tensor containing the target labels.
         """
+        # Convert to JPEG if a codec is passed.
+        if self.codec:
+            batch = self.codec.process(batch)
 
         if 'sf' in kwargs:
             sf = float(kwargs['sf'])
@@ -104,11 +107,11 @@ class ScalingFactorDataset(Dataset):
         class_id = tf.math.floor(
             tf.math.multiply(self.class_multiplier, sf - self.classes[0]))
         sf_labels = tf.repeat(class_id, batch.shape[0])
-
+        '''
         # Convert to JPEG if a codec is passed.
         if self.codec:
             rescaled_images = self.codec.process(rescaled_images)
-
+        '''
         return rescaled_images, sf_labels
 
     def get_training_pipeline(self, discard="flat"):
