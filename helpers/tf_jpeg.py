@@ -8,6 +8,7 @@
 import io
 
 # External libraries
+import numpy as np
 import tensorflow as tf
 import imageio
 from loguru import logger
@@ -22,25 +23,25 @@ class TFJPEG(JPEG):
         super().__init__(**kwargs)
 
         self._q_luma = tf.convert_to_tensor([
-                [16, 11, 10, 16, 24, 40, 51, 61],
-                [12, 12, 14, 19, 26, 58, 60, 55],
-                [14, 13, 16, 24, 40, 57, 69, 56],
-                [14, 17, 22, 29, 51, 87, 80, 62],
-                [18, 22, 37, 56, 68, 109, 103, 77],
-                [24, 35, 55, 64, 81, 104, 113, 92],
-                [49, 64, 78, 87, 103, 121, 120, 101],
-                [72, 92, 95, 98, 112, 100, 103, 99],
-            ], dtype=tf.int32)
+            [16, 11, 10, 16, 24, 40, 51, 61],
+            [12, 12, 14, 19, 26, 58, 60, 55],
+            [14, 13, 16, 24, 40, 57, 69, 56],
+            [14, 17, 22, 29, 51, 87, 80, 62],
+            [18, 22, 37, 56, 68, 109, 103, 77],
+            [24, 35, 55, 64, 81, 104, 113, 92],
+            [49, 64, 78, 87, 103, 121, 120, 101],
+            [72, 92, 95, 98, 112, 100, 103, 99],
+        ], dtype=tf.int32)
         self._q_chroma = tf.convert_to_tensor([
-                [17, 18, 24, 47, 99, 99, 99, 99],
-                [18, 21, 26, 66, 99, 99, 99, 99],
-                [24, 26, 56, 99, 99, 99, 99, 99],
-                [47, 66, 99, 99, 99, 99, 99, 99],
-                [99, 99, 99, 99, 99, 99, 99, 99],
-                [99, 99, 99, 99, 99, 99, 99, 99],
-                [99, 99, 99, 99, 99, 99, 99, 99],
-                [99, 99, 99, 99, 99, 99, 99, 99],
-            ], dtype=tf.int32)
+            [17, 18, 24, 47, 99, 99, 99, 99],
+            [18, 21, 26, 66, 99, 99, 99, 99],
+            [24, 26, 56, 99, 99, 99, 99, 99],
+            [47, 66, 99, 99, 99, 99, 99, 99],
+            [99, 99, 99, 99, 99, 99, 99, 99],
+            [99, 99, 99, 99, 99, 99, 99, 99],
+            [99, 99, 99, 99, 99, 99, 99, 99],
+            [99, 99, 99, 99, 99, 99, 99, 99],
+        ], dtype=tf.int32)
 
     @tf.function(experimental_compile=True)
     def jpeg_qtable(self, quality, channel=0):
@@ -71,31 +72,31 @@ class TFJPEG(JPEG):
         return t
 
     @staticmethod
-    @tf.function(experimental_compile=True)
     def compress_batch(batch, quality, subsampling="4:4:4"):
+
         batch_j = tf.zeros((0, *batch.shape[1:]))
-        batch = (255 * batch.numpy()).astype(np.uint8)
-        for r in range(batch.shape[0]):
-
-            s = io.BytesIO()
-            imageio.imsave(
-                s,
-                batch[r].squeeze(),
-                # tf.squeeze(tf.cast((255 * batch[r]), tf.uint8)),
-                format="jpg",
-                quality=quality,
-                subsampling=subsampling,
-            )
-            image_compressed = imageio.imread(s.getvalue())
-            image_compressed = tf.convert_to_tensor(image_compressed)
-            image_compressed = tf.expand_dims(image_compressed, axis=0)
-            # image_compressed = tf.io.encode_jpeg(
-            #     tf.squeeze(tf.cast((255 * batch[r]), tf.uint8)),
+        batch = tf.cast(tf.math.multiply(batch, 255), tf.uint8)
+        for r in range(len(batch)):
+            # TODO Ask Pawel about the difference.
+            #  Could not find which codec tf uses.
+            # s = io.BytesIO()
+            # imageio.imsave(
+            #     s,
+            #     batch[r].squeeze(),
+            #     # tf.squeeze(tf.cast((255 * batch[r]), tf.uint8)),
+            #     format="jpg",
             #     quality=quality,
+            #     subsampling=subsampling,
             # )
-            # image_compressed = tf.io.decode_jpeg(image_compressed)
-
-            batch_j = tf.concat((batch_j, tf.divide(image_compressed, 255)), axis=0)
+            # image_compressed = imageio.imread(s.getvalue())
+            # image_compressed = tf.convert_to_tensor(image_compressed)
+            # image_compressed = tf.expand_dims(image_compressed, axis=0)
+            image_compressed = tf.io.encode_jpeg(image=batch[r],
+                                                 quality=quality)
+            image_compressed = tf.io.decode_jpeg(image_compressed)
+            image_compressed = tf.expand_dims(image_compressed, axis=0)
+            batch_j = tf.concat((batch_j, tf.divide(image_compressed, 255)),
+                                axis=0)
 
         return batch_j
 
@@ -107,7 +108,6 @@ class TFJPEG(JPEG):
             return True
         return False
 
-    @tf.function(experimental_compile=True)
     def process(self, batch, quality=None, return_entropy=False):
         """Compress an image with given quality"""
 
@@ -121,6 +121,6 @@ class TFJPEG(JPEG):
         else:
             self._model._q_mtx_luma = self.jpeg_qtable(quality, 0)
             self._model._q_mtx_chroma = self.jpeg_qtable(quality, 1)
-            y, _ = self._model(batch)
+            y, _ = self._model(batch, compile=True)
 
         return y

@@ -150,6 +150,8 @@ class Dataset(object):
                 discard=val_discard,
             )
 
+        self.preprocess_dataset()
+
         # Conversion to tensor and batching of loaded data
         if "x" in load:
             if self.preloading_train:
@@ -210,7 +212,7 @@ class Dataset(object):
         patches = tf.zeros((0, self.train_rgb_patch_size,
                             self.train_rgb_patch_size, 3), dtype=tf.uint8)
         for i in range(self.batch_size):
-            xx, yy = tf_sample_patch(
+            patch, xx, yy = tf_sample_patch(
                 batch[i],
                 self.train_rgb_patch_size,
                 discard,
@@ -218,9 +220,11 @@ class Dataset(object):
                 self.train_image_shape_rgb,
                 self.seed
             )
-            patch = tf.slice(batch[i], begin=[xx, yy, 0],
-                             size=[self.train_rgb_patch_size,
-                                   self.train_rgb_patch_size, 3])
+            patch = tf.cast(tf.math.multiply(patch, 255), tf.uint8)
+            # TODO Ask Pawel - I did not divide the patch by 255 and it helped it to train
+            # patch = tf.slice(batch[i], begin=[xx, yy, 0],
+            #                  size=[self.train_rgb_patch_size,
+            #                        self.train_rgb_patch_size, 3])  * 255
             patch = tf.expand_dims(patch, axis=0)
             patches = tf.concat((patches, patch), axis=0)
 
@@ -322,9 +326,13 @@ class Dataset(object):
 
         return "\n".join(label)
 
+    def preprocess_dataset(self, **kwargs):
+        """Override this method if to process the whole dataset before batching."""
+        pass
+
     def preprocess_batch(self, batch, **kwargs):
         """
-        Implement this method to return the processed batch and its labels.
+        Override this method to return the processed batch and its labels.
         """
         return batch
 

@@ -10,6 +10,7 @@ import os
 
 # External libraries
 import tensorflow as tf
+from loguru import logger
 
 # Internal libraries
 from helpers.tf_dataset import Dataset
@@ -59,6 +60,8 @@ class ScalingFactorDataset(Dataset):
             n_classes / (self.scales[1] - self.scales[0]))
         if codec:
             self.codec = TFJPEG(quality=jpeg_quality, codec=codec)
+            if codec == 'libjpeg':
+                logger.info('Using libjpeg will be slowing the computation.')
         else:
             self.codec = None
 
@@ -80,7 +83,7 @@ class ScalingFactorDataset(Dataset):
         sf_labels : tf.Tensor
             Tensor containing the target labels.
         """
-        # TODO
+        # TODO Ask Pawel if compression and scaling factor are interchangeable
         # Convert to JPEG if a codec is passed.
         if self.codec:
             batch = self.codec.process(batch)

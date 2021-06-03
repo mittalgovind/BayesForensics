@@ -15,6 +15,11 @@ import pywt
 # Internal libraries
 from helpers.tf_dataset import Dataset
 from helpers.loading import randint
+from helpers.tf_jpeg import TFJPEG
+try:
+    from prnulib import commons
+except RuntimeError:
+    raise RuntimeError("Could NOT load prnulib. Download ")
 
 
 class DoubleCompressionDataset(Dataset):
@@ -33,9 +38,8 @@ class DoubleCompressionDataset(Dataset):
             Flag for calculate PyWavelet residual
         """
         super().__init__(**kwargs)
-        qf_train = qf_train.split(",")
-        qf_test = qf_test.split(",")
 
+        qf_train = qf_train.split(",")
         if len(qf_train) == 2:
             qf_train = (int(qf_train[0]), int(qf_train[1]))
         elif len(qf_train) == 3:
@@ -45,6 +49,7 @@ class DoubleCompressionDataset(Dataset):
         self.qf_train = tf.convert_to_tensor(np.arange(*qf_train))
         self.len_qf_train = len(self.qf_train)
 
+        qf_test = qf_test.split(",")
         if len(qf_test) == 2:
             qf_test = (int(qf_test[0]), int(qf_test[1]))
         elif len(qf_test) == 3:
@@ -54,11 +59,14 @@ class DoubleCompressionDataset(Dataset):
         self.qf_test = tf.convert_to_tensor(np.arange(*qf_test))
         self.len_qf_test = len(self.qf_test)
 
-        self.codec = codec
+        self.codec = TFJPEG(codec=codec)
+        if codec == 'libjpeg':
+            logger.info('Using libjpeg will be slowing the computation.')
+
         self.eval_mode = False
         self.channels = 3
         if calc_pywt_residual:
-            self.extract_pywt_residual()
+            self.preprocess_dataset()
             self.channels = 6
 
     def preprocess_batch(self, batch, **kwargs):
@@ -144,19 +152,26 @@ class DoubleCompressionDataset(Dataset):
         logger.info("Calculating PyWavelet residuals ...")
         # TODO remove tensorflow usage!
         # TODO be mindful of dataset being used, e.g., list comprehensions
+        color_F = np.array(
+            [[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5],
+             [128, 0.5, -0.418688, -0.081312]], dtype=np.float32)
+        color_F = tf.reshape(tf.transpose(color_F), [1, 1, 4, 3])
         for split in ["training", "validation", "calibration"]:
-            xc = tf.pad(255.0 * self.data[split],
-                        [[0, 0], [0, 0], [0, 0], [1, 0]],
-                        'CONSTANT',
+            data = tf.cast(self.data[split]["y"], tf.float32)
+            if len(data) == 0:
+                continue
+
+            xc = tf.pad(data, [[0, 0], [0, 0], [0, 0], [1, 0]], 'CONSTANT',
                         constant_values=1)
-            ycbcrs = tf.nn.conv2d(xc,
-                                  tf.reshape(tf.transpose(self._color_F),
-                                             [1, 1, 4, 3]),
-                                  [1, 1, 1, 1], 'SAME')
-            residuals = tf.tensor(
-                [self._noise_extract(ycbcr) for ycbcr in ycbcrs])
+            ycbcrs = tf.nn.conv2d(xc, color_F, [1, 1, 1, 1], 'SAME').numpy()
+
+            residuals = [self._noise_extract(ycbcr) for ycbcr in ycbcrs]
+
             self.data[split] = tf.concat(self.data[split], residuals, axis=-1)
         logger.info("Residuals appended to each patch.")
+
+    def preprocess_dataset(self, **kwargs):
+        return self.extract_pywt_residual()
 
     def set_eval_mode(self):
         self.eval_mode = True

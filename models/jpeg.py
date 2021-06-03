@@ -153,7 +153,7 @@ class DifferentiableJPEG(tf.keras.Model):
         )
         self._paddings = tf.constant([[0, 0], [0, 0], [0, 0], [1, 0]])
 
-    def call(self, inputs):
+    def uncompiled_call(self, inputs):
         block_size = 8
 
         with tf.name_scope("jpeg"):
@@ -280,6 +280,16 @@ class DifferentiableJPEG(tf.keras.Model):
                 y = tf.clip_by_value(y, 0, 1)
 
         return y, X
+
+    @tf.function(experimental_compile=True)
+    def compiled_call(self, inputs):
+        return self.uncompiled_call(inputs)
+
+    def call(self, inputs, compile=False):
+        if not compile:
+            return self.uncompiled_call(inputs)
+        else:
+            return self.compiled_call(inputs)
 
 
 class JPEG(TFModel):

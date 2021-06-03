@@ -17,7 +17,6 @@ from helpers.results_data import ResultCache
 from helpers.plots import perf
 from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu, get_callbacks
-from helpers.tf_jpeg import TFJPEG
 from workflows.jpeg_double_compression import (
     DoubleCompressionDataset,
     parse_args,
@@ -64,7 +63,6 @@ def main():
 
     # initializations
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
-    args.codec = TFJPEG(codec=args.codec)
     strategy = tf.distribute.MirroredStrategy()
     logger.info(
         'Number of devices: {}'.format(strategy.num_replicas_in_sync))

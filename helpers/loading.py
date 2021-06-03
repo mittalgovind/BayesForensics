@@ -222,7 +222,7 @@ def sample_patch(
                 found = True
                 continue
             patch = (rgb_image[yy: yy + rgb_patch_size,
-                    xx: xx + rgb_patch_size]).astype(np.float) / 255
+                     xx: xx + rgb_patch_size]).astype(np.float) / 255
             patch_variance = np.var(patch)
             patch_intensity = np.mean(patch)
 
@@ -298,6 +298,8 @@ def tf_sample_patch(
     max_x2 = max_x // 2
     max_y2 = max_y // 2
 
+    patch = tf.divide(tf.slice(rgb_image, begin=[xx, yy, 0],
+                               size=[rgb_patch_size, rgb_patch_size, 3]), 255)
     if max_x > 0 or max_y > 0:
         found = 0
         panic_counter = max_attempts
@@ -311,9 +313,9 @@ def tf_sample_patch(
                 found = 1
                 continue
 
-            patch = tf.math.divide(rgb_image[yy: yy + rgb_patch_size,
-                                   xx: xx + rgb_patch_size], 255)
-
+            patch = tf.divide(tf.slice(rgb_image, begin=[xx, yy, 0],
+                                       size=[rgb_patch_size, rgb_patch_size,
+                                             3]), 255)
             patch_variance = tf.math.reduce_variance(patch)
             patch_intensity = tf.math.reduce_mean(patch)
             # Check if the sampled patch is acceptable
@@ -363,4 +365,4 @@ def tf_sample_patch(
                 raise ValueError(
                     "Unrecognized discard mode: {}".format(discard))
 
-    return xx, yy
+    return patch, xx, yy

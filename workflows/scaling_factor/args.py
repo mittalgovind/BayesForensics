@@ -170,7 +170,7 @@ def parse_args():
     )
     parser.add_argument(
         "--validation-freq",
-        default=50,
+        default=1,
         type=int,
         help="Number of training epochs to run before a new validation run.",
     )
@@ -192,7 +192,7 @@ def parse_args():
     parser.add_argument(
         "--jpeg-quality",
         "-jq",
-        default=100,
+        default=95,
         action="store",
         type=int,
         dest="jpeg_quality",
