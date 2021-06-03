@@ -98,8 +98,11 @@ class TFJPEG(JPEG):
         return False
 
     @tf.function(experimental_compile=True)
-    def process(self, batch, quality, return_entropy=False):
+    def process(self, batch, quality=None, return_entropy=False):
         """Compress an image with given quality"""
+
+        quality = self.quality if quality is None else quality
+
         if not self.is_valid_quality(quality):
             logger.error("Quality: {}, is not valid".format(quality))
 
