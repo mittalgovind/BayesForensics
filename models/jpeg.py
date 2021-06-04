@@ -285,8 +285,8 @@ class DifferentiableJPEG(tf.keras.Model):
     def compiled_call(self, inputs):
         return self.uncompiled_call(inputs)
 
-    def call(self, inputs, compile=False):
-        if not compile:
+    def call(self, inputs, debug_mode=True):
+        if debug_mode:
             return self.uncompiled_call(inputs)
         else:
             return self.compiled_call(inputs)

@@ -10,5 +10,5 @@
   "filter_multiplier": 2,
   "activation": "leaky_relu",
   "dense_dropout": 0.1,
-  "use_bn": false
+  "use_bn": true
 }

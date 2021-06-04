@@ -39,6 +39,7 @@ class Dataset(object):
             batch_size=64,
             calibrate=False,
             preprocess_data=False,
+            debug_mode=False,
             **kwargs
     ):
 
@@ -89,6 +90,7 @@ class Dataset(object):
             val_n_patches,
         )
         self.channels = 3
+        self.debug_mode = debug_mode
         self._val_discard = val_discard
         self.val_rgb_patch_size = val_rgb_patch_size
         self.train_rgb_patch_size = train_rgb_patch_size
@@ -204,9 +206,8 @@ class Dataset(object):
         else:
             raise KeyError("Key: {} not found!".format(key))
 
-    @tf.function(experimental_compile=True)
-    def sample_patches(self, batch, discard="flat",
-                       max_attempts=25, **kwargs):
+    def uncompiled_sample_patches(self, batch, discard, max_attempts=25,
+                                  **kwargs):
         """
         Sample a new batch of training patches.
         :param batch: rgb images batch
@@ -232,11 +233,18 @@ class Dataset(object):
                                    self.train_rgb_patch_size, self.channels])
             patch = tf.expand_dims(patch, axis=0)
             patches = tf.concat((patches, patch), axis=0)
-
-        # TODO Ask Pawel - I did not divide the patch by 255
-        #  and it helped sfp to train
         patches = tf.math.divide(patches, 255)
         return patches
+
+    @tf.function(experimental_compile=True)
+    def compiled_sample_patches(self, batch, discard, **kwargs):
+        return self.uncompiled_sample_patches(batch, discard, **kwargs)
+
+    def sample_patches(self, batch, discard="flat", **kwargs):
+        if self.debug_mode:
+            return self.uncompiled_sample_patches(batch, discard, **kwargs)
+        else:
+            return self.compiled_sample_patches(batch, discard, **kwargs)
 
     def is_raw_and_rgb(self):
         return len(self._loaded_data) == 2

@@ -26,6 +26,11 @@ from workflows.jpeg_double_compression import (
     qf_plot,
 )
 
+# tf.debugging.experimental.enable_dump_debug_info(
+#     "./outputs/jpeg_fixed/tensorboard_logs",
+#     tensor_debug_mode="FULL_HEALTH",
+#     circular_buffer_size=-1)
+
 
 def main():
     args = parse_args()
@@ -63,18 +68,17 @@ def main():
 
     # initializations
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
-    strategy = tf.distribute.MirroredStrategy()
-    logger.info(
-        'Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    # strategy = tf.distribute.MirroredStrategy()
+    # logger.info(
+    #     'Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     # Prepare model with mirrored strategy.
-    with strategy.scope():
-        model = JPEGDoubleCompression(**args.parameters, **vars(args))
-        optimizer = tf.keras.optimizers.Adam(args.lr)
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True)
-        model._model.compile(optimizer, loss=loss_criterion,
-                             metrics=["accuracy"])
+    # with strategy.scope():
+    model = JPEGDoubleCompression(**args.parameters, **vars(args))
+    optimizer = tf.keras.optimizers.Adam(args.lr)
+    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy()
+    model._model.compile(optimizer, loss=loss_criterion,
+                         metrics=["accuracy"])
 
     # load presampled validation data
     if args.use_presampled:
