@@ -13,10 +13,11 @@ from hyperopt import hp, fmin, tpe, Trials, tpe, partial, STATUS_OK, \
     STATUS_FAIL
 from loguru import logger
 import tensorflow as tf
-from dataset import ScalingFactorDataset
-from tqdm.keras import TqdmCallback
-from flow import ScalingFactor
 from tensorboard.plugins.hparams import api as tfhp
+
+# Internal Libraries
+from workflows.scaling_factor.dataset import ScalingFactorDataset
+from workflows.scaling_factor.flow import ScalingFactor
 
 
 def create_keras_model(parameters, classes, patch_size):
@@ -123,9 +124,6 @@ class Trainable:
         return rval
 
 
-np.random.seed(5)
-
-
 def create_search_space():
     # NAMES NEEDS TO BE IN LEXICOGRAPHICAL ORDER
     hspace = {
@@ -166,27 +164,15 @@ def create_search_space():
 
 def main(args):
     # Create save directory
-    try:
-        os.rmdir(args.save_dir)
-    except:
-        print('overwriting')
     os.makedirs(args.save_dir, exist_ok=True)
 
     search_space, tf_search_space = create_search_space()
     logger.info("Initializing scheduler and search algorithms")
 
     algo = partial(tpe.suggest,
-                   n_EI_candidates=1000,
                    gamma=0.2,
-                   n_startup_jobs=50)
+                   n_startup_jobs=20)
 
-    # data_train = np.load(
-    #     os.path.join(args.root, 'native12k_qM.npy'))[
-    #              :25 * args.n_images]
-    # np.random.shuffle(data_train)
-    # data_val = np.load(
-    #     os.path.join(args.root, 'native12k_20k_val.npy'))[
-    #            :20 * args.v_images]
     data = ScalingFactorDataset(
         load="y",
         data_dir=os.path.join(args.root, 'native12k'),
@@ -198,8 +184,6 @@ def main(args):
         scales="0.25,1.0",
         sampling_method="random",
         codec=None,
-        # preloaded_rgb_train_data=data_train,
-        # preloaded_rgb_val_data=data_val,
         batch_size=args.bs,
     )
 
@@ -219,7 +203,7 @@ def main(args):
                      tfhp.Metric('Val Loss')],
         )
 
-    callbacks = []  # TqdmCallback(verbose=args.verbose)]
+    callbacks = []
     if args.tensorboard:
         callbacks.append(tf.keras.callbacks.TensorBoard())
 
