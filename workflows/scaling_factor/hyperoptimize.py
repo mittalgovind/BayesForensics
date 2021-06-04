@@ -9,7 +9,8 @@ import os
 import numpy as np
 
 # External libraries
-from hyperopt import hp, fmin, tpe, Trials, tpe, partial, STATUS_OK
+from hyperopt import hp, fmin, tpe, Trials, tpe, partial, STATUS_OK, \
+    STATUS_FAIL
 from loguru import logger
 import tensorflow as tf
 from dataset import ScalingFactorDataset
@@ -24,7 +25,8 @@ def create_keras_model(parameters, classes, patch_size):
             uncertainty_method="vanilla",
             n_classes=classes,
             patch_size=patch_size,
-            use_bn=False,
+            use_bn=True,
+            hyperoptimize=True,
             **parameters
         )
         return model._model
@@ -90,33 +92,35 @@ class Trainable:
         writer = tf.summary.create_file_writer(logdir)
         with writer.as_default():
             tfhp.hparams(config)
-            history = model.fit(
-                x=self.train_data,
-                validation_data=self.val_data,
-                epochs=self.epochs,
-                verbose=0,
-                callbacks=self.callbacks,
-            )
-            for i in range(self.epochs):
-                tf.summary.scalar('acc',
-                                  history.history['accuracy'][i],
-                                  step=i + 1)
-                tf.summary.scalar('val_acc',
-                                  history.history['val_accuracy'][i],
-                                  step=i + 1)
-                tf.summary.scalar('loss',
-                                  history.history['loss'][i],
-                                  step=i + 1)
-                tf.summary.scalar('val_loss',
-                                  history.history['val_loss'][i],
-                                  step=i + 1)
-            tf.summary.scalar('accuracy',
-                              np.mean(history.history['accuracy'][-10:]),
-                              step=1)
-            writer.close()
-
-        return {'loss': np.mean(history.history['val_loss'][-10:]),
-                'status': STATUS_OK}
+            try:
+                history = model.fit(
+                    x=self.train_data,
+                    validation_data=self.val_data,
+                    epochs=self.epochs,
+                    verbose=0,
+                    callbacks=self.callbacks,
+                )
+                rval = {'loss': np.mean(history.history['val_loss'][-10:]),
+                        'status': STATUS_OK}
+                for i in history.epoch:
+                    tf.summary.scalar('Accuracy',
+                                      history.history['accuracy'][i],
+                                      step=i + 1)
+                    tf.summary.scalar('Val Accuracy',
+                                      history.history['val_accuracy'][i],
+                                      step=i + 1)
+                    tf.summary.scalar('Loss',
+                                      history.history['loss'][i],
+                                      step=i + 1)
+                    tf.summary.scalar('Val Loss',
+                                      history.history['val_loss'][i],
+                                      step=i + 1)
+                writer.close()
+            except:
+                logger.info(logdir + ' crashed')
+                rval = {'loss': np.inf, 'status': STATUS_FAIL}
+            tf.keras.backend.clear_session()
+        return rval
 
 
 np.random.seed(5)
@@ -176,14 +180,16 @@ def main(args):
                    gamma=0.2,
                    n_startup_jobs=50)
 
-    data_train = np.load(
-        os.path.join(args.root, 'native12k_qM.npy'))[
-                 :25 * args.n_images]
-    data_val = np.load(
-        os.path.join(args.root, 'native12k_20k_val.npy'))[
-               :20 * args.v_images]
+    # data_train = np.load(
+    #     os.path.join(args.root, 'native12k_qM.npy'))[
+    #              :25 * args.n_images]
+    # np.random.shuffle(data_train)
+    # data_val = np.load(
+    #     os.path.join(args.root, 'native12k_20k_val.npy'))[
+    #            :20 * args.v_images]
     data = ScalingFactorDataset(
         load="y",
+        data_dir=os.path.join(args.root, 'native12k'),
         n_images=args.n_images,
         v_images=args.v_images,
         seed=69,
@@ -192,8 +198,8 @@ def main(args):
         scales="0.25,1.0",
         sampling_method="random",
         codec=None,
-        preloaded_rgb_train_data=data_train,
-        preloaded_rgb_val_data=data_val,
+        # preloaded_rgb_train_data=data_train,
+        # preloaded_rgb_val_data=data_val,
         batch_size=args.bs,
     )
 
@@ -207,14 +213,13 @@ def main(args):
     with tf.summary.create_file_writer(args.save_dir).as_default():
         tfhp.hparams_config(
             hparams=tf_search_space,
-            metrics=[tfhp.Metric('acc'),
-                     tfhp.Metric('val_acc'),
-                     tfhp.Metric('loss'),
-                     tfhp.Metric('val_loss'),
-                     tfhp.Metric('accuracy', display_name='Accuracy')],
+            metrics=[tfhp.Metric('Accuracy'),
+                     tfhp.Metric('Val Accuracy'),
+                     tfhp.Metric('Loss'),
+                     tfhp.Metric('Val Loss')],
         )
 
-    callbacks = [TqdmCallback(verbose=args.verbose)]
+    callbacks = []  # TqdmCallback(verbose=args.verbose)]
     if args.tensorboard:
         callbacks.append(tf.keras.callbacks.TensorBoard())
 
@@ -230,17 +235,15 @@ def main(args):
                        max_evals=args.num_samples,
                        show_progressbar=True, trials=trials)
 
-    # best_config = analysis.get_best_config(metric="val_loss", mode='min')
     logger.info(f'Best config: {best_config}')
 
     if best_config is None:
         logger.error(f'Optimization failed')
     else:
         logger.info("Saving best model config")
-        with open(os.path.join(args.save_dir, 'best_config.json'),
-                  'w') as f:
-            import json
-            json.dump(best_config, f, indent=4)
+        with open(os.path.join(args.save_dir, 'best_config.pkl'), 'wb') as f:
+            import pickle
+            pickle.dump(best_config, f)
 
     logger.info("Training completed")
 

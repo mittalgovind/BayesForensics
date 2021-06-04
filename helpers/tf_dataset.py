@@ -102,8 +102,8 @@ class Dataset(object):
                 data_dir, randomize=seed, n_images=n_images,
                 v_images=v_images, c_images=c_images,
             )
-        else:
-            logger.info("No data directory given.")
+        elif preloaded_rgb_train_data is None or preloaded_rgb_val_data is None:
+            raise RuntimeError("No data directory given.")
 
         # flags for storing way train data was prepared, with default values.
         self.preloading_train = 0
