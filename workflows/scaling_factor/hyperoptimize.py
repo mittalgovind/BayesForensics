@@ -22,8 +22,8 @@ def create_keras_model(parameters, classes, patch_size):
     try:
         model = ScalingFactor(
             uncertainty_method="vanilla",
-            n_classes=16,
-            patch_size=64,
+            n_classes=classes,
+            patch_size=patch_size,
             use_bn=True,
             **parameters
         )
