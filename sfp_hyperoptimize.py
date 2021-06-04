@@ -7,6 +7,7 @@
 # Standard libraries
 import os
 import numpy as np
+import pickle
 
 # External libraries
 from hyperopt import hp, fmin, tpe, Trials, tpe, partial, STATUS_OK, \
@@ -49,7 +50,7 @@ def get_tf_hparams(tf_space, parameters):
 class Trainable:
     def __init__(self, root, lr, save_dir, epochs, memory_growth,
                  verbose, train_data, val_data, callbacks, tf_space,
-                 classes=16, patch_size=64):
+                 classes, patch_size, counter):
         self.epochs = epochs
         self.root = root
         self.lr = lr
@@ -63,7 +64,7 @@ class Trainable:
         self.val_data = val_data
         self.callbacks = callbacks
         self.tf_space = tf_space
-        self.counter = 1
+        self.counter = counter
 
     def train(self, config):
         if self.set_once and self.memory_growth:
@@ -147,8 +148,8 @@ def create_search_space():
         tfhp.HParam("kernel", tfhp.Discrete([3, 5])),
         tfhp.HParam("pool_size", tfhp.Discrete([1, 2])),
     ]
-    # JUST FOR REFERENCE. TBD.
-    good = {
+    # placeholding. Changes later.
+    best_config = {
         "filters": 32,
         "filter_multiplier": 2,
         "conv_layers": 4,
@@ -159,19 +160,15 @@ def create_search_space():
         "dense_dropout": 0.1
     }
 
-    return hspace, tf_hspace
+    return hspace, tf_hspace, best_config
 
 
 def main(args):
     # Create save directory
     os.makedirs(args.save_dir, exist_ok=True)
 
-    search_space, tf_search_space = create_search_space()
+    search_space, tf_search_space, best_config = create_search_space()
     logger.info("Initializing scheduler and search algorithms")
-
-    algo = partial(tpe.suggest,
-                   gamma=0.2,
-                   n_startup_jobs=20)
 
     data = ScalingFactorDataset(
         load="y",
@@ -207,29 +204,58 @@ def main(args):
     if args.tensorboard:
         callbacks.append(tf.keras.callbacks.TensorBoard())
 
+    logger.info("Starting hyperparameter tuning")
+
+    algo = partial(tpe.suggest,
+                   gamma=0.2,
+                   n_startup_jobs=int(0.08 * args.num_samples))
+    rcode = 1
+    while rcode > 0:
+        rcode = run_trials(args, search_space, train_data, val_data,
+                           callbacks, tf_search_space, algo)
+
+    trials = pickle.load(
+        open(os.path.join(args.save_dir, "sfp_models.hyperopt"), "rb"))
+    best_trial = trials.best_trial
+    logger.info(f'Best trial: {best_trial}')
+    id = best_trial['tid']
+    i = 0
+    for key, vals in trials.vals.items():
+        best_config[key] = tf_search_space[i].domain.values[vals[id]]
+        i += 1
+    logger.info(f'Best config: {best_config}')
+    logger.info("Training completed")
+
+
+def run_trials(args, search_space, train_data, val_data, callbacks,
+               tf_search_space, algo, max_evals=5):
+    try:
+        trials = pickle.load(
+            open(os.path.join(args.save_dir, "sfp_models.hyperopt"), "rb"))
+        if len(trials.trials) >= args.num_samples:
+            return -1
+        logger.info("Running from {} to {} trials ".format(
+            len(trials.trials) + 1, len(trials.trials) + max_evals))
+    except:
+        logger.info('Created a new Trials() object')
+        trials = Trials()
+
     trainer = Trainable(args.root, args.lr, args.save_dir,
                         args.epochs, args.memory_growth, args.verbose,
                         train_data, val_data, callbacks, tf_search_space,
-                        16, args.patch_size)
-    logger.info("Starting hyperparameter tuning")
-    trials = Trials()
-    best_config = fmin(fn=trainer.train,
-                       space=search_space,
-                       algo=algo,
-                       max_evals=args.num_samples,
-                       show_progressbar=True, trials=trials)
+                        16, args.patch_size, len(trials.trials))
 
-    logger.info(f'Best config: {best_config}')
+    fmin(fn=trainer.train,
+         space=search_space,
+         algo=algo,
+         max_evals=max_evals + len(trials),
+         show_progressbar=True, trials=trials)
 
-    if best_config is None:
-        logger.error(f'Optimization failed')
-    else:
-        logger.info("Saving best model config")
-        with open(os.path.join(args.save_dir, 'best_config.pkl'), 'wb') as f:
-            import pickle
-            pickle.dump(best_config, f)
+    # save the trials object
+    with open(os.path.join(args.save_dir, "sfp_models.hyperopt"), "wb") as f:
+        pickle.dump(trials, f)
 
-    logger.info("Training completed")
+    return 1
 
 
 if __name__ == "__main__":
@@ -261,3 +287,4 @@ if __name__ == "__main__":
 
         logger.error(traceback.format_exc())
         raise
+
