@@ -122,7 +122,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         dense_units = self._h.dense_units
         for i in range(self._h.dense_layers):
             layers.append(self.dense(dense_units,
-                                        activation=self.activation))
+                                     activation=self.activation))
             if self._h.dense_dropout > 0:
                 layers.append(self.dropout(self._h.dense_dropout))
             dense_units = int(dense_units * self._h.dense_multiplier)
@@ -192,4 +192,3 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             outputs_list = outputs_list[0]
 
         self._model = tf.keras.models.Model(inputs, outputs_list)
-
