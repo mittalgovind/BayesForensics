@@ -24,7 +24,7 @@ def create_keras_model(parameters, classes, patch_size):
             uncertainty_method="vanilla",
             n_classes=classes,
             patch_size=patch_size,
-            use_bn=True,
+            use_bn=False,
             **parameters
         )
         return model._model
