@@ -22,7 +22,7 @@ def create_keras_model(parameters):
     try:
         from flow import JPEGDoubleCompression
         model = JPEGDoubleCompression(uncertainty_method='vanilla',
-                                      patch_size=64,
+                                      patch_size=128,
                                       **parameters)
         return model._model
     except RuntimeError:
@@ -47,7 +47,6 @@ class Trainable:
     def train(self, config, data_train=None, data_val=None):
         import tensorflow as tf
         from dataset import DoubleCompressionDataset
-        from tf_jpeg import TFJPEG
         from helpers.tf_helpers import TuneReporter
         from tqdm.keras import TqdmCallback
 
@@ -85,11 +84,11 @@ class Trainable:
             n_images=self.n_images,
             v_images=self.v_images,
             seed=69,
-            val_rgb_patch_size=64,
+            val_rgb_patch_size=128,
             calc_pywt_residual=False,
             qf_train="75,95",
             qf_test="60,95,5",
-            codec=TFJPEG(codec='soft'),
+            codec='soft',
             preloaded_rgb_train_data=data_train,
             preloaded_rgb_val_data=data_val,
             batch_size=self.batch_size

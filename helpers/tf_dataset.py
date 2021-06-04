@@ -158,38 +158,41 @@ class Dataset(object):
         # Conversion to tensor and batching of loaded data
         if "x" in load:
             if self.preloading_train:
-                self.data["training"][
-                    "x"] = tf.data.Dataset.from_tensor_slices(
-                    self.data["training"]["x"]).batch(batch_size,
-                                                      drop_remainder=True)
-            else:
-                self.data["training"][
-                    "x"] = tf.data.Dataset.from_tensor_slices(
-                    self.data["training"]["x"]).batch(batch_size,
-                                                      drop_remainder=True)
+                self.data["training"]["x"] = tf.math.divide(
+                    self.data["training"]["x"], 2 ** 16 - 1)
+            self.data["training"][
+                "x"] = tf.data.Dataset.from_tensor_slices(
+                self.data["training"]["x"]).batch(batch_size,
+                                                  drop_remainder=True)
+            self.data["validation"]["x"] = tf.math.divide(
+                self.data["validation"]["x"], 2 ** 16 - 1)
             self.data["validation"]["x"] = tf.data.Dataset.from_tensor_slices(
                 self.data["validation"]["x"]).batch(batch_size,
                                                     drop_remainder=True)
             if calibrate:
+                self.data["calibration"]["x"] = tf.math.divide(
+                    self.data["calibration"]["x"], 2 ** 16 - 1)
                 self.data["calibration"][
                     "x"] = tf.data.Dataset.from_tensor_slices(
                     self.data["calibration"]["x"]).batch(batch_size,
                                                          drop_remainder=True)
         if "y" in load:
             if self.preloading_train:
-                self.data["training"][
-                    "y"] = tf.data.Dataset.from_tensor_slices(
-                    self.data["training"]["y"]).batch(batch_size,
-                                                      drop_remainder=True)
-            else:
-                self.data["training"][
-                    "y"] = tf.data.Dataset.from_tensor_slices(
-                    self.data["training"]["y"]).batch(batch_size,
-                                                      drop_remainder=True)
+                self.data["training"]["y"] = tf.math.divide(
+                    self.data["training"]["y"], 2 ** 8 - 1)
+            self.data["training"][
+                "y"] = tf.data.Dataset.from_tensor_slices(
+                self.data["training"]["y"]).batch(batch_size,
+                                                  drop_remainder=True)
+
+            self.data["validation"]["y"] = tf.math.divide(
+                self.data["validation"]["y"], 2 ** 8 - 1)
             self.data["validation"]["y"] = tf.data.Dataset.from_tensor_slices(
                 self.data["validation"]["y"]).batch(batch_size,
                                                     drop_remainder=True)
             if calibrate:
+                self.data["calibration"]["y"] = tf.math.divide(
+                    self.data["calibration"]["y"], 2 ** 8 - 1)
                 self.data["calibration"][
                     "y"] = tf.data.Dataset.from_tensor_slices(
                     self.data["calibration"]["y"]).batch(batch_size,
@@ -214,7 +217,7 @@ class Dataset(object):
 
         patches = tf.zeros((0, self.train_rgb_patch_size,
                             self.train_rgb_patch_size, self.channels),
-                           dtype=tf.float32)
+                           dtype=batch.dtype)
         for i in range(self.batch_size):
             xx, yy = tf_sample_patch(
                 batch[i],
@@ -224,14 +227,15 @@ class Dataset(object):
                 self.train_image_shape_rgb,
                 self.seed,
             )
-            # TODO Ask Pawel - I did not divide the patch by 255
-            #  and it helped it to train
             patch = tf.slice(batch[i], begin=[xx, yy, 0],
                              size=[self.train_rgb_patch_size,
                                    self.train_rgb_patch_size, self.channels])
             patch = tf.expand_dims(patch, axis=0)
             patches = tf.concat((patches, patch), axis=0)
 
+        # TODO Ask Pawel - I did not divide the patch by 255
+        #  and it helped sfp to train
+        patches = tf.math.divide(patches, 255)
         return patches
 
     def is_raw_and_rgb(self):

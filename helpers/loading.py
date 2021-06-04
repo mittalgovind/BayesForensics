@@ -311,9 +311,10 @@ def tf_sample_patch(
                 found = 1
                 continue
 
-            patch = tf.divide(tf.slice(rgb_image, begin=[xx, yy, 0],
-                                       size=[rgb_patch_size, rgb_patch_size, 3]),
-                              255)
+            patch = tf.math.divide(tf.slice(rgb_image, begin=[xx, yy, 0],
+                                            size=[rgb_patch_size,
+                                                  rgb_patch_size, 3]),
+                                   255)
             patch_variance = tf.math.reduce_variance(patch)
             patch_intensity = tf.math.reduce_mean(patch)
             # Check if the sampled patch is acceptable

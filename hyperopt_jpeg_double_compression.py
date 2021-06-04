@@ -124,7 +124,6 @@ def run_trials():
         trials = Trials()
 
     algo = partial(tpe.suggest,
-                   n_EI_candidates=1000,
                    gamma=0.2,
                    n_startup_jobs=20)
 

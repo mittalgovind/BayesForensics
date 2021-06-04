@@ -133,6 +133,7 @@ def main():
 
         # get callbacks using options
         save_freq = args.save_every * args.n_train_images // args.batch_size
+        steps_per_epoch = data.count_training // args.batch_size
         callbacks = get_callbacks(
             args.save_dir,
             model_name=model.model_filename,
@@ -140,7 +141,8 @@ def main():
             tensorboard=args.tensorboard,
             patience=int(args.epochs * args.patience_percent),
             verbose=args.verbose,
-            update_freq=args.validation_freq
+            update_freq=args.validation_freq,
+            steps_per_epoch=steps_per_epoch
         )
 
         train_performance = model._model.fit(
