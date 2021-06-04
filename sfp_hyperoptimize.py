@@ -179,7 +179,7 @@ def main(args):
         n_images=args.n_images,
         v_images=args.v_images,
         seed=69,
-        val_rgb_patch_size=64,
+        val_rgb_patch_size=args.patch_size,
         n_classes=16,
         scales="0.25,1.0",
         sampling_method="random",
@@ -210,7 +210,7 @@ def main(args):
     trainer = Trainable(args.root, args.lr, args.save_dir,
                         args.epochs, args.memory_growth, args.verbose,
                         train_data, val_data, callbacks, tf_search_space,
-                        16, 64)
+                        16, args.patch_size)
     logger.info("Starting hyperparameter tuning")
     trials = Trials()
     best_config = fmin(fn=trainer.train,
@@ -243,6 +243,7 @@ if __name__ == "__main__":
         parser.add_argument("--num-samples", default=250, type=int)
         parser.add_argument("--n-images", default=1024, type=int)
         parser.add_argument("--v-images", default=1024, type=int)
+        parser.add_argument("--patch-size", default=128, type=int)
         parser.add_argument("--lr", default=0.001, type=float)
         parser.add_argument("--save-dir",
                             default='/scratch/gm2724/nip_runs/sfp_hyper',
