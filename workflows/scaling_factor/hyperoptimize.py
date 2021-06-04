@@ -97,9 +97,6 @@ class Trainable:
                 verbose=0,
                 callbacks=self.callbacks,
             )
-            tf.summary.scalar('accuracy',
-                              np.mean(history.history['accuracy'][-10:]),
-                              step=1)
             for i in range(self.epochs):
                 tf.summary.scalar('acc',
                                   history.history['accuracy'][i],
@@ -113,6 +110,9 @@ class Trainable:
                 tf.summary.scalar('val_loss',
                                   history.history['val_loss'][i],
                                   step=i + 1)
+            tf.summary.scalar('accuracy',
+                              np.mean(history.history['accuracy'][-10:]),
+                              step=1)
             writer.close()
 
         return {'loss': np.mean(history.history['val_loss'][-10:]),
@@ -207,16 +207,16 @@ def main(args):
     with tf.summary.create_file_writer(args.save_dir).as_default():
         tfhp.hparams_config(
             hparams=tf_search_space,
-            metrics=[tfhp.Metric('accuracy', display_name='Accuracy'),
-                     tfhp.Metric('acc'),
+            metrics=[tfhp.Metric('acc'),
                      tfhp.Metric('val_acc'),
                      tfhp.Metric('loss'),
-                     tfhp.Metric('val_loss')
-                     ],
+                     tfhp.Metric('val_loss'),
+                     tfhp.Metric('accuracy', display_name='Accuracy')],
         )
 
-    callbacks = [  # tf.keras.callbacks.TensorBoard(tb_log),
-        TqdmCallback(verbose=args.verbose)]
+    callbacks = [TqdmCallback(verbose=args.verbose)]
+    if args.tensorboard:
+        callbacks.append(tf.keras.callbacks.TensorBoard())
 
     trainer = Trainable(args.root, args.lr, args.save_dir,
                         args.epochs, args.memory_growth, args.verbose,
@@ -265,7 +265,8 @@ if __name__ == "__main__":
                             type=str)
         parser.add_argument("--memory-growth", action='store_true',
                             default=False)
-
+        parser.add_argument("--tensorboard", action='store_true',
+                            default=False)
         main(parser.parse_args())
     except:
         import traceback
