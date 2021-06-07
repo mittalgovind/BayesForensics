@@ -167,10 +167,10 @@ class ScalingFactor(BayesBaseModel):
             filters = self._h.filters
             for j in range(self._h.conv_layers):
                 layers[i].append(
-                    tf.keras.layers.Conv2D(filters,
-                                           kernel_size=self._h.kernel,
-                                           padding='same',
-                                           activation=self.activation))
+                    self.conv2d(filters,
+                                kernel_size=self._h.kernel,
+                                padding='same',
+                                activation=self.activation))
                 if self._h.use_bn:
                     layers[i].append(tf.keras.layers.BatchNormalization())
                 if self._h.conv_dropout > 0 and j + 1 >= self._h.conv_dropout_after:
@@ -181,9 +181,9 @@ class ScalingFactor(BayesBaseModel):
 
             # Final 1 x 1 convolution
             layers[i].extend([
-                tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
-                                       kernel_size=1, padding='same',
-                                       activation=self.activation),
+                self.conv2d(filters // self._h.filter_multiplier,
+                            kernel_size=1, padding='same',
+                            activation=self.activation),
                 # tf.keras.layers.SpatialDropout2D(self._h.conv_dropout),
             ])
 
