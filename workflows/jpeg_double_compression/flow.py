@@ -104,11 +104,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
                                        kernel_size=self._h.kernel,
                                        padding='same',
                                        activation=self.activation))
-            if self._h.use_bn:
-                layers.append(tf.keras.layers.BatchNormalization())
-            if self._h.conv_dropout > 0 and i + 1 >= self._h.conv_dropout_after:
-                layers.append(
-                    tf.keras.layers.SpatialDropout2D(self._h.conv_dropout))
+            layers.append(tf.keras.layers.BatchNormalization())
             layers.append(tf.keras.layers.MaxPool2D(self._h.pool_size))
             filters = int(filters * self._h.filter_multiplier)
 
