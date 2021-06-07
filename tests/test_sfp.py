@@ -5,9 +5,7 @@ import numpy as np
 
 from workflows.scaling_factor import (
     ScalingFactor,
-    ScalingFactorDataset,
-    validate,
-    sf_plot
+    ScalingFactorDataset
 )
 
 
@@ -71,7 +69,6 @@ def model_ens():
 def test_dataset(dataset_nojpeg, dataset_jpeg):
     for data in [dataset_nojpeg, dataset_jpeg]:
         for images, labels in data.get_validation_generator(sf=SF):
-            print('*****')
             assert tf.is_tensor(images)
             assert tf.is_tensor(labels)
 
@@ -79,10 +76,8 @@ def test_dataset(dataset_nojpeg, dataset_jpeg):
             assert images.shape[1] == int(SF * PATCH_SIZE)
             assert images.shape[2] == int(SF * PATCH_SIZE)
 
-    print('Dataset tests passed.')
-
-'''
-def test_model(dataset_nojpeg, model_mcd, model_ens):
+            
+def test_mcdropout(dataset_nojpeg, model_mcd):
     optimizer = tf.keras.optimizers.Adam(0.001)
     loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
         from_logits=True
@@ -103,7 +98,12 @@ def test_model(dataset_nojpeg, model_mcd, model_ens):
             assert preds[i].shape == preds[i + 1].shape
             assert not tf.reduce_all(tf.equal(preds[i], preds[i + 1]))
 
-    print('MC Dropout tests passed.')
+            
+def test_ensemble(dataset_nojpeg, model_ens):
+    optimizer = tf.keras.optimizers.Adam(0.001)
+    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+        from_logits=True
+    )
 
     model = model_ens
     model._model.compile(
@@ -114,13 +114,11 @@ def test_model(dataset_nojpeg, model_mcd, model_ens):
 
     for images, labels in dataset_nojpeg.get_validation_generator(sf=SF):
         preds = model(images, training=False)
-
-        assert tf.is_tensor(preds)
-        assert preds.shape[0] == NUM_MODELS
+        
+        assert isinstance(preds, list)
+        assert len(preds) == NUM_MODELS
 
         for i in range(NUM_MODELS - 1):
+            assert tf.is_tensor(preds[i])
             assert preds[i].shape == preds[i + 1].shape
             assert not tf.reduce_all(tf.equal(preds[i], preds[i + 1]))
-
-    print('Ensemble tests passed.')
-'''
