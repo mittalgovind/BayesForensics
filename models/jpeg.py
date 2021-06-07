@@ -281,15 +281,8 @@ class DifferentiableJPEG(tf.keras.Model):
 
         return y, X
 
-    @tf.function(experimental_compile=True)
-    def compiled_call(self, inputs):
-        return self.uncompiled_call(inputs)
-
     def call(self, inputs, debug_mode=True):
-        if debug_mode:
-            return self.uncompiled_call(inputs)
-        else:
-            return self.compiled_call(inputs)
+        return self.uncompiled_call(inputs)
 
 
 class JPEG(TFModel):

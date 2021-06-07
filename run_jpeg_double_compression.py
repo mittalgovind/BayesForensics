@@ -25,6 +25,9 @@ from workflows.jpeg_double_compression import (
     load_parameters,
     qf_plot,
 )
+from models.jpeg import JPEG
+from helpers.old_dataset import Dataset
+
 
 # tf.debugging.experimental.enable_dump_debug_info(
 #     "./outputs/jpeg_fixed/tensorboard_logs",
@@ -92,16 +95,16 @@ def main():
 
     # Initialize the relevant dataset
     if args.load_model:
-        data = DoubleCompressionDataset(
-            load="y",
-            n_images=0,
-            v_images=args.n_val_images,
-            preloaded_rgb_val_data=loaded_val_data,
-            val_n_patches=val_n_patches,
-            val_rgb_patch_size=args.patch_size,
-            calc_pywt_residual="pywt" in args.parameters["residual_type"],
-            **vars(args)
-        )
+        # data = DoubleCompressionDataset(
+        #     load="y",
+        #     n_images=0,
+        #     v_images=args.n_val_images,
+        #     preloaded_rgb_val_data=loaded_val_data,
+        #     val_n_patches=val_n_patches,
+        #     val_rgb_patch_size=args.patch_size,
+        #     calc_pywt_residual="pywt" in args.parameters["residual_type"],
+        #     **vars(args)
+        # )
         model.load_model(os.path.abspath(args.load_model))
     else:
         # load presampled training data
@@ -109,31 +112,46 @@ def main():
             train_n_patches = 25
             loaded_train_data = np.load(
                 os.path.join(args.use_presampled, 'native12k_qM.npy'))[
-                         :train_n_patches * args.n_train_images]
+                                :train_n_patches * args.n_train_images]
         else:
             loaded_train_data = None
             train_n_patches = 1
 
-        data = DoubleCompressionDataset(
+        # data = DoubleCompressionDataset(
+        #     load="y",
+        #     n_images=args.n_train_images,
+        #     preloaded_rgb_train_data=loaded_train_data,
+        #     train_n_patches=train_n_patches,
+        #     v_images=args.n_val_images,
+        #     preloaded_rgb_val_data=loaded_val_data,
+        #     val_n_patches=val_n_patches,
+        #     val_rgb_patch_size=args.patch_size,
+        #     calc_pywt_residual="pywt" in args.parameters["residual_type"],
+        #     **vars(args)
+        # )
+
+        data = Dataset(
+            data_directory=args.data_dir,
             load="y",
             n_images=args.n_train_images,
-            preloaded_rgb_train_data=loaded_train_data,
-            train_n_patches=train_n_patches,
             v_images=args.n_val_images,
-            preloaded_rgb_val_data=loaded_val_data,
-            val_n_patches=val_n_patches,
+            randomize=69,
             val_rgb_patch_size=args.patch_size,
-            calc_pywt_residual="pywt" in args.parameters["residual_type"],
-            **vars(args)
         )
-
+        train_data = data.get_training_generator(args.batch_size,
+                                                 args.patch_size,
+                                                 codec=JPEG(codec="soft"),
+                                                 qf=(75, 100))
+        val_data = data.get_validation_generator(args.batch_size,
+                                                 codec=JPEG(codec="soft"),
+                                                 qf=(75, 100)),
         # Data pipeline prep
-        train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
-        val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
-        options = tf.data.Options()
-        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-        train_data = train_data.with_options(options)
-        val_data = val_data.with_options(options)
+        # train_data = data.get_training_pipeline()  # .prefetch(tf.data.AUTOTUNE)
+        # val_data = data.get_validation_pipeline()  # .prefetch(tf.data.AUTOTUNE)
+        # options = tf.data.Options()
+        # options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+        # train_data = train_data.with_options(options)
+        # val_data = val_data.with_options(options)
 
         # get callbacks using options
         save_freq = args.save_every * args.n_train_images // args.batch_size
@@ -156,6 +174,8 @@ def main():
             verbose=0,
             callbacks=callbacks,
             validation_freq=args.validation_freq,
+            steps_per_epoch=args.n_train_images // args.batch_size,
+            validation_steps=args.n_val_images // args.batch_size
         )
 
         # save the training performance

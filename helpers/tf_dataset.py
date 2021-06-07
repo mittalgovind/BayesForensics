@@ -236,15 +236,8 @@ class Dataset(object):
         patches = tf.math.divide(patches, 255)
         return patches
 
-    @tf.function(experimental_compile=True)
-    def compiled_sample_patches(self, batch, discard, **kwargs):
-        return self.uncompiled_sample_patches(batch, discard, **kwargs)
-
     def sample_patches(self, batch, discard="flat", **kwargs):
-        if self.debug_mode:
-            return self.uncompiled_sample_patches(batch, discard, **kwargs)
-        else:
-            return self.compiled_sample_patches(batch, discard, **kwargs)
+        return self.uncompiled_sample_patches(batch, discard, **kwargs)
 
     def is_raw_and_rgb(self):
         return len(self._loaded_data) == 2
