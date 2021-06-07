@@ -91,8 +91,8 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         self.patch_size = patch_size
         self.n_models = num_models
 
-        self.seq_model()
-        # self.create_model()
+        # self.seq_model()
+        self.create_model()
 
     def seq_model(self):
         layers = [ConstrainedConv2D()]
