@@ -123,7 +123,7 @@ def sf_plot(summary, conf_matrix, classes, training_method, save_dir):
             size=24
         )
 
-    acc_fig.savefig(os.path.join(save_dir, "acc_matrix.pdf"))
-    vr_fig.savefig(os.path.join(save_dir, "vr_matrix.pdf"))
-    pe_fig.savefig(os.path.join(save_dir, "pe_matrix.pdf"))
-    mi_fig.savefig(os.path.join(save_dir, "mi_matrix.pdf"))
+    acc_fig.savefig(os.path.join(save_dir, "acc_matrix.png"))
+    vr_fig.savefig(os.path.join(save_dir, "vr_matrix.png"))
+    pe_fig.savefig(os.path.join(save_dir, "pe_matrix.png"))
+    mi_fig.savefig(os.path.join(save_dir, "mi_matrix.png"))
