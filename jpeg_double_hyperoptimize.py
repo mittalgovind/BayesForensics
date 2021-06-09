@@ -180,7 +180,7 @@ def main(args):
         qf_test="60,95,5",
         codec='soft',
         batch_size=args.bs,
-        xla=False,
+        xla=True,
     )
     train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
     val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
