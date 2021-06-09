@@ -16,16 +16,14 @@ from loguru import logger
 import tensorflow as tf
 from tensorboard.plugins.hparams import api as tfhp
 
-# Internal Libraries
-from workflows.scaling_factor.dataset import ScalingFactorDataset
-from workflows.scaling_factor.flow import ScalingFactor
+from workflows.jpeg_double_compression.dataset import DoubleCompressionDataset
+from workflows.jpeg_double_compression.flow import JPEGDoubleCompression
 
 
-def create_keras_model(parameters, classes, patch_size):
+def create_keras_model(parameters, patch_size):
     try:
-        model = ScalingFactor(
+        model = JPEGDoubleCompression(
             uncertainty_method="vanilla",
-            n_classes=classes,
             patch_size=patch_size,
             use_bn=True,
             hyperoptimize=True,
@@ -48,23 +46,22 @@ def get_tf_hparams(tf_space, parameters):
 
 
 class Trainable:
-    def __init__(self, root, lr, save_dir, epochs, memory_growth,
-                 verbose, train_data, val_data, callbacks, tf_space,
-                 classes, patch_size, counter):
+    def __init__(self, root, lr, save_dir, epochs, memory_growth, verbose,
+                 train_data, val_data, callbacks, tf_space, patch_size,
+                 counter):
         self.epochs = epochs
         self.root = root
         self.lr = lr
         self.save_dir = save_dir
+        self.train_data = train_data
+        self.val_data = val_data
         self.memory_growth = memory_growth
         self.set_once = True
         self.verbose = verbose
-        self.classes = classes
         self.patch_size = patch_size
-        self.train_data = train_data
-        self.val_data = val_data
+        self.counter = counter
         self.callbacks = callbacks
         self.tf_space = tf_space
-        self.counter = counter
 
     def train(self, config):
         if self.set_once and self.memory_growth:
@@ -77,7 +74,7 @@ class Trainable:
             'Number of devices: {}'.format(strategy.num_replicas_in_sync))
         # Open a strategy scope.
         with strategy.scope():
-            model = create_keras_model(config, self.classes, self.patch_size)
+            model = create_keras_model(config, self.patch_size)
             # ON CREATION FAILURE
             if not model:
                 return np.inf
@@ -131,8 +128,9 @@ def create_search_space():
         "conv_layers": hp.choice("conv_layers", [3, 4, 5]),
         "dense_dropout": hp.choice("dense_dropout", [0.0, 0.05, 0.5]),
         "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
+        "dense_multiplier": hp.choice("dense_multiplier", [0.5, 1.0]),
         "dense_units": hp.choice("dense_units", [128, 256, 384]),
-        "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
+        "filter_multiplier": hp.choice("filter_multiplier", [1.0, 2.0]),
         "filters": hp.choice("filters", [16, 32, 64, 128]),
         "kernel": hp.choice("kernel", [3, 5]),
         "pool_size": hp.choice("pool_size", [1, 2])
@@ -142,25 +140,24 @@ def create_search_space():
         tfhp.HParam("conv_layers", tfhp.Discrete([3, 4, 5])),
         tfhp.HParam("dense_dropout", tfhp.Discrete([0.0, 0.05, 0.5])),
         tfhp.HParam("dense_layers", tfhp.Discrete([1, 2, 3, 4])),
+        tfhp.HParam("dense_multiplier", tfhp.Discrete([0.5, 1.0])),
         tfhp.HParam("dense_units", tfhp.Discrete([128, 256, 384])),
-        tfhp.HParam("filter_multiplier", tfhp.Discrete([1, 2])),
+        tfhp.HParam("filter_multiplier", tfhp.Discrete([1.0, 2.0])),
         tfhp.HParam("filters", tfhp.Discrete([16, 32, 64, 128])),
         tfhp.HParam("kernel", tfhp.Discrete([3, 5])),
         tfhp.HParam("pool_size", tfhp.Discrete([1, 2])),
     ]
-    # placeholding. Changes later.
-    best_config = {
-        "filters": 32,
-        "filter_multiplier": 2,
+    good = {
         "conv_layers": 4,
-        "kernel": 3,
         "dense_layers": 1,
         "dense_units": 256,
+        "filters": 32,
+        "kernel": 5,
         "pool_size": 2,
-        "dense_dropout": 0.1
+        "dense_multiplier": 1,
+        "filter_multiplier": 2,
     }
-
-    return hspace, tf_hspace, best_config
+    return hspace, tf_hspace, good
 
 
 def main(args):
@@ -170,20 +167,20 @@ def main(args):
     search_space, tf_search_space, best_config = create_search_space()
     logger.info("Initializing scheduler and search algorithms")
 
-    data = ScalingFactorDataset(
+    data = DoubleCompressionDataset(
         load="y",
         data_dir=os.path.join(args.root, 'native12k'),
         n_images=args.n_images,
         v_images=args.v_images,
         seed=69,
         val_rgb_patch_size=args.patch_size,
-        n_classes=16,
-        scales="0.25,1.0",
-        sampling_method="random",
-        codec=None,
+        calc_pywt_residual=False,
+        qf_train="75,95",
+        qf_test="60,95,5",
+        codec='soft',
         batch_size=args.bs,
+        xla=False,
     )
-
     train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
     val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
     options = tf.data.Options()
@@ -243,7 +240,7 @@ def run_trials(args, search_space, train_data, val_data, callbacks,
     trainer = Trainable(args.root, args.lr, args.save_dir,
                         args.epochs, args.memory_growth, args.verbose,
                         train_data, val_data, callbacks, tf_search_space,
-                        16, args.patch_size, len(trials.trials))
+                        args.patch_size, len(trials.trials))
 
     fmin(fn=trainer.train,
          space=search_space,
@@ -263,16 +260,16 @@ if __name__ == "__main__":
         import argparse
 
         parser = argparse.ArgumentParser(description="Hyperopt")
-        parser.add_argument("--epochs", default=100, type=int)
+        parser.add_argument("--epochs", default=120, type=int)
         parser.add_argument("--verbose", default=0, type=int)
-        parser.add_argument("--bs", default=2048, type=int)
+        parser.add_argument("--bs", default=256, type=int)
         parser.add_argument("--num-samples", default=250, type=int)
-        parser.add_argument("--n-images", default=1024, type=int)
+        parser.add_argument("--n-images", default=10240, type=int)
         parser.add_argument("--v-images", default=1024, type=int)
         parser.add_argument("--patch-size", default=128, type=int)
         parser.add_argument("--lr", default=0.001, type=float)
         parser.add_argument("--save-dir",
-                            default='/scratch/gm2724/nip_runs/sfp_hyper',
+                            default='/scratch/gm2724/nip_runs/',
                             type=str)
         parser.add_argument("--root",
                             default='/scratch/gm2724/data/rgb',
@@ -287,4 +284,3 @@ if __name__ == "__main__":
 
         logger.error(traceback.format_exc())
         raise
-

@@ -38,6 +38,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             residual_type="trainable",
             patch_size=64,
             num_models=1,
+            hyperoptimize=False,
             **kwargs
     ):
         """
@@ -91,7 +92,56 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         self.patch_size = patch_size
         self.n_models = num_models
 
-        self.create_model()
+        if hyperoptimize:
+            self._seq_create_model()
+        else:
+            self.create_model()
+
+    def _seq_create_model(self):
+        """Made for keras hyperopt."""
+        # TODO Fix ensembling thing and delete this.
+        layers = []
+        # Constrained convolution with a learned residual filter
+        layers.append(ConstrainedConv2D())
+        # Standard convolutional layers
+        filters = self._h.filters
+        for j in range(self._h.conv_layers):
+            layers.append(
+                tf.keras.layers.Conv2D(filters,
+                                       kernel_size=self._h.kernel,
+                                       padding='same',
+                                       activation=self.activation))
+            if self._h.use_bn:
+                layers.append(tf.keras.layers.BatchNormalization())
+            if self._h.conv_dropout > 0 and j + 1 >= self._h.conv_dropout_after:
+                layers.append(
+                    tf.keras.layers.SpatialDropout2D(self._h.conv_dropout))
+            layers.append(tf.keras.layers.MaxPool2D(self._h.pool_size))
+            filters = int(filters * self._h.filter_multiplier)
+
+        # Final 1 x 1 convolution
+        layers.append(
+            tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
+                                   kernel_size=1, padding='same',
+                                   activation=self.activation)
+        )
+
+        layers.append(tf.keras.layers.Flatten())
+
+        # Fully-connected classifier
+        dense_units = self._h.dense_units
+        for _ in range(self._h.dense_layers):
+            layers.append(
+                self.dense(dense_units, activation=self.activation)
+            )
+            if self._h.dense_dropout > 0:
+                layers.append(self.dropout(self._h.dense_dropout))
+            dense_units = int(dense_units * self._h.dense_multiplier)
+
+        # final classification head
+        layers.append(self.dense(2, activation=None))
+
+        self._model = tf.keras.models.Sequential(layers)
 
     def _create_model(self):
         """Need to override to specify model architecture."""

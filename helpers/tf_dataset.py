@@ -241,7 +241,7 @@ class Dataset(object):
         return self.uncompiled_sample_patches(batch, discard, **kwargs)
 
     def sample_patches(self, batch, discard="flat", **kwargs):
-        if self.xla:
+        if not self.xla:
             return self.uncompiled_sample_patches(batch, discard, **kwargs)
         else:
             return self.compiled_sample_patches(batch, discard, **kwargs)
