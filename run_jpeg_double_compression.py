@@ -29,11 +29,12 @@ from models.jpeg import JPEG
 from helpers.old_dataset import Dataset
 from helpers.tf_jpeg import TFJPEG
 
+
 # tf.debugging.experimental.enable_dump_debug_info(
 #     "./outputs/jpeg_fixed/tensorboard_logs",
 #     tensor_debug_mode="FULL_HEALTH",
 #     circular_buffer_size=-1)
-os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
+# os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
 
 def main():
@@ -146,10 +147,32 @@ def main():
         #                                          qf=(75, 100))
         # val_data = data.get_validation_generator(args.batch_size,
         #                                          codec=TFJPEG(codec="soft"),
-        #                                          qf=(75, 100)),
+        #                                          qf=(75, 100))
+        train_data = tf.data.Dataset.from_generator(
+            data.get_training_generator,
+            # args=(args.batch_size, args.patch_size),
+            output_signature=(
+                tf.TensorSpec(
+                    shape=(args.batch_size * 2, args.patch_size,
+                           args.patch_size, 3),
+                    dtype=tf.float32),
+                tf.TensorSpec(shape=args.batch_size * 2, dtype=tf.float32)
+            )
+        ).prefetch(tf.data.AUTOTUNE)
+        val_data = tf.data.Dataset.from_generator(
+            data.get_validation_generator,
+            # args=(args.batch_size,),
+            output_signature=(
+                tf.TensorSpec(shape=(
+                    args.batch_size * 2, args.patch_size,
+                    args.patch_size, 3),
+                    dtype=tf.float32),
+                tf.TensorSpec(shape=args.batch_size * 2, dtype=tf.float32)
+            )
+        ).prefetch(tf.data.AUTOTUNE)
         # Data pipeline prep
-        train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
-        val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
+        # train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
+        # val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
         options = tf.data.Options()
         options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
         train_data = train_data.with_options(options)
@@ -184,8 +207,8 @@ def main():
         history = train_performance.history
         cache.save(history, step="performance")
 
-        fig = perf(history, alpha=0.01)
-        fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
+    fig = perf(history, alpha=0.01)
+    fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
     # if args.calibrate:
     #     model.set_temp(data)

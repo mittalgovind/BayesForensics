@@ -8,6 +8,7 @@ from helpers import loading
 from helpers.loading import sample_patch
 import tensorflow as tf
 from loguru import logger
+from helpers.tf_jpeg import TFJPEG
 
 
 class Dataset(object):
@@ -378,7 +379,8 @@ class Dataset(object):
         for k in self._loaded_data:
             stats["training/{}".format(k)] = self.data["training"][k].shape
             stats["validation/{}".format(k)] = self.data["validation"][k].shape
-            stats["calibration/{}".format(k)] = self.data["calibration"][k].shape
+            stats["calibration/{}".format(k)] = self.data["calibration"][
+                k].shape
 
         return stats
 
@@ -412,7 +414,8 @@ class Dataset(object):
 
         return "\n".join(label)
 
-    def preprocess_batch(self, inputs, codec, qf, **kwargs):
+    def preprocess_batch(self, inputs, codec=TFJPEG(codec="soft"),
+                         qf=(75, 100), **kwargs):
         """To preprocess input batch before training"""
         batch_size = len(inputs)
         QF1 = np.random.randint(low=qf[0], high=qf[1])
@@ -478,7 +481,7 @@ class Dataset(object):
         import tensorflow as tf
 
         types = (
-        tf.float32, tf.float32) if self.is_raw_and_rgb() else tf.float32
+            tf.float32, tf.float32) if self.is_raw_and_rgb() else tf.float32
         shapes = (
             (batch_size, rgb_patch_size // 2, rgb_patch_size // 2, 4),
             (batch_size, rgb_patch_size, rgb_patch_size, 3),
@@ -505,4 +508,3 @@ class Dataset(object):
             lambda: self.get_calibration_generator(batch_size),
             output_types=len(self._loaded_data) * (tf.float32,),
         )
-
