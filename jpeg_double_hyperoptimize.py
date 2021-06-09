@@ -18,6 +18,7 @@ from tensorboard.plugins.hparams import api as tfhp
 
 from workflows.jpeg_double_compression.dataset import DoubleCompressionDataset
 from workflows.jpeg_double_compression.flow import JPEGDoubleCompression
+from tqdm.keras import TqdmCallback
 
 
 def create_keras_model(parameters, patch_size):
@@ -96,7 +97,7 @@ class Trainable:
                     x=self.train_data,
                     validation_data=self.val_data,
                     epochs=self.epochs,
-                    verbose=self.verbose,
+                    verbose=0,
                     callbacks=self.callbacks,
                 )
                 rval = {'loss': np.mean(history.history['val_loss'][-10:]),
@@ -198,6 +199,8 @@ def main(args):
         )
 
     callbacks = []
+    if args.verbose > 0:
+        callbacks.append(TqdmCallback())
     if args.tensorboard:
         callbacks.append(tf.keras.callbacks.TensorBoard())
 
