@@ -219,6 +219,7 @@ class Dataset(object):
         patches = tf.zeros((0, self.train_rgb_patch_size,
                             self.train_rgb_patch_size, self.channels),
                            dtype=batch.dtype)
+        # TODO add support for train_n_patches > 1
         for i in range(self.batch_size):
             xx, yy = tf_sample_patch(
                 batch[i],

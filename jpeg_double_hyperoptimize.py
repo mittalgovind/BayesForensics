@@ -100,7 +100,7 @@ class Trainable:
                     verbose=0,
                     callbacks=self.callbacks,
                 )
-                rval = {'loss': np.mean(history.history['val_loss'][-10:]),
+                rval = {'loss': np.mean(history.history['val_loss'][-4:]),
                         'status': STATUS_OK}
                 for i in history.epoch:
                     tf.summary.scalar('Accuracy',
