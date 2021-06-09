@@ -193,10 +193,10 @@ def parse_args():
         help="Disables GPU utilization.",
     )
     parser.add_argument(
-        "--debug-mode",
+        "--xla",
         action="store_true",
         default=False,
-        help="Disables XLA experimental compilation.",
+        help="Enables XLA experimental compilation.",
     )
     parser.add_argument(
         "--verbose",

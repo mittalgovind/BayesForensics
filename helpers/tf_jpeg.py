@@ -19,7 +19,7 @@ from models.jpeg import JPEG
 
 
 class TFJPEG(JPEG):
-    def __init__(self, debug_mode=False, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self._q_luma = tf.convert_to_tensor([
@@ -42,8 +42,6 @@ class TFJPEG(JPEG):
             [99, 99, 99, 99, 99, 99, 99, 99],
             [99, 99, 99, 99, 99, 99, 99, 99],
         ], dtype=tf.int32)
-
-        self.debug_mode = debug_mode
 
     def jpeg_qtable(self, quality, channel=0):
         """
@@ -121,6 +119,6 @@ class TFJPEG(JPEG):
         else:
             self._model._q_mtx_luma = self.jpeg_qtable(quality, 0)
             self._model._q_mtx_chroma = self.jpeg_qtable(quality, 1)
-            y, _ = self._model(batch, debug_mode=self.debug_mode)
+            y, _ = self._model(batch)
 
         return y

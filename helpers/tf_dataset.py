@@ -39,7 +39,7 @@ class Dataset(object):
             batch_size=64,
             calibrate=False,
             preprocess_data=False,
-            debug_mode=False,
+            xla=False,
             **kwargs
     ):
 
@@ -90,7 +90,7 @@ class Dataset(object):
             val_n_patches,
         )
         self.channels = 3
-        self.debug_mode = debug_mode
+        self.xla = xla
         self._val_discard = val_discard
         self.val_rgb_patch_size = val_rgb_patch_size
         self.train_rgb_patch_size = train_rgb_patch_size
@@ -236,8 +236,15 @@ class Dataset(object):
         patches = tf.math.divide(patches, 255)
         return patches
 
-    def sample_patches(self, batch, discard="flat", **kwargs):
+    @tf.function(experimental_compile=True)
+    def compiled_sample_patches(self, batch, discard, **kwargs):
         return self.uncompiled_sample_patches(batch, discard, **kwargs)
+
+    def sample_patches(self, batch, discard="flat", **kwargs):
+        if self.xla:
+            return self.uncompiled_sample_patches(batch, discard, **kwargs)
+        else:
+            return self.compiled_sample_patches(batch, discard, **kwargs)
 
     def is_raw_and_rgb(self):
         return len(self._loaded_data) == 2

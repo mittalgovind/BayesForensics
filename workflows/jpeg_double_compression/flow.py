@@ -91,42 +91,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         self.patch_size = patch_size
         self.n_models = num_models
 
-        # self.seq_model()
         self.create_model()
-
-    def seq_model(self):
-        layers = [ConstrainedConv2D()]
-        # Setup conv layers
-        filters = self._h.filters
-        for i in range(self._h.conv_layers):
-            layers.append(
-                tf.keras.layers.Conv2D(filters,
-                                       kernel_size=self._h.kernel,
-                                       padding='same',
-                                       activation=self.activation))
-            layers.append(tf.keras.layers.BatchNormalization())
-            layers.append(tf.keras.layers.MaxPool2D(self._h.pool_size))
-            filters = int(filters * self._h.filter_multiplier)
-
-        layers.append(
-            tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
-                                   1, padding='same',
-                                   activation=self.activation))
-        layers.append(tf.keras.layers.Flatten())
-
-        # Setup dense layers
-        dense_units = self._h.dense_units
-        for i in range(self._h.dense_layers):
-            layers.append(self.dense(dense_units,
-                                     activation=self.activation))
-            if self._h.dense_dropout > 0:
-                layers.append(self.dropout(self._h.dense_dropout))
-            dense_units = int(dense_units * self._h.dense_multiplier)
-
-        # Final classification head
-        layers.append(self.dense(2, activation=tf.keras.activations.softmax))
-
-        self._model = tf.keras.models.Sequential(layers)
 
     def _create_model(self):
         """Need to override to specify model architecture."""
@@ -138,10 +103,10 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             filters = self._h.filters
             for i in range(self._h.conv_layers):
                 layers[j].append(
-                    tf.keras.layers.Conv2D(filters,
-                                           kernel_size=self._h.kernel,
-                                           padding='same',
-                                           activation=self.activation))
+                    self.conv2d(filters,
+                                kernel_size=self._h.kernel,
+                                padding='same',
+                                activation=self.activation))
                 if self._h.use_bn:
                     layers[j].append(tf.keras.layers.BatchNormalization())
                 if self._h.conv_dropout > 0 and i + 1 >= self._h.conv_dropout_after:
@@ -151,9 +116,8 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
                 filters = int(filters * self._h.filter_multiplier)
 
             layers[j].append(
-                tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
-                                       1, padding='same',
-                                       activation=self.activation))
+                self.conv2d(filters // self._h.filter_multiplier, 1,
+                            padding='same', activation=self.activation))
             layers[j].append(tf.keras.layers.Flatten())
 
             # Setup dense layers

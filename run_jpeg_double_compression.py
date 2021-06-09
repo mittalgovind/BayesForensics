@@ -25,16 +25,6 @@ from workflows.jpeg_double_compression import (
     load_parameters,
     qf_plot,
 )
-from models.jpeg import JPEG
-from helpers.old_dataset import Dataset
-from helpers.tf_jpeg import TFJPEG
-
-
-# tf.debugging.experimental.enable_dump_debug_info(
-#     "./outputs/jpeg_fixed/tensorboard_logs",
-#     tensor_debug_mode="FULL_HEALTH",
-#     circular_buffer_size=-1)
-# os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
 
 def main():
@@ -73,18 +63,18 @@ def main():
 
     # initializations
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
-    # strategy = tf.distribute.MirroredStrategy()
-    # logger.info(
-    #     'Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    strategy = tf.distribute.MirroredStrategy()
+    logger.info(
+        'Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     # Prepare model with mirrored strategy.
-    # with strategy.scope():
-    model = JPEGDoubleCompression(**args.parameters, **vars(args))
-    optimizer = tf.keras.optimizers.Adam(args.lr)
-    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-        from_logits=True)
-    model._model.compile(optimizer, loss=loss_criterion,
-                         metrics=["accuracy"])
+    with strategy.scope():
+        model = JPEGDoubleCompression(**args.parameters, **vars(args))
+        optimizer = tf.keras.optimizers.Adam(args.lr)
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True)
+        model._model.compile(optimizer, loss=loss_criterion,
+                             metrics=["accuracy"])
 
     # load presampled validation data
     if args.use_presampled:
@@ -98,16 +88,16 @@ def main():
 
     # Initialize the relevant dataset
     if args.load_model:
-        # data = DoubleCompressionDataset(
-        #     load="y",
-        #     n_images=0,
-        #     v_images=args.n_val_images,
-        #     preloaded_rgb_val_data=loaded_val_data,
-        #     val_n_patches=val_n_patches,
-        #     val_rgb_patch_size=args.patch_size,
-        #     calc_pywt_residual="pywt" in args.parameters["residual_type"],
-        #     **vars(args)
-        # )
+        data = DoubleCompressionDataset(
+            load="y",
+            n_images=0,
+            v_images=args.n_val_images,
+            preloaded_rgb_val_data=loaded_val_data,
+            val_n_patches=val_n_patches,
+            val_rgb_patch_size=args.patch_size,
+            calc_pywt_residual="pywt" in args.parameters["residual_type"],
+            **vars(args)
+        )
         model.load_model(os.path.abspath(args.load_model))
     else:
         # load presampled training data
@@ -133,46 +123,9 @@ def main():
             **vars(args)
         )
 
-        # data = Dataset(
-        #     data_directory=args.data_dir,
-        #     load="y",
-        #     n_images=args.n_train_images,
-        #     v_images=args.n_val_images,
-        #     randomize=69,
-        #     val_rgb_patch_size=args.patch_size,
-        # )
-        # train_data = data.get_training_generator(args.batch_size,
-        #                                          args.patch_size,
-        #                                          codec=TFJPEG(codec="soft"),
-        #                                          qf=(75, 100))
-        # val_data = data.get_validation_generator(args.batch_size,
-        #                                          codec=TFJPEG(codec="soft"),
-        #                                          qf=(75, 100))
-        train_data = tf.data.Dataset.from_generator(
-            data.get_training_generator,
-            # args=(args.batch_size, args.patch_size),
-            output_signature=(
-                tf.TensorSpec(
-                    shape=(args.batch_size * 2, args.patch_size,
-                           args.patch_size, 3),
-                    dtype=tf.float32),
-                tf.TensorSpec(shape=args.batch_size * 2, dtype=tf.float32)
-            )
-        ).prefetch(tf.data.AUTOTUNE)
-        val_data = tf.data.Dataset.from_generator(
-            data.get_validation_generator,
-            # args=(args.batch_size,),
-            output_signature=(
-                tf.TensorSpec(shape=(
-                    args.batch_size * 2, args.patch_size,
-                    args.patch_size, 3),
-                    dtype=tf.float32),
-                tf.TensorSpec(shape=args.batch_size * 2, dtype=tf.float32)
-            )
-        ).prefetch(tf.data.AUTOTUNE)
         # Data pipeline prep
-        # train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
-        # val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
+        train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
+        val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
         options = tf.data.Options()
         options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
         train_data = train_data.with_options(options)
@@ -199,16 +152,14 @@ def main():
             verbose=0,
             callbacks=callbacks,
             validation_freq=args.validation_freq,
-            # steps_per_epoch=args.n_train_images // args.batch_size,
-            # validation_steps=args.n_val_images // args.batch_size
         )
 
         # save the training performance
         history = train_performance.history
         cache.save(history, step="performance")
 
-    fig = perf(history, alpha=0.01)
-    fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
+        fig = perf(history, alpha=0.01)
+        fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
     # if args.calibrate:
     #     model.set_temp(data)

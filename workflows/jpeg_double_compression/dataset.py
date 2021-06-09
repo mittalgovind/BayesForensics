@@ -27,7 +27,7 @@ except RuntimeError:
 
 class DoubleCompressionDataset(Dataset):
     def __init__(self, codec, qf_train, qf_test, calc_pywt_residual=False,
-                 debug_mode=False, **kwargs):
+                 **kwargs):
         """
         Subclass of helpers.dataset.Dataset class.
 
@@ -40,8 +40,7 @@ class DoubleCompressionDataset(Dataset):
         calc_pywt_residual : bool
             Flag for calculate PyWavelet residual
         """
-        super().__init__(preprocess_data=calc_pywt_residual,
-                         debug_mode=debug_mode, **kwargs)
+        super().__init__(preprocess_data=calc_pywt_residual, **kwargs)
 
         qf_train = qf_train.split(",")
         if len(qf_train) == 2:
@@ -63,7 +62,7 @@ class DoubleCompressionDataset(Dataset):
         self.qf_test = tf.convert_to_tensor(np.arange(*qf_test))
         self.len_qf_test = len(self.qf_test)
 
-        self.codec = TFJPEG(codec=codec, debug_mode=debug_mode)
+        self.codec = TFJPEG(codec=codec)
         if codec == 'libjpeg':
             logger.info('Using libjpeg will be slowing the computation.')
 
