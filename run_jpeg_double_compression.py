@@ -33,6 +33,7 @@ from helpers.tf_jpeg import TFJPEG
 #     "./outputs/jpeg_fixed/tensorboard_logs",
 #     tensor_debug_mode="FULL_HEALTH",
 #     circular_buffer_size=-1)
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
 
 def main():
@@ -149,10 +150,10 @@ def main():
         # Data pipeline prep
         train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
         val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
-        # options = tf.data.Options()
-        # options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-        # train_data = train_data.with_options(options)
-        # val_data = val_data.with_options(options)
+        options = tf.data.Options()
+        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+        train_data = train_data.with_options(options)
+        val_data = val_data.with_options(options)
 
         # get callbacks using options
         save_freq = args.save_every * args.n_train_images // args.batch_size
