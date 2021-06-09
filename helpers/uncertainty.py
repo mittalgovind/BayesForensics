@@ -22,7 +22,7 @@ def get_pred(logits):
     # logits.shape = (num_runs, batch_size, num_classes)
     # make it batch_first
     # (batch_size, num_runs, num_classes)
-    logits = logits.numpy().transpose((1, 0, 2))
+    logits = np.transpose(logits, (1, 0, 2))
     # (batch_size, num_runs)
     pred_per_run = np.argmax(logits, axis=-1)
     # (batch_size, )
@@ -34,7 +34,7 @@ def get_probs_passes_logits(logits):
     # logits.shape = (num_runs, batch_size, num_classes)
     # make it batch_first
     # (batch_size, num_runs, num_classes)
-    batch_logits = logits.numpy().transpose((1, 0, 2))
+    batch_logits = np.transpose(logits, (1, 0, 2))
     probs = np.array([[softmax(run) for run in logits] for logits in batch_logits])
     n_passes = probs.shape[1]
     return probs, n_passes, logits
@@ -78,7 +78,7 @@ def get_limits(n_models, n_classes):
         model[0][i % n_classes] = MAX
         logits.append(model)
 
-    logits = tf.convert_to_tensor(logits)
+    logits = np.array(logits)
 
     uncertainty_limits = {
         "variation_ratio": variation_ratio(logits)[0],

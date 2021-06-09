@@ -72,7 +72,7 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                 if uncertainty_method == "vanilla":
                     predictions = logits.argmax(axis=-1)
                 else:
-                    predictions = tf.squeeze(get_pred(logits))
+                    predictions = np.squeeze(get_pred(logits))
 
                 labels, counts = np.unique(predictions, return_counts=True)
                 for label, count in zip(labels, counts):
