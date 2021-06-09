@@ -59,8 +59,8 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                 i = 0
                 for images, labels in data.get_validation_generator(sf=sf):
                     if uncertainty_method == "vanilla" or uncertainty_method == "ensemble":
-                        logits[i: i + batch_size] = (model(
-                            images, training=False) / model.temperature).numpy()
+                        logits[i: i + batch_size] = np.array(model(
+                            images, training=False)) / model.temperature
 
                     else:
                         logits[i: i + batch_size] = np.transpose(np.array(
