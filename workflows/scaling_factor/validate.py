@@ -63,9 +63,9 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                             images, training=False) / model.temperature).numpy()
 
                     else:
-                        logits[i: i + batch_size] = np.array(
+                        logits[i: i + batch_size] = np.transpose(np.array(
                             [model(images, training=False) / model.temperature
-                             for _ in range(num_runs)])
+                             for _ in range(num_runs)]), (1, 0, 2))
 
                     i += batch_size
 
