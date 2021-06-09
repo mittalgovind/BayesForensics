@@ -43,7 +43,6 @@ class TFJPEG(JPEG):
             [99, 99, 99, 99, 99, 99, 99, 99],
         ], dtype=tf.int32)
 
-    @tf.function(experimental_compile=True)
     def jpeg_qtable(self, quality, channel=0):
         """
         Return a DCT quantization matrix for a given quality level.
@@ -101,7 +100,6 @@ class TFJPEG(JPEG):
         return batch_j
 
     @staticmethod
-    @tf.function(experimental_compile=True)
     def is_valid_quality(quality):
         if is_number(quality) and tf.greater_equal(quality, 1) \
                 and tf.less_equal(quality, 100):
@@ -121,6 +119,6 @@ class TFJPEG(JPEG):
         else:
             self._model._q_mtx_luma = self.jpeg_qtable(quality, 0)
             self._model._q_mtx_chroma = self.jpeg_qtable(quality, 1)
-            y, _ = self._model(batch, compile=True)
+            y, _ = self._model(batch)
 
         return y

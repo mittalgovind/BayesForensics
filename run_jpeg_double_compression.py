@@ -90,7 +90,7 @@ def main():
     if args.load_model:
         data = DoubleCompressionDataset(
             load="y",
-            n_images=1024,
+            n_images=0,
             v_images=args.n_val_images,
             preloaded_rgb_val_data=loaded_val_data,
             val_n_patches=val_n_patches,
@@ -105,7 +105,7 @@ def main():
             train_n_patches = 25
             loaded_train_data = np.load(
                 os.path.join(args.use_presampled, 'native12k_qM.npy'))[
-                         :train_n_patches * args.n_train_images]
+                                :train_n_patches * args.n_train_images]
         else:
             loaded_train_data = None
             train_n_patches = 1
@@ -161,8 +161,8 @@ def main():
         fig = perf(history, alpha=0.01)
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
-    if args.calibrate:
-        model.set_temp(data)
+    # if args.calibrate:
+    #     model.set_temp(data)
 
     logger.info("Started Testing")
     accuracies = validate(

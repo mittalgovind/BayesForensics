@@ -130,7 +130,7 @@ def parse_args():
     parser.add_argument(
         "--data-dir",
         type=str,
-        default="/home/govind/Workspace/neural-imaging-dev/data/rgb/native12k",
+        default=None,
         help="Data directory for getting images from.",
     )
     parser.add_argument(
@@ -191,6 +191,12 @@ def parse_args():
         action="store_true",
         default=False,
         help="Disables GPU utilization.",
+    )
+    parser.add_argument(
+        "--xla",
+        action="store_true",
+        default=False,
+        help="Enables XLA experimental compilation.",
     )
     parser.add_argument(
         "--verbose",

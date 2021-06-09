@@ -73,10 +73,8 @@ class DoubleCompressionDataset(Dataset):
     def preprocess_batch(self, batch, **kwargs):
         if not self.eval_mode:
             # sample quality factors
-            QF1 = self.qf_train[randint(maxval=self.len_qf_train,
-                                        seed=self.seed)]
-            QF2 = self.qf_train[randint(maxval=self.len_qf_train,
-                                        seed=self.seed)]
+            QF1 = self.qf_train[randint(maxval=self.len_qf_train, seed=self.seed)]
+            QF2 = self.qf_train[randint(maxval=self.len_qf_train, seed=self.seed)]
             while QF1 == QF2:
                 QF2 = self.qf_train[randint(maxval=self.len_qf_train,
                                             seed=self.seed)]

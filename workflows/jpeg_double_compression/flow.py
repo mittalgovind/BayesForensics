@@ -103,10 +103,10 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             filters = self._h.filters
             for i in range(self._h.conv_layers):
                 layers[j].append(
-                    tf.keras.layers.Conv2D(filters,
-                                           kernel_size=self._h.kernel,
-                                           padding='same',
-                                           activation=self.activation))
+                    self.conv2d(filters,
+                                kernel_size=self._h.kernel,
+                                padding='same',
+                                activation=self.activation))
                 if self._h.use_bn:
                     layers[j].append(tf.keras.layers.BatchNormalization())
                 if self._h.conv_dropout > 0 and i + 1 >= self._h.conv_dropout_after:
@@ -116,9 +116,8 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
                 filters = int(filters * self._h.filter_multiplier)
 
             layers[j].append(
-                tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
-                                       1, padding='same',
-                                       activation=self.activation))
+                self.conv2d(filters // self._h.filter_multiplier, 1,
+                            padding='same', activation=self.activation))
             layers[j].append(tf.keras.layers.Flatten())
 
             # Setup dense layers
@@ -153,4 +152,3 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
             outputs_list = outputs_list[0]
 
         self._model = tf.keras.models.Model(inputs, outputs_list)
-
