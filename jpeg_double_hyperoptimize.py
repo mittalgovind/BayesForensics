@@ -176,7 +176,7 @@ def main(args):
         seed=69,
         val_rgb_patch_size=args.patch_size,
         calc_pywt_residual=False,
-        qf_train="75,95",
+        qf_train="75,95,3",
         qf_test="60,95,5",
         codec='soft',
         batch_size=args.bs,
@@ -263,11 +263,11 @@ if __name__ == "__main__":
         import argparse
 
         parser = argparse.ArgumentParser(description="Hyperopt")
-        parser.add_argument("--epochs", default=120, type=int)
+        parser.add_argument("--epochs", default=50, type=int)
         parser.add_argument("--verbose", default=0, type=int)
-        parser.add_argument("--bs", default=256, type=int)
+        parser.add_argument("--bs", default=128, type=int)
         parser.add_argument("--num-samples", default=250, type=int)
-        parser.add_argument("--n-images", default=10240, type=int)
+        parser.add_argument("--n-images", default=2560, type=int)
         parser.add_argument("--v-images", default=1024, type=int)
         parser.add_argument("--patch-size", default=128, type=int)
         parser.add_argument("--lr", default=0.001, type=float)
