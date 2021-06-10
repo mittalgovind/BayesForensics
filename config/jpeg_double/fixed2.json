@@ -6,9 +6,9 @@
   "kernel": 3,
   "pool_size": 2,
   "residual_type": "trainable",
-  "dense_multiplier": 0.5,
+  "dense_multiplier": 1,
   "filter_multiplier": 1,
   "activation": "leaky_relu",
-  "dense_dropout": 0.0,
+  "dense_dropout": 0.05,
   "use_bn": false
 }
