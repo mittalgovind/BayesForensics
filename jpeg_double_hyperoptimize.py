@@ -128,9 +128,9 @@ def create_search_space():
     hspace = {
         "conv_layers": hp.choice("conv_layers", [3, 4, 5]),
         "dense_dropout": hp.choice("dense_dropout", [0.0, 0.05, 0.5]),
-        "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
+        "dense_layers": hp.choice("dense_layers", [0, 1, 2, 3]),
         "dense_multiplier": hp.choice("dense_multiplier", [0.5, 1.0]),
-        "dense_units": hp.choice("dense_units", [64, 128, 256]),
+        "dense_units": hp.choice("dense_units", [128, 256, 384]),
         "filter_multiplier": hp.choice("filter_multiplier", [1.0, 2.0]),
         "filters": hp.choice("filters", [16, 32, 64, 128]),
         "kernel": hp.choice("kernel", [3, 5]),
@@ -140,9 +140,9 @@ def create_search_space():
     tf_hspace = [
         tfhp.HParam("conv_layers", tfhp.Discrete([3, 4, 5])),
         tfhp.HParam("dense_dropout", tfhp.Discrete([0.0, 0.05, 0.5])),
-        tfhp.HParam("dense_layers", tfhp.Discrete([1, 2, 3, 4])),
+        tfhp.HParam("dense_layers", tfhp.Discrete([0, 1, 2, 3])),
         tfhp.HParam("dense_multiplier", tfhp.Discrete([0.5, 1.0])),
-        tfhp.HParam("dense_units", tfhp.Discrete([64, 128, 256])),
+        tfhp.HParam("dense_units", tfhp.Discrete([128, 256, 384])),
         tfhp.HParam("filter_multiplier", tfhp.Discrete([1.0, 2.0])),
         tfhp.HParam("filters", tfhp.Discrete([16, 32, 64, 128])),
         tfhp.HParam("kernel", tfhp.Discrete([3, 5])),
