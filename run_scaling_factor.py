@@ -173,6 +173,7 @@ def main():
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(),
             args.sampling_method, args.save_dir)
 
+    print(data.sf_distribution)
     fig, ax = plt.subplots()
     ax.bar(*zip(*data.sf_distribution.items()))
     fig.savefig(os.path.join(args.save_dir, "seen_sfs.png"))
