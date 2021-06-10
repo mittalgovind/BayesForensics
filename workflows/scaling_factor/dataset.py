@@ -11,6 +11,7 @@ import os
 # External libraries
 import tensorflow as tf
 from loguru import logger
+import numpy as np
 
 # Internal libraries
 from helpers.tf_dataset import Dataset
