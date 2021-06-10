@@ -130,7 +130,7 @@ def create_search_space():
         "dense_dropout": hp.choice("dense_dropout", [0.0, 0.05, 0.5]),
         "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
         "dense_multiplier": hp.choice("dense_multiplier", [0.5, 1.0]),
-        "dense_units": hp.choice("dense_units", [128, 256, 384]),
+        "dense_units": hp.choice("dense_units", [64, 128, 256]),
         "filter_multiplier": hp.choice("filter_multiplier", [1.0, 2.0]),
         "filters": hp.choice("filters", [16, 32, 64, 128]),
         "kernel": hp.choice("kernel", [3, 5]),
@@ -142,7 +142,7 @@ def create_search_space():
         tfhp.HParam("dense_dropout", tfhp.Discrete([0.0, 0.05, 0.5])),
         tfhp.HParam("dense_layers", tfhp.Discrete([1, 2, 3, 4])),
         tfhp.HParam("dense_multiplier", tfhp.Discrete([0.5, 1.0])),
-        tfhp.HParam("dense_units", tfhp.Discrete([128, 256, 384])),
+        tfhp.HParam("dense_units", tfhp.Discrete([64, 128, 256])),
         tfhp.HParam("filter_multiplier", tfhp.Discrete([1.0, 2.0])),
         tfhp.HParam("filters", tfhp.Discrete([16, 32, 64, 128])),
         tfhp.HParam("kernel", tfhp.Discrete([3, 5])),
@@ -215,7 +215,7 @@ def main(args):
                            callbacks, tf_search_space, algo)
 
     trials = pickle.load(
-        open(os.path.join(args.save_dir, "sfp_models.hyperopt"), "rb"))
+        open(os.path.join(args.save_dir, "jpg_models.hyperopt"), "rb"))
     best_trial = trials.best_trial
     logger.info(f'Best trial: {best_trial}')
     id = best_trial['tid']
@@ -231,7 +231,7 @@ def run_trials(args, search_space, train_data, val_data, callbacks,
                tf_search_space, algo, max_evals=5):
     try:
         trials = pickle.load(
-            open(os.path.join(args.save_dir, "sfp_models.hyperopt"), "rb"))
+            open(os.path.join(args.save_dir, "jpg_models.hyperopt"), "rb"))
         if len(trials.trials) >= args.num_samples:
             return -1
         logger.info("Running from {} to {} trials ".format(
@@ -252,7 +252,7 @@ def run_trials(args, search_space, train_data, val_data, callbacks,
          show_progressbar=True, trials=trials)
 
     # save the trials object
-    with open(os.path.join(args.save_dir, "sfp_models.hyperopt"), "wb") as f:
+    with open(os.path.join(args.save_dir, "jpg_models.hyperopt"), "wb") as f:
         pickle.dump(trials, f)
 
     return 1
