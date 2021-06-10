@@ -11,6 +11,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from loguru import logger
+import matplotlib.pyplot as plt
 
 # Internal libraries
 from helpers.results_data import ResultCache
@@ -171,6 +172,10 @@ def main():
 
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(),
             args.sampling_method, args.save_dir)
+
+    fig, ax = plt.subplots()
+    ax.bar(*zip(*data.sf_distribution.items()))
+    fig.savefig(os.path.join(args.save_dir, "seen_sfs.png"))
 
 
 if __name__ == "__main__":

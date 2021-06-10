@@ -65,6 +65,8 @@ class ScalingFactorDataset(Dataset):
         else:
             self.codec = None
 
+        self.sf_distribution = {}
+
     def preprocess_batch(self, batch, training=True, **kwargs):
         """
         Resize a batch with the desired scaling factor and sampling method.
@@ -92,6 +94,10 @@ class ScalingFactorDataset(Dataset):
             sf = float(kwargs['sf'])
         else:
             sf = tf.random.uniform((1,), *self.scales)[0].numpy() - 1e-10
+
+            if sf not in self.sf_distribution.keys():
+                self.sf_distribution[sf] = 0
+            self.sf_distribution[sf] += 1
 
         patch_size = self.train_rgb_patch_size \
             if training else self.val_rgb_patch_size
