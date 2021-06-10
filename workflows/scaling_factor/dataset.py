@@ -95,9 +95,11 @@ class ScalingFactorDataset(Dataset):
         else:
             sf = tf.random.uniform((1,), *self.scales)[0].numpy() - 1e-10
 
-            if sf not in self.sf_distribution.keys():
-                self.sf_distribution[sf] = 0
-            self.sf_distribution[sf] += 1
+            rounded_sf = np.round(sf, decimals=3)
+
+            if rounded_sf not in self.sf_distribution.keys():
+                self.sf_distribution[rounded_sf] = 0
+            self.sf_distribution[rounded_sf] += 1
 
         patch_size = self.train_rgb_patch_size \
             if training else self.val_rgb_patch_size
