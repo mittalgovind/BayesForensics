@@ -175,7 +175,7 @@ def main():
 
     print(data.sf_distribution)
     fig, ax = plt.subplots()
-    ax.bar(*zip(*data.sf_distribution.items()))
+    ax.bar(*zip(*data.sf_distribution.items()), width=0.01)
     fig.savefig(os.path.join(args.save_dir, "seen_sfs.png"))
 
 
