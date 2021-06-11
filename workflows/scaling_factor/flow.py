@@ -181,7 +181,7 @@ class ScalingFactor(BayesBaseModel):
 
             # Final 1 x 1 convolution
             layers[i].extend([
-                self.conv2d(filters // self._h.filter_multiplier,
+                self.conv2d(int(filters // self._h.filter_multiplier),
                             kernel_size=1, padding='same',
                             activation=self.activation),
                 # tf.keras.layers.SpatialDropout2D(self._h.conv_dropout),
