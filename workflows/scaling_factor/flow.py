@@ -17,6 +17,7 @@ from helpers.tf_helpers import activation_mapping
 from models.layers import ConstrainedConv2D
 from models.bayes import BayesBaseModel
 from tensorflow.keras.layers import Input
+import tensorflow_probability as tfp
 
 
 class ScalingFactor(BayesBaseModel):
@@ -103,10 +104,11 @@ class ScalingFactor(BayesBaseModel):
         self.n_models = num_models
         # Needs to be called as the last line in the subclass.
 
-        if hyperoptimize:
-            self._seq_create_model()
-        else:
-            self.create_model()
+        # if hyperoptimize:
+        #     self._seq_create_model()
+        # else:
+        #     self.create_model()
+        self.bayesian_vgg((None, None, self.channels))
 
     def _seq_create_model(self):
         """Made for keras hyperopt."""
@@ -130,19 +132,8 @@ class ScalingFactor(BayesBaseModel):
             layers.append(tf.keras.layers.MaxPool2D(self._h.pool_size))
             filters = int(filters * self._h.filter_multiplier)
 
-        # Final 1 x 1 convolution
-        layers.extend([
-            tf.keras.layers.Conv2D(filters // self._h.filter_multiplier,
-                                   kernel_size=1, padding='same',
-                                   activation=self.activation),
-            # tf.keras.layers.SpatialDropout2D(self._h.conv_dropout),
-        ])
-
         # GAP / Feature formation
-        if self._h.use_gap:
-            layers.append(tf.keras.layers.GlobalAveragePooling2D())
-        else:
-            layers.append(tf.keras.layers.Flatten())
+        layers.append(tf.keras.layers.GlobalAveragePooling2D())
 
         # Fully-connected classifier
         for _ in range(self._h.dense_layers):
@@ -247,3 +238,85 @@ class ScalingFactor(BayesBaseModel):
             f=self._h.n_features,
             l=self._h.n_layers,
         )
+
+    def _vggconv_block(self, x, filters, kernel, stride, kernel_posterior_fn):
+        """Network block for VGG."""
+        out = tfp.layers.Convolution2DFlipout(
+            filters,
+            kernel,
+            padding='same',
+            kernel_posterior_fn=kernel_posterior_fn)(x)
+        out = tf.keras.layers.BatchNormalization()(out)
+        out = tf.keras.layers.Activation('relu')(out)
+
+        out = tfp.layers.Convolution2DFlipout(
+            filters,
+            kernel,
+            padding='same',
+            kernel_posterior_fn=kernel_posterior_fn)(out)
+        out = tf.keras.layers.BatchNormalization()(out)
+        out = tf.keras.layers.Activation('relu')(out)
+
+        out = tf.keras.layers.MaxPooling2D(
+            pool_size=(2, 2), strides=stride)(out)
+        return out
+
+    def bayesian_vgg(self, input_shape,
+                     num_classes=10,
+                     kernel_posterior_scale_mean=-9.0,
+                     kernel_posterior_scale_stddev=0.1,
+                     kernel_posterior_scale_constraint=0.2):
+
+        """Constructs a VGG16 model.
+
+        Args:
+          input_shape: A `tuple` indicating the Tensor shape.
+          num_classes: `int` representing the number of class labels.
+          kernel_posterior_scale_mean: Python `int` number for the kernel
+            posterior's scale (log variance) mean. The smaller the mean the closer
+            is the initialization to a deterministic network.
+          kernel_posterior_scale_stddev: Python `float` number for the initial kernel
+            posterior's scale stddev.
+            ```
+            q(W|x) ~ N(mu, var),
+            log_var ~ N(kernel_posterior_scale_mean, kernel_posterior_scale_stddev)
+            ````
+          kernel_posterior_scale_constraint: Python `float` number for the log value
+            to constrain the log variance throughout training.
+            i.e. log_var <= log(kernel_posterior_scale_constraint).
+
+        Returns:
+          tf.keras.Model.
+        """
+
+        filters = [64, 128, 128, 256]
+        kernels = [3, 3, 3, 3]
+        strides = [2, 2, 2, 2]
+
+        def _untransformed_scale_constraint(t):
+            return tf.clip_by_value(t, -1000,
+                                    tf.math.log(kernel_posterior_scale_constraint))
+
+        kernel_posterior_fn = tfp.layers.default_mean_field_normal_fn(
+            untransformed_scale_initializer=tf.compat.v1.initializers.random_normal(
+                mean=kernel_posterior_scale_mean,
+                stddev=kernel_posterior_scale_stddev),
+            untransformed_scale_constraint=_untransformed_scale_constraint)
+
+        image = tf.keras.layers.Input(shape=input_shape, dtype='float32')
+
+        x = image
+        for i in range(len(kernels)):
+            x = self._vggconv_block(
+                x,
+                filters[i],
+                kernels[i],
+                strides[i],
+                kernel_posterior_fn)
+
+        x = tf.keras.layers.GlobalAveragePooling2D()(x)
+        x = tfp.layers.DenseFlipout(
+            11, activation=None,
+            kernel_posterior_fn=kernel_posterior_fn)(x)
+        self._model = tf.keras.Model(inputs=image, outputs=x, name='vgg16')
+        # return model
