@@ -150,7 +150,7 @@ def main():
             validation_data=val_data,
             epochs=args.epochs,
             verbose=0,
-            callbacks=callbacks,
+            callbacks=callbacks + [tf.keras.callbacks.ReduceLROnPlateau(verbose=1, factor=0.5)],
             validation_freq=args.validation_freq,
         )
         # save the training performance
