@@ -7,5 +7,6 @@
   "dense_units": 256,
   "pool_size": 2,
   "dense_dropout": 0.0,
-  "use_bn": true
+  "use_bn": true,
+  "residual_type" : null
 }

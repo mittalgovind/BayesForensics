@@ -105,25 +105,39 @@ class ScalingFactor(BayesBaseModel):
         # Needs to be called as the last line in the subclass.
 
         # if hyperoptimize:
-        #     self._seq_create_model()
+        self._seq_create_model()
         # else:
         #     self.create_model()
-        self.bayesian_vgg((None, None, self.channels))
+        # self.bayesian_vgg((None, None, self.channels))
 
-    def _seq_create_model(self):
+    def _seq_create_model(self,
+                          kernel_posterior_scale_mean=-9.0,
+                          kernel_posterior_scale_stddev=0.1,
+                          kernel_posterior_scale_constraint=0.2):
         """Made for keras hyperopt."""
         # TODO Fix ensembling thing and delete this.
+        def _untransformed_scale_constraint(t):
+            return tf.clip_by_value(t, -1000,
+                                    tf.math.log(
+                                        kernel_posterior_scale_constraint))
+        kernel_posterior_fn = tfp.layers.default_mean_field_normal_fn(
+            untransformed_scale_initializer=tf.compat.v1.initializers.random_normal(
+                mean=kernel_posterior_scale_mean,
+                stddev=kernel_posterior_scale_stddev),
+            untransformed_scale_constraint=_untransformed_scale_constraint)
         layers = []
         # Constrained convolution with a learned residual filter
-        layers.append(ConstrainedConv2D())
+        # layers.append(ConstrainedConv2D())
         # Standard convolutional layers
         filters = self._h.filters
         for j in range(self._h.conv_layers):
             layers.append(
-                tf.keras.layers.Conv2D(filters,
-                                       kernel_size=self._h.kernel,
-                                       padding='same',
-                                       activation=self.activation))
+                tfp.layers.Convolution2DFlipout(filters,
+                                                kernel_size=self._h.kernel,
+                                                padding='same',
+                                                activation=self.activation,
+                                                kernel_posterior_fn=kernel_posterior_fn)
+            )
             if self._h.use_bn:
                 layers.append(tf.keras.layers.BatchNormalization())
             if self._h.conv_dropout > 0 and j + 1 >= self._h.conv_dropout_after:
@@ -131,7 +145,14 @@ class ScalingFactor(BayesBaseModel):
                     tf.keras.layers.SpatialDropout2D(self._h.conv_dropout))
             layers.append(tf.keras.layers.MaxPool2D(self._h.pool_size))
             filters = int(filters * self._h.filter_multiplier)
+        # Final 1 x 1 convolution
 
+        layers.append(
+            tfp.layers.Convolution2DFlipout(
+                int(filters // self._h.filter_multiplier),
+                kernel_size=1, padding='same',
+                activation=self.activation),
+        )
         # GAP / Feature formation
         layers.append(tf.keras.layers.GlobalAveragePooling2D())
 
@@ -149,6 +170,7 @@ class ScalingFactor(BayesBaseModel):
         self._model = tf.keras.models.Sequential(layers)
 
     def _create_model(self):
+
         layers = []
         for i in range(self.n_models):
             layers.append([])
@@ -295,7 +317,8 @@ class ScalingFactor(BayesBaseModel):
 
         def _untransformed_scale_constraint(t):
             return tf.clip_by_value(t, -1000,
-                                    tf.math.log(kernel_posterior_scale_constraint))
+                                    tf.math.log(
+                                        kernel_posterior_scale_constraint))
 
         kernel_posterior_fn = tfp.layers.default_mean_field_normal_fn(
             untransformed_scale_initializer=tf.compat.v1.initializers.random_normal(
