@@ -10,8 +10,9 @@ import os
 # External libraries
 import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 from loguru import logger
-
+# tf.compat.v1.disable_eager_execution()
 # Internal libraries
 from helpers.results_data import ResultCache
 from helpers.plots import perf
@@ -71,17 +72,17 @@ def main():
     # Prepare model with mirrored strategy.
     with strategy.scope():
         model = ScalingFactor(**vars(args), **args.parameters)
-        optimizer = tf.keras.optimizers.SGD(0.001)#, momentum=1, nesterov=True)
+        optimizer = tf.keras.optimizers.Adam(args.lr)
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy()
         model._model.compile(optimizer, loss=loss_criterion,
-                             metrics=["accuracy"])
+                             metrics=["accuracy"], run_eagerly=False)
 
     # load presampled validation data
     if args.use_presampled:
         val_n_patches = 20
         loaded_val_data = np.load(
             os.path.join(args.use_presampled, 'native12k_20k_val.npy'))[
-                   :val_n_patches * args.n_val_images]
+                          :val_n_patches * args.n_val_images]
 
     else:
         loaded_val_data = None
@@ -104,7 +105,7 @@ def main():
             train_n_patches = 25
             loaded_train_data = np.load(
                 os.path.join(args.use_presampled, 'native12k_qM.npy'))[
-                         :train_n_patches * args.n_train_images]
+                                :train_n_patches * args.n_train_images]
         else:
             loaded_train_data = None
             train_n_patches = 1
@@ -149,7 +150,8 @@ def main():
             validation_data=val_data,
             epochs=args.epochs,
             verbose=0,
-            callbacks=callbacks, #+ [tf.keras.callbacks.ReduceLROnPlateau(verbose=1, factor=0.5)],
+            callbacks=callbacks,
+            # + [tf.keras.callbacks.ReduceLROnPlateau(verbose=1, factor=0.5)],
             validation_freq=args.validation_freq,
         )
         # save the training performance

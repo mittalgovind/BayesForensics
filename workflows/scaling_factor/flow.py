@@ -111,22 +111,9 @@ class ScalingFactor(BayesBaseModel):
         #     self.create_model()
         # self.bayesian_vgg((None, None, self.channels))
 
-    def _seq_create_model(self,
-                          kernel_posterior_scale_mean=-9.0,
-                          kernel_posterior_scale_stddev=0.1,
-                          kernel_posterior_scale_constraint=0.2):
+    def _seq_create_model(self):
         """Made for keras hyperopt."""
         # TODO Fix ensembling thing and delete this.
-        # def _untransformed_scale_constraint(t):
-        #     return tf.clip_by_value(t, -1000,
-        #                             tf.math.log(
-        #                                 kernel_posterior_scale_constraint))
-        # kernel_posterior_fn = tfp.layers.default_mean_field_normal_fn(
-        #     untransformed_scale_initializer=tf.compat.v1.initializers.random_normal(
-        #         mean=kernel_posterior_scale_mean,
-        #         stddev=kernel_posterior_scale_stddev),
-        #     untransformed_scale_constraint=_untransformed_scale_constraint)
-        layers = []
         # Constrained convolution with a learned residual filter
         # layers.append(ConstrainedConv2D())
         # Standard convolutional layers
@@ -135,6 +122,7 @@ class ScalingFactor(BayesBaseModel):
             lambda q, p, _: tfp.distributions.kl_divergence(q, p) / tf.cast(
                 self.n_train_images, dtype=tf.float32)
         )
+        layers = list()
         for j in range(self._h.conv_layers):
             layers.append(
                 tfp.layers.Convolution2DFlipout(filters,
