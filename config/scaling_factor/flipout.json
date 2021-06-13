@@ -3,7 +3,7 @@
   "filter_multiplier": 1,
   "conv_layers": 3,
   "kernel": 3,
-  "dense_layers": 1,
+  "dense_layers": 2,
   "dense_units": 256,
   "pool_size": 2,
   "dense_dropout": 0.0,
