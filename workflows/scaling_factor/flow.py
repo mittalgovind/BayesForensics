@@ -163,7 +163,7 @@ class ScalingFactor(BayesBaseModel):
 
         # final classification head
         layers.append(self.dense(self._h.n_classes,
-                                 activation=tf.keras.activations.softmax))
+                                 activation=None))
 
         self._model = tf.keras.models.Sequential(layers)
 

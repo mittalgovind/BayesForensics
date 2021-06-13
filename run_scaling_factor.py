@@ -73,7 +73,9 @@ def main():
     with strategy.scope():
         model = ScalingFactor(**vars(args), **args.parameters)
         optimizer = tf.keras.optimizers.Adam(args.lr)
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy()
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True
+        )
         model._model.compile(optimizer, loss=loss_criterion,
                              metrics=["accuracy"], run_eagerly=False)
 
