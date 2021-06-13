@@ -46,6 +46,7 @@ class ScalingFactor(BayesBaseModel):
             channels=3,
             num_models=1,
             hyperoptimize=False,
+            n_train_images=0,
             **kwargs
     ):
         """
@@ -103,7 +104,7 @@ class ScalingFactor(BayesBaseModel):
         self.channels = channels
         self.n_models = num_models
         # Needs to be called as the last line in the subclass.
-
+        self.n_train_images = n_train_images
         # if hyperoptimize:
         self._seq_create_model()
         # else:
@@ -132,7 +133,7 @@ class ScalingFactor(BayesBaseModel):
         filters = self._h.filters
         kl_divergence_function = (
             lambda q, p, _: tfp.distributions.kl_divergence(q, p) / tf.cast(
-                512, dtype=tf.float32)
+                self.n_train_images, dtype=tf.float32)
         )
         for j in range(self._h.conv_layers):
             layers.append(
@@ -173,7 +174,8 @@ class ScalingFactor(BayesBaseModel):
                 layers.append(self.dropout(self._h.dense_dropout))
 
         # final classification head
-        layers.append(self.dense(self._h.n_classes, activation=None))
+        layers.append(self.dense(self._h.n_classes,
+                                 activation=tf.keras.activations.softmax))
 
         self._model = tf.keras.models.Sequential(layers)
 

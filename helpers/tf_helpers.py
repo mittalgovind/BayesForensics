@@ -547,8 +547,7 @@ def get_callbacks(path, model_name=None, save_freq=0, monitor='loss',
         callbacks.append(tf.keras.callbacks.TensorBoard(
             os.path.join(path, 'tensorboard_logs'),
             profile_batch=(2, steps_per_epoch),
-            histogram_freq=1,
-            write_images=1,
+            # histogram_freq=1,
             update_freq=update_freq,
         ))
 

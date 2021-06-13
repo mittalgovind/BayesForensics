@@ -71,9 +71,8 @@ def main():
     # Prepare model with mirrored strategy.
     with strategy.scope():
         model = ScalingFactor(**vars(args), **args.parameters)
-        optimizer = tf.keras.optimizers.Adam(args.lr)
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True)
+        optimizer = tf.keras.optimizers.SGD(0.001)#, momentum=1, nesterov=True)
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy()
         model._model.compile(optimizer, loss=loss_criterion,
                              metrics=["accuracy"])
 
