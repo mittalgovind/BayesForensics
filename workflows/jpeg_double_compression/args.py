@@ -239,7 +239,7 @@ def load_parameters(parameters=None):
     if parameters:
         f = open(parameters, 'r')
     else:
-        f = open('config/jpeg_double/default_params.json', 'r')
+        f = open('config/jpeg_double/hyper-best.json', 'r')
 
     try:
         parameters = json.load(f)
