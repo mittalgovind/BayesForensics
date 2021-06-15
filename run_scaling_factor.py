@@ -24,7 +24,7 @@ from workflows.scaling_factor import (
     ScalingFactor,
     sf_plot,
     load_parameters,
-    FlipoutLoss
+    FlipoutLoss, FixedLRSchedule
 )
 
 
@@ -72,7 +72,8 @@ def main():
     # Prepare model with mirrored strategy.
     # with strategy.scope():
     model = ScalingFactor(**vars(args), **args.parameters)
-    optimizer = tf.keras.optimizers.Adam(args.lr)
+    # optimizer = tf.keras.optimizers.Adam(args.lr)
+    optimizer = tf.keras.optimizers.Adam(FixedLRSchedule(args.lr))
     # loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
     #     from_logits=True
     # )
