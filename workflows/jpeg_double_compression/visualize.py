@@ -19,7 +19,7 @@ import helpers.plots as plots
 
 def qf_plot(qf, accuracies, save_dir):
     """plotting function for confusion matrix between quality factors"""
-    qf = np.arange(*qf)
+    qf = np.array(qf)
     n_factors = len(qf)
     if qf[1] - qf[0] > 1:
         step = 1
