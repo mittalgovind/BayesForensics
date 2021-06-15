@@ -12,7 +12,6 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 from loguru import logger
-# tf.compat.v1.disable_eager_execution()
 # Internal libraries
 from helpers.results_data import ResultCache
 from helpers.plots import perf
@@ -24,7 +23,8 @@ from workflows.scaling_factor import (
     parse_args,
     ScalingFactor,
     sf_plot,
-    load_parameters
+    load_parameters,
+    FlipoutLoss
 )
 
 
@@ -65,19 +65,20 @@ def main():
     # initializations
     args.codec = args.codec if args.jpeg_compression else None
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
+    steps_per_epoch = args.n_train_images // args.batch_size
     strategy = tf.distribute.MirroredStrategy()
     logger.info(
         'Number of devices: {}'.format(strategy.num_replicas_in_sync))
-
     # Prepare model with mirrored strategy.
-    with strategy.scope():
-        model = ScalingFactor(**vars(args), **args.parameters)
-        optimizer = tf.keras.optimizers.Adam(args.lr)
-        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True
-        )
-        model._model.compile(optimizer, loss=loss_criterion,
-                             metrics=["accuracy"], run_eagerly=False)
+    # with strategy.scope():
+    model = ScalingFactor(**vars(args), **args.parameters)
+    optimizer = tf.keras.optimizers.Adam(args.lr)
+    # loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+    #     from_logits=True
+    # )
+    loss_criterion = FlipoutLoss(args.n_train_images, steps_per_epoch)
+    model._model.compile(optimizer, loss=loss_criterion,
+                         metrics=["accuracy"])
 
     # load presampled validation data
     if args.use_presampled:
@@ -134,7 +135,7 @@ def main():
 
         # get callbacks using options
         save_freq = args.save_every * args.n_train_images // args.batch_size
-        steps_per_epoch = data.count_training // args.batch_size
+
         callbacks = get_callbacks(
             args.save_dir,
             model_name=model.model_filename,
