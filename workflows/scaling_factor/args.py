@@ -223,6 +223,12 @@ def parse_args():
         help="Disables GPU utilization.",
     )
     parser.add_argument(
+        "--xla",
+        action="store_true",
+        default=False,
+        help="Enables GPU utilization.",
+    )
+    parser.add_argument(
         "--verbose",
         type=int,
         default=2,

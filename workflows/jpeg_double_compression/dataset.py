@@ -70,6 +70,8 @@ class DoubleCompressionDataset(Dataset):
         if calc_pywt_residual:
             self.channels = 6
 
+        self.qf_pairs = tf.zeros((0, 2), dtype=tf.int32)
+
     def preprocess_batch(self, batch, **kwargs):
         if not self.eval_mode:
             # sample quality factors
