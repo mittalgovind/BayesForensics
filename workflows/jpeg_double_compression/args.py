@@ -59,7 +59,7 @@ def parse_args():
         "--patch-size",
         dest="patch_size",
         action="store",
-        default=64,
+        default=128,
         type=int,
         help="Square patch size to be sampled from images (default: 64)",
     )
