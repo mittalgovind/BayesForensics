@@ -74,10 +74,10 @@ def main():
     model = ScalingFactor(**vars(args), **args.parameters)
     optimizer = tf.keras.optimizers.Adam(args.lr)
     # optimizer = tf.keras.optimizers.Adam(FixedLRSchedule(args.lr))
-    # loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-    #     from_logits=True
-    # )
-    loss_criterion = FlipoutLoss(args.n_train_images, steps_per_epoch)
+    loss_criterion = tf.keras.losses.CategoricalCrossentropy(
+        # from_logits=True
+    )
+    # loss_criterion = FlipoutLoss(args.n_train_images, steps_per_epoch)
     model._model.compile(optimizer, loss=loss_criterion,
                          metrics=["accuracy"])
 

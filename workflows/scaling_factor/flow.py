@@ -106,9 +106,9 @@ class ScalingFactor(BayesBaseModel):
         # Needs to be called as the last line in the subclass.
         self.n_train_images = n_train_images
         # if hyperoptimize:
-        # self._seq_create_model()
+        self._seq_create_model()
         # else:
-        self.create_model()
+        # self.create_model()
         # self.bayesian_vgg((None, None, self.channels))
 
     def _seq_create_model(self):
@@ -129,7 +129,7 @@ class ScalingFactor(BayesBaseModel):
                                                 kernel_size=self._h.kernel,
                                                 padding='same',
                                                 activation=self.activation,
-                                                # kernel_divergence_fn=kl_divergence_function,
+                                                kernel_divergence_fn=kl_divergence_function,
                                                 # kernel_posterior_fn=kernel_posterior_fn
                                                 )
             )
@@ -147,7 +147,7 @@ class ScalingFactor(BayesBaseModel):
                 int(filters // self._h.filter_multiplier),
                 kernel_size=1, padding='same',
                 activation=self.activation,
-                # kernel_divergence_fn=kl_divergence_function,
+                kernel_divergence_fn=kl_divergence_function,
             )
         )
         # GAP / Feature formation
@@ -156,14 +156,18 @@ class ScalingFactor(BayesBaseModel):
         # Fully-connected classifier
         for _ in range(self._h.dense_layers):
             layers.append(
-                self.dense(self._h.dense_units, activation=self.activation)
+                self.dense(self._h.dense_units,
+                           activation=self.activation,
+                           kernel_divergence_fn=kl_divergence_function
+                           )
             )
             if self._h.dense_dropout > 0:
                 layers.append(self.dropout(self._h.dense_dropout))
 
         # final classification head
         layers.append(self.dense(self._h.n_classes,
-                                 activation=None))
+                                 kernel_divergence_fn=kl_divergence_function,
+                                 activation='softmax'))
 
         self._model = tf.keras.models.Sequential(layers)
 
