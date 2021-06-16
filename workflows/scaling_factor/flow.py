@@ -129,7 +129,7 @@ class ScalingFactor(BayesBaseModel):
                                                 kernel_size=self._h.kernel,
                                                 padding='same',
                                                 activation=self.activation,
-                                                kernel_divergence_fn=kl_divergence_function,
+                                                # kernel_divergence_fn=kl_divergence_function,
                                                 # kernel_posterior_fn=kernel_posterior_fn
                                                 )
             )
@@ -147,7 +147,7 @@ class ScalingFactor(BayesBaseModel):
                 int(filters // self._h.filter_multiplier),
                 kernel_size=1, padding='same',
                 activation=self.activation,
-                kernel_divergence_fn=kl_divergence_function,
+                # kernel_divergence_fn=kl_divergence_function,
             )
         )
         # GAP / Feature formation
