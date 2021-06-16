@@ -106,9 +106,9 @@ class ScalingFactor(BayesBaseModel):
         # Needs to be called as the last line in the subclass.
         self.n_train_images = n_train_images
         # if hyperoptimize:
-        self._seq_create_model()
+        # self._seq_create_model()
         # else:
-        #     self.create_model()
+        self.create_model()
         # self.bayesian_vgg((None, None, self.channels))
 
     def _seq_create_model(self):
