@@ -156,18 +156,18 @@ class ScalingFactor(BayesBaseModel):
         # Fully-connected classifier
         for _ in range(self._h.dense_layers):
             layers.append(
-                self.dense(self._h.dense_units,
-                           activation=self.activation,
-                           kernel_divergence_fn=kl_divergence_function
-                           )
+                tfp.layers.DenseFlipout(self._h.dense_units,
+                                        activation=self.activation,
+                                        kernel_divergence_fn=kl_divergence_function
+                                        )
             )
             if self._h.dense_dropout > 0:
                 layers.append(self.dropout(self._h.dense_dropout))
 
         # final classification head
-        layers.append(self.dense(self._h.n_classes,
-                                 kernel_divergence_fn=kl_divergence_function,
-                                 activation='softmax'))
+        layers.append(tfp.layers.DenseFlipout(self._h.n_classes,
+                                              kernel_divergence_fn=kl_divergence_function,
+                                              activation=None))
 
         self._model = tf.keras.models.Sequential(layers)
 
