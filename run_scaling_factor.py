@@ -72,8 +72,8 @@ def main():
     # Prepare model with mirrored strategy.
     # with strategy.scope():
     model = ScalingFactor(**vars(args), **args.parameters)
-    # optimizer = tf.keras.optimizers.Adam(args.lr)
-    optimizer = tf.keras.optimizers.Adam(FixedLRSchedule(args.lr))
+    optimizer = tf.keras.optimizers.Adam(args.lr)
+    # optimizer = tf.keras.optimizers.Adam(FixedLRSchedule(args.lr))
     # loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
     #     from_logits=True
     # )
@@ -154,8 +154,10 @@ def main():
             validation_data=val_data,
             epochs=args.epochs,
             verbose=0,
-            callbacks=callbacks,
-            # + [tf.keras.callbacks.ReduceLROnPlateau(verbose=1, factor=0.5)],
+            callbacks=callbacks + [
+                tf.keras.callbacks.ReduceLROnPlateau(
+                    verbose=1, factor=0.5, min_lr=1e-8, patience=100,
+                )],
             validation_freq=args.validation_freq,
         )
         # save the training performance
