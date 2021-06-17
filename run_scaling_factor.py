@@ -11,7 +11,6 @@ import os
 import numpy as np
 import tensorflow as tf
 from loguru import logger
-
 # Internal libraries
 from helpers.results_data import ResultCache
 from helpers.plots import perf
@@ -23,7 +22,7 @@ from workflows.scaling_factor import (
     parse_args,
     ScalingFactor,
     sf_plot,
-    load_parameters
+    load_parameters,
 )
 
 
@@ -67,13 +66,13 @@ def main():
     strategy = tf.distribute.MirroredStrategy()
     logger.info(
         'Number of devices: {}'.format(strategy.num_replicas_in_sync))
-
     # Prepare model with mirrored strategy.
     with strategy.scope():
         model = ScalingFactor(**vars(args), **args.parameters)
         optimizer = tf.keras.optimizers.Adam(args.lr)
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True)
+            from_logits=True
+        )
         model._model.compile(optimizer, loss=loss_criterion,
                              metrics=["accuracy"])
 
@@ -82,7 +81,7 @@ def main():
         val_n_patches = 20
         loaded_val_data = np.load(
             os.path.join(args.use_presampled, 'native12k_20k_val.npy'))[
-                   :val_n_patches * args.n_val_images]
+                          :val_n_patches * args.n_val_images]
 
     else:
         loaded_val_data = None
@@ -105,7 +104,7 @@ def main():
             train_n_patches = 25
             loaded_train_data = np.load(
                 os.path.join(args.use_presampled, 'native12k_qM.npy'))[
-                         :train_n_patches * args.n_train_images]
+                                :train_n_patches * args.n_train_images]
         else:
             loaded_train_data = None
             train_n_patches = 1
@@ -132,7 +131,7 @@ def main():
 
         # get callbacks using options
         save_freq = args.save_every * args.n_train_images // args.batch_size
-        steps_per_epoch = data.count_training // args.batch_size
+
         callbacks = get_callbacks(
             args.save_dir,
             model_name=model.model_filename,

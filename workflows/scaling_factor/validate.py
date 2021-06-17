@@ -53,17 +53,17 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                                        len(data.classes)))
 
                 else:
-                    logits = np.zeros((data.count_validation, num_runs,
+                    logits = np.zeros((num_runs, data.count_validation,
                                        len(data.classes)))
 
                 i = 0
                 for images, labels in data.get_validation_generator(sf=sf):
-                    if uncertainty_method == "vanilla" or uncertainty_method == "ensemble":
+                    if uncertainty_method in ["vanilla", "ensemble"]:
                         logits[i: i + batch_size] = (model(
                             images, training=False) / model.temperature).numpy()
 
                     else:
-                        logits[i: i + batch_size] = np.array(
+                        logits[:, i: i + batch_size] = np.array(
                             [model(images, training=False) / model.temperature
                              for _ in range(num_runs)])
 

@@ -39,6 +39,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             activation: str,
             drop_rate=0.5,
             mc_num_samples=50,
+            n_train_images=0,
             **kwargs
     ):
         """
@@ -58,7 +59,8 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         self.drop_rate = min(max(drop_rate, 0.0), 1.0)
         self.uncertainty_method = uncertainty_method.lower()
         self.activation = tfh.activation_mapping[activation]
-
+        self.uncertainty_method_args = {}
+        kl_divergence_function = None
         # hard-coded to False, because model will need to be created.
         self.model_created = False
 
@@ -72,16 +74,25 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             self.conv2d = tfp.layers.Convolution2DFlipout
             self.dropout = tf.keras.layers.Dropout
             self.dense = tfp.layers.DenseFlipout
-
+            kl_divergence_function = (
+                lambda q, p, _: tfp.distributions.kl_divergence(q, p) / tf.cast(
+                    n_train_images, dtype=tf.float32)
+            )
         elif uncertainty_method == "reparameterization":
             self.conv2d = tfp.layers.Convolution2DReparameterization
             self.dropout = tf.keras.layers.Dropout
             self.dense = tfp.layers.DenseReparameterization
-
+            kl_divergence_function = (
+                lambda q, p, _: tfp.distributions.kl_divergence(q, p) / tf.cast(
+                    n_train_images, dtype=tf.float32)
+            )
         else:
             self.conv2d = tf.keras.layers.Conv2D
             self.dropout = tf.keras.layers.Dropout
             self.dense = tf.keras.layers.Dense
+
+        if kl_divergence_function:
+            self.uncertainty_method_args['kl_divergence_function'] = kl_divergence_function
 
         self.temperature = 1.0
 

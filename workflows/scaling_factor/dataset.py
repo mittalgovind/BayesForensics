@@ -15,6 +15,7 @@ from loguru import logger
 # Internal libraries
 from helpers.tf_dataset import Dataset
 from helpers.tf_jpeg import TFJPEG
+from helpers.loading import randint
 
 # Hacky fix
 sys.path.append("/scratch/jms1595/neural-imaging-dev/")
@@ -90,8 +91,12 @@ class ScalingFactorDataset(Dataset):
 
         if 'sf' in kwargs:
             sf = float(kwargs['sf'])
+            class_id = tf.math.floor(
+                tf.math.multiply(self.class_multiplier, sf - self.classes[0]))
         else:
-            sf = tf.random.uniform((1,), *self.scales)[0].numpy() - 1e-10
+            # changed to sampling from finite set instead of infinite
+            class_id = randint(maxval=len(self.classes), seed=self.seed)
+            sf = self.classes[class_id]
 
         patch_size = self.train_rgb_patch_size \
             if training else self.val_rgb_patch_size
@@ -108,14 +113,7 @@ class ScalingFactorDataset(Dataset):
 
         # Resize batch.
         rescaled_images = tf.image.resize(batch, resized_size, method=m)
-        class_id = tf.math.floor(
-            tf.math.multiply(self.class_multiplier, sf - self.classes[0]))
         sf_labels = tf.repeat(class_id, batch.shape[0])
-        '''
-        # Convert to JPEG if a codec is passed.
-        if self.codec:
-            rescaled_images = self.codec.process(rescaled_images)
-        '''
         return rescaled_images, sf_labels
 
     def get_training_pipeline(self, discard="flat"):
