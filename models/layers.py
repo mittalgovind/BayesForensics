@@ -4,7 +4,7 @@ Custom TF layers for reuse in other models.
 """
 import numpy as np
 import tensorflow as tf
-
+import tensorflow_probability as tfp
 import helpers.kernels
 from helpers import tf_helpers
 
@@ -107,6 +107,69 @@ class ConstrainedConv2D(tf.keras.layers.Layer):
         # Convolution with the residual filter
         xp = tf.pad(input, [[0, 0], [2, 2], [2, 2], [0, 0]], "SYMMETRIC")
         return tf.nn.conv2d(xp, nf, [1, 1, 1, 1], "VALID")
+
+
+# class ConstrainedConv2DFlipout(tf.keras.layers.Layer):
+#     """
+#     Implementation of a trainable constrained residual filter (based on [1] and extended to RGB inputs).
+#     The layer learns a 2D convolution filter (5, 5, 3, 3) where:
+#
+#     - a central pixel in each channel [2, 2, i, i] is set to a fixed negative value
+#     - each output channel is normalized to sum to 0 [:, :, :, i]
+#
+#     For example, an intra-channel filter [:, :, i, i] may look like:
+#
+#     [  -0.73    0.41   -1.24   -1.26    0.69]
+#     [  -0.29    7.91   17.53    8.6     0.29]
+#     [  -0.62   16.7  -100.0    16.1     0.22]
+#     [   0.54    9.3    16.05    8.19    0.98]
+#     [  -0.57   -0.7    -0.4     1.22   -0.13]
+#
+#     The layer is pre-initialized with a simple residual filter with no intra-channel interactions.
+#
+#     # References
+#
+#     [1] Bayar & Stamm, Constrained convolutional neural networks: A new approach towards general purpose image
+#         manipulation detection. IEEE Transactions on Information Forensics and Security, 13 (11), 2018
+#     """
+#
+#     def __init__(self, filter_strength=100, trainable=True):
+#         super().__init__()
+#         self.filter_strength = filter_strength
+#
+#         f = np.array(
+#             [
+#                 [0, 0, 0, 0, 0],
+#                 [0, -1, -2, -1, 0],
+#                 [0, -2, 12, -2, 0],
+#                 [0, -1, -2, -1, 0],
+#                 [0, 0, 0, 0, 0],
+#             ]
+#         )
+#         self.kernel = self.add_weight(
+#             "kernel",
+#             shape=(5, 5, 3, 3),
+#             initializer=tf.constant_initializer(helpers.kernels.repeat_2dfilter(f, 3)),
+#             trainable=trainable,
+#         )
+#
+#     def call(self, input):
+#         # Mask for normalizing the residual filter
+#         tf_ind = tf.constant(
+#             helpers.kernels.center_mask_2dfilter(5, 3), dtype=tf.float32
+#         )
+#
+#         # Normalize the residual filter
+#         nf = self.kernel * (1 - tf_ind)
+#         df = tf.tile(
+#             tf.reshape(tf.reduce_sum(nf, axis=(0, 1, 2)), [1, 1, 1, 3]), [5, 5, 3, 1]
+#         )
+#         nf = self.filter_strength * nf / df
+#         nf = nf - self.filter_strength * tf_ind
+#
+#         # Convolution with the residual filter
+#         xp = tf.pad(input, [[0, 0], [2, 2], [2, 2], [0, 0]], "SYMMETRIC")
+#         return tfp.nn.conv(xp, nf, [1, 1, 1, 1], "VALID")
 
 
 class Quantization(tf.keras.layers.Layer):
