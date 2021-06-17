@@ -1,7 +1,7 @@
 {
   "filters": 64,
   "filter_multiplier": 1,
-  "conv_layers": 5,
+  "conv_layers": 4,
   "kernel": 5,
   "dense_layers": 1,
   "dense_units": 128,
