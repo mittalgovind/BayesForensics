@@ -132,7 +132,7 @@ class ScalingFactorDataset(Dataset):
 
         paddings = [[0, 0], [pad_before, pad_size],
                     [pad_before, pad_size], [0, 0]]
-        print(paddings)
+
         return tf.pad(images, paddings), pad_before
 
     def unpad(self, images, pad_before, resized_size):
