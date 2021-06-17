@@ -46,7 +46,6 @@ class ScalingFactor(BayesBaseModel):
             channels=3,
             num_models=1,
             hyperoptimize=False,
-            n_train_images=0,
             **kwargs
     ):
         """
@@ -104,50 +103,39 @@ class ScalingFactor(BayesBaseModel):
         self.channels = channels
         self.n_models = num_models
         # Needs to be called as the last line in the subclass.
-        self.n_train_images = n_train_images
-        # if hyperoptimize:
-        self._seq_create_model()
-        # else:
-        # self.create_model()
-        # self.bayesian_vgg((None, None, self.channels))
+        if hyperoptimize:
+            self._seq_model()
+        else:
+            self.create_model()
 
-    def _seq_create_model(self):
-        """Made for keras hyperopt."""
-        # TODO Fix ensembling thing and delete this.
+    def _seq_model(self, set_model=True):
+        """Made for keras hyperopt or just a single model"""
+        layers = list()
         # Constrained convolution with a learned residual filter
-        # layers.append(ConstrainedConv2D())
+        layers.append(ConstrainedConv2D())
         # Standard convolutional layers
         filters = self._h.filters
-        kl_divergence_function = (
-            lambda q, p, _: tfp.distributions.kl_divergence(q, p) / tf.cast(
-                self.n_train_images, dtype=tf.float32)
-        )
-        layers = list()
         for j in range(self._h.conv_layers):
             layers.append(
-                tfp.layers.Convolution2DFlipout(filters,
-                                                kernel_size=self._h.kernel,
-                                                padding='same',
-                                                activation=self.activation,
-                                                kernel_divergence_fn=kl_divergence_function,
-                                                # kernel_posterior_fn=kernel_posterior_fn
-                                                )
+                self.conv2d(filters,
+                            kernel_size=self._h.kernel,
+                            padding='same',
+                            activation=self.activation,
+                            **self.uncertainty_method_args
+                            )
             )
             if self._h.use_bn:
                 layers.append(tf.keras.layers.BatchNormalization())
-            if self._h.conv_dropout > 0 and j + 1 >= self._h.conv_dropout_after:
-                layers.append(
-                    tf.keras.layers.SpatialDropout2D(self._h.conv_dropout))
             layers.append(tf.keras.layers.MaxPool2D(self._h.pool_size))
             filters = int(filters * self._h.filter_multiplier)
-        # Final 1 x 1 convolution
 
+        # Final 1 x 1 convolution
         layers.append(
-            tfp.layers.Convolution2DFlipout(
+            self.conv2d(
                 int(filters // self._h.filter_multiplier),
                 kernel_size=1, padding='same',
                 activation=self.activation,
-                kernel_divergence_fn=kl_divergence_function,
+                **self.uncertainty_method_args
             )
         )
         # GAP / Feature formation
@@ -156,68 +144,34 @@ class ScalingFactor(BayesBaseModel):
         # Fully-connected classifier
         for _ in range(self._h.dense_layers):
             layers.append(
-                tfp.layers.DenseFlipout(self._h.dense_units,
-                                        activation=self.activation,
-                                        kernel_divergence_fn=kl_divergence_function
-                                        )
+                self.dense(
+                    self._h.dense_units,
+                    activation=self.activation,
+                    **self.uncertainty_method_args
+                )
             )
             if self._h.dense_dropout > 0:
                 layers.append(self.dropout(self._h.dense_dropout))
 
         # final classification head
-        layers.append(tfp.layers.DenseFlipout(self._h.n_classes,
-                                              kernel_divergence_fn=kl_divergence_function,
-                                              activation=None))
+        layers.append(
+            self.dense(
+                self._h.n_classes,
+                activation=None,
+                **self.uncertainty_method_args
+            )
+        )
 
-        self._model = tf.keras.models.Sequential(layers)
+        if set_model:
+            self._model = tf.keras.models.Sequential(layers)
+        else:
+            return layers
 
     def _create_model(self):
 
         layers = []
         for i in range(self.n_models):
-            layers.append([])
-            # Constrained convolution with a learned residual filter
-            layers[i].append(ConstrainedConv2D())
-            # Standard convolutional layers
-            filters = self._h.filters
-            for j in range(self._h.conv_layers):
-                layers[i].append(
-                    self.conv2d(filters,
-                                kernel_size=self._h.kernel,
-                                padding='same',
-                                activation=self.activation))
-                if self._h.use_bn:
-                    layers[i].append(tf.keras.layers.BatchNormalization())
-                if self._h.conv_dropout > 0 and j + 1 >= self._h.conv_dropout_after:
-                    layers[i].append(
-                        tf.keras.layers.SpatialDropout2D(self._h.conv_dropout))
-                layers[i].append(tf.keras.layers.MaxPool2D(self._h.pool_size))
-                filters = int(filters * self._h.filter_multiplier)
-
-            # Final 1 x 1 convolution
-            layers[i].extend([
-                self.conv2d(int(filters // self._h.filter_multiplier),
-                            kernel_size=1, padding='same',
-                            activation=self.activation),
-                # tf.keras.layers.SpatialDropout2D(self._h.conv_dropout),
-            ])
-
-            # GAP / Feature formation
-            if self._h.use_gap:
-                layers[i].append(tf.keras.layers.GlobalAveragePooling2D())
-            else:
-                layers[i].append(tf.keras.layers.Flatten())
-
-            # Fully-connected classifier
-            for _ in range(self._h.dense_layers):
-                layers[i].append(
-                    self.dense(self._h.dense_units, activation=self.activation)
-                )
-                if self._h.dense_dropout > 0:
-                    layers[i].append(self.dropout(self._h.dense_dropout))
-
-            # final classification head
-            layers[i].append(self.dense(self._h.n_classes, activation=None))
+            layers.append(self._seq_model())
 
         inputs = Input(shape=(None, None, self.channels))
         outputs_list = []
@@ -247,8 +201,8 @@ class ScalingFactor(BayesBaseModel):
             "{kernel}x{kernel} CNN: 1+{conv}+1 conv layers {gap}+ {fc} "
             "fc layers [{params:,} parameters]".format(
                 kernel=self._h.kernel,
-                conv=self._h.n_convolutions,
-                fc=self._h.n_dense,
+                conv=self._h.conv_layers,
+                fc=self._h.dense_layers,
                 gap="+ (GAP) " if self._h.use_gap else "",
                 params=self.count_parameters(),
             )
@@ -262,86 +216,3 @@ class ScalingFactor(BayesBaseModel):
             f=self._h.n_features,
             l=self._h.n_layers,
         )
-
-    def _vggconv_block(self, x, filters, kernel, stride, kernel_posterior_fn):
-        """Network block for VGG."""
-        out = tfp.layers.Convolution2DFlipout(
-            filters,
-            kernel,
-            padding='same',
-            kernel_posterior_fn=kernel_posterior_fn)(x)
-        out = tf.keras.layers.BatchNormalization()(out)
-        out = tf.keras.layers.Activation('relu')(out)
-
-        out = tfp.layers.Convolution2DFlipout(
-            filters,
-            kernel,
-            padding='same',
-            kernel_posterior_fn=kernel_posterior_fn)(out)
-        out = tf.keras.layers.BatchNormalization()(out)
-        out = tf.keras.layers.Activation('relu')(out)
-
-        out = tf.keras.layers.MaxPooling2D(
-            pool_size=(2, 2), strides=stride)(out)
-        return out
-
-    def bayesian_vgg(self, input_shape,
-                     num_classes=10,
-                     kernel_posterior_scale_mean=-9.0,
-                     kernel_posterior_scale_stddev=0.1,
-                     kernel_posterior_scale_constraint=0.2):
-
-        """Constructs a VGG16 model.
-
-        Args:
-          input_shape: A `tuple` indicating the Tensor shape.
-          num_classes: `int` representing the number of class labels.
-          kernel_posterior_scale_mean: Python `int` number for the kernel
-            posterior's scale (log variance) mean. The smaller the mean the closer
-            is the initialization to a deterministic network.
-          kernel_posterior_scale_stddev: Python `float` number for the initial kernel
-            posterior's scale stddev.
-            ```
-            q(W|x) ~ N(mu, var),
-            log_var ~ N(kernel_posterior_scale_mean, kernel_posterior_scale_stddev)
-            ````
-          kernel_posterior_scale_constraint: Python `float` number for the log value
-            to constrain the log variance throughout training.
-            i.e. log_var <= log(kernel_posterior_scale_constraint).
-
-        Returns:
-          tf.keras.Model.
-        """
-
-        filters = [64, 128, 128, 256]
-        kernels = [3, 3, 3, 3]
-        strides = [2, 2, 2, 2]
-
-        def _untransformed_scale_constraint(t):
-            return tf.clip_by_value(t, -1000,
-                                    tf.math.log(
-                                        kernel_posterior_scale_constraint))
-
-        kernel_posterior_fn = tfp.layers.default_mean_field_normal_fn(
-            untransformed_scale_initializer=tf.compat.v1.initializers.random_normal(
-                mean=kernel_posterior_scale_mean,
-                stddev=kernel_posterior_scale_stddev),
-            untransformed_scale_constraint=_untransformed_scale_constraint)
-
-        image = tf.keras.layers.Input(shape=input_shape, dtype='float32')
-
-        x = image
-        for i in range(len(kernels)):
-            x = self._vggconv_block(
-                x,
-                filters[i],
-                kernels[i],
-                strides[i],
-                kernel_posterior_fn)
-
-        x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        x = tfp.layers.DenseFlipout(
-            11, activation=None,
-            kernel_posterior_fn=kernel_posterior_fn)(x)
-        self._model = tf.keras.Model(inputs=image, outputs=x, name='vgg16')
-        # return model

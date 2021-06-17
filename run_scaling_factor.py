@@ -10,7 +10,6 @@ import os
 # External libraries
 import numpy as np
 import tensorflow as tf
-import tensorflow_probability as tfp
 from loguru import logger
 # Internal libraries
 from helpers.results_data import ResultCache
@@ -24,7 +23,6 @@ from workflows.scaling_factor import (
     ScalingFactor,
     sf_plot,
     load_parameters,
-    FlipoutLoss, FixedLRSchedule
 )
 
 
@@ -65,21 +63,18 @@ def main():
     # initializations
     args.codec = args.codec if args.jpeg_compression else None
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
-    steps_per_epoch = args.n_train_images // args.batch_size
     strategy = tf.distribute.MirroredStrategy()
     logger.info(
         'Number of devices: {}'.format(strategy.num_replicas_in_sync))
     # Prepare model with mirrored strategy.
-    # with strategy.scope():
-    model = ScalingFactor(**vars(args), **args.parameters)
-    optimizer = tf.keras.optimizers.Adam(args.lr)
-    # optimizer = tf.keras.optimizers.Adam(FixedLRSchedule(args.lr))
-    loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-        from_logits=True
-    )
-    # loss_criterion = FlipoutLoss(args.n_train_images, steps_per_epoch)
-    model._model.compile(optimizer, loss=loss_criterion,
-                         metrics=["accuracy"])
+    with strategy.scope():
+        model = ScalingFactor(**vars(args), **args.parameters)
+        optimizer = tf.keras.optimizers.Adam(args.lr)
+        loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True
+        )
+        model._model.compile(optimizer, loss=loss_criterion,
+                             metrics=["accuracy"])
 
     # load presampled validation data
     if args.use_presampled:
@@ -154,10 +149,7 @@ def main():
             validation_data=val_data,
             epochs=args.epochs,
             verbose=0,
-            callbacks=callbacks + [
-                tf.keras.callbacks.ReduceLROnPlateau(
-                    verbose=1, factor=0.5, min_lr=1e-8, patience=100,
-                )],
+            callbacks=callbacks,
             validation_freq=args.validation_freq,
         )
         # save the training performance
