@@ -95,6 +95,8 @@ class BayesBaseModel(TFModel, TemperatureScaling):
 
         # this will be used in case of flipout and rep trick as kl
         if kl_divergence_function:
+            logger.info("Please add **self.uncertainty_method_args"
+                        " to any flipout and rep trick layers.")
             self.uncertainty_method_args['kernel_divergence_fn'] = kl_divergence_function
 
         self.temperature = 1.0

@@ -84,8 +84,6 @@ class ScalingFactorDataset(Dataset):
         sf_labels : tf.Tensor
             Tensor containing the target labels.
         """
-        # TODO Ask Pawel if compression and scaling factor are interchangeable
-
         if 'sf' in kwargs:
             sf = float(kwargs['sf'])
             class_id = tf.math.floor(
@@ -99,7 +97,6 @@ class ScalingFactorDataset(Dataset):
             if training else self.val_rgb_patch_size
 
         resized_size = tf.cast(tf.math.multiply(sf, patch_size), tf.int32)
-        resized_size = tf.broadcast_to(resized_size, shape=(2,))
         # Choose sampling method.
         if self.random_method:
             m = self.methods[randint(maxval=len(self.methods), seed=self.seed)]
@@ -107,13 +104,16 @@ class ScalingFactorDataset(Dataset):
             m = self.sampling_method
 
         # Resize batch.
-        rescaled_images = tf.image.resize(batch, resized_size, method=m)
+        rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
+                                          method=m)
 
         # Convert to JPEG if a codec is passed.
         if self.codec:
-            rescaled_images = self.pad(rescaled_images, resized_size)
+            rescaled_images, pad_before = self.pad(
+                rescaled_images, resized_size)
             rescaled_images = self.codec.process(rescaled_images)
-            rescaled_images = self.unpad(rescaled_images, resized_size)
+            rescaled_images = self.unpad(rescaled_images, pad_before,
+                                         resized_size)
 
         sf_labels = tf.repeat(class_id, batch.shape[0])
 
@@ -122,22 +122,25 @@ class ScalingFactorDataset(Dataset):
     @staticmethod
     def pad(images, resized_size):
         """pad with zeros for multiple of 8"""
-        pad_size = 8 - resized_size[0] % 8
+        pad_size = 8 - resized_size.numpy() % 8
         if pad_size % 2 == 1:
             pad_size //= 2
-            paddings = tf.constant([[pad_size + 1, pad_size],
-                                    [pad_size + 1, pad_size]])
+            pad_before = pad_size + 1
         else:
             pad_size //= 2
-            paddings = tf.constant([[pad_size, pad_size],
-                                    [pad_size, pad_size]])
+            pad_before = pad_size
 
-        return tf.pad(images, paddings)
+        paddings = [[0, 0], [pad_before, pad_size],
+                    [pad_before, pad_size], [0, 0]]
+        print(paddings)
+        return tf.pad(images, paddings), pad_before
 
-    @staticmethod
-    def unpad(images, resized_size):
+    def unpad(self, images, pad_before, resized_size):
         """pad with zeros for multiple of 8"""
-        return None#tf.slice(images, )
+        return tf.slice(
+            images, begin=[0, pad_before, pad_before, 0],
+            size=[len(images), resized_size, resized_size, self.channels]
+        )
 
     def get_training_pipeline(self, discard="flat"):
 
