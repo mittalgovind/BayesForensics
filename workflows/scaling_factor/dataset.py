@@ -85,9 +85,6 @@ class ScalingFactorDataset(Dataset):
             Tensor containing the target labels.
         """
         # TODO Ask Pawel if compression and scaling factor are interchangeable
-        # Convert to JPEG if a codec is passed.
-        if self.codec:
-            batch = self.codec.process(batch)
 
         if 'sf' in kwargs:
             sf = float(kwargs['sf'])
@@ -105,16 +102,42 @@ class ScalingFactorDataset(Dataset):
         resized_size = tf.broadcast_to(resized_size, shape=(2,))
         # Choose sampling method.
         if self.random_method:
-            m = self.methods[
-                tf.random.uniform(shape=(), minval=0, maxval=len(self.methods),
-                                  dtype=tf.int32)]
+            m = self.methods[randint(maxval=len(self.methods), seed=self.seed)]
         else:
             m = self.sampling_method
 
         # Resize batch.
         rescaled_images = tf.image.resize(batch, resized_size, method=m)
+
+        # Convert to JPEG if a codec is passed.
+        if self.codec:
+            rescaled_images = self.pad(rescaled_images, resized_size)
+            rescaled_images = self.codec.process(rescaled_images)
+            rescaled_images = self.unpad(rescaled_images, resized_size)
+
         sf_labels = tf.repeat(class_id, batch.shape[0])
+
         return rescaled_images, sf_labels
+
+    @staticmethod
+    def pad(images, resized_size):
+        """pad with zeros for multiple of 8"""
+        pad_size = 8 - resized_size[0] % 8
+        if pad_size % 2 == 1:
+            pad_size //= 2
+            paddings = tf.constant([[pad_size + 1, pad_size],
+                                    [pad_size + 1, pad_size]])
+        else:
+            pad_size //= 2
+            paddings = tf.constant([[pad_size, pad_size],
+                                    [pad_size, pad_size]])
+
+        return tf.pad(images, paddings)
+
+    @staticmethod
+    def unpad(images, resized_size):
+        """pad with zeros for multiple of 8"""
+        return None#tf.slice(images, )
 
     def get_training_pipeline(self, discard="flat"):
 

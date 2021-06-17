@@ -130,8 +130,8 @@ def main():
         val_data = val_data.with_options(options)
 
         # get callbacks using options
-        save_freq = args.save_every * args.n_train_images // args.batch_size
-
+        steps_per_epoch = args.n_train_images // args.batch_size
+        save_freq = args.save_every * steps_per_epoch
         callbacks = get_callbacks(
             args.save_dir,
             model_name=model.model_filename,
