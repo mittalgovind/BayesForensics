@@ -114,15 +114,16 @@ class ScalingFactor(BayesBaseModel):
     def _seq_create_model(self):
         """Made for keras hyperopt."""
         # TODO Fix ensembling thing and delete this.
+        layers = list()
         # Constrained convolution with a learned residual filter
-        # layers.append(ConstrainedConv2D())
+
+        layers.append(ConstrainedConv2D())
         # Standard convolutional layers
         filters = self._h.filters
         kl_divergence_function = (
             lambda q, p, _: tfp.distributions.kl_divergence(q, p) / tf.cast(
                 self.n_train_images, dtype=tf.float32)
         )
-        layers = list()
         for j in range(self._h.conv_layers):
             layers.append(
                 tfp.layers.Convolution2DFlipout(filters,
@@ -165,9 +166,10 @@ class ScalingFactor(BayesBaseModel):
                 layers.append(self.dropout(self._h.dense_dropout))
 
         # final classification head
-        layers.append(tfp.layers.DenseFlipout(self._h.n_classes,
-                                              kernel_divergence_fn=kl_divergence_function,
-                                              activation=None))
+        layers.append(tfp.layers.DenseFlipout(
+            self._h.n_classes,
+            kernel_divergence_fn=kl_divergence_function,
+            activation=None))
 
         self._model = tf.keras.models.Sequential(layers)
 
