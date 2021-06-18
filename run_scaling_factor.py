@@ -143,6 +143,9 @@ def main():
             steps_per_epoch=steps_per_epoch
         )
 
+        # for images, labels in data.get_validation_generator():
+        #     pass
+
         # Start training
         train_performance = model._model.fit(
             x=train_data,
@@ -151,6 +154,7 @@ def main():
             verbose=0,
             callbacks=callbacks,
             validation_freq=args.validation_freq,
+            validation_steps=args.n_classes * len(data.methods),
         )
         # save the training performance
         history = train_performance.history

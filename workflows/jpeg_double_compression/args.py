@@ -147,7 +147,7 @@ def parse_args():
     )
     parser.add_argument(
         "--validation-freq",
-        default=50,
+        default=5,
         type=int,
         help="Number of training epochs to run before a new validation run.",
     )

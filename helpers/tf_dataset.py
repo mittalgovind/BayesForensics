@@ -189,9 +189,9 @@ class Dataset(object):
 
             self.data["validation"]["y"] = tf.math.divide(
                 self.data["validation"]["y"], 2 ** 8 - 1)
-            self.data["validation"]["y"] = tf.data.Dataset.from_tensor_slices(
-                self.data["validation"]["y"]).batch(batch_size,
-                                                    drop_remainder=True)
+            # self.data["validation"]["y"] = tf.data.Dataset.from_tensor_slices(
+            #     self.data["validation"]["y"]).batch(batch_size,
+            #                                         drop_remainder=True)
             if calibrate:
                 self.data["calibration"]["y"] = tf.math.divide(
                     self.data["calibration"]["y"], 2 ** 8 - 1)
@@ -363,7 +363,8 @@ class Dataset(object):
         for batch in self.data["training"]["y"]:
             if not self.preloading_train:
                 batch = self.sample_patches(batch, discard, **kwargs)
-            images, labels = self.preprocess_batch(batch, **kwargs)
+            images, labels = self.preprocess_batch(batch, training=True,
+                                                   **kwargs)
             yield images, labels
 
     def get_validation_generator(self, **kwargs):
@@ -374,7 +375,8 @@ class Dataset(object):
             output_types=len(self._loaded_data) * (tf.float32, ))
         """
         for batch in self.data["validation"]["y"]:
-            images, labels = self.preprocess_batch(batch, **kwargs)
+            images, labels = self.preprocess_batch(batch, training=False,
+                                                   **kwargs)
             yield images, labels
 
     def get_calibration_generator(self, **kwargs):

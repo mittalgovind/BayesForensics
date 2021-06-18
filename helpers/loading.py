@@ -275,8 +275,12 @@ def sample_patch(
     return xx, yy
 
 
-def randint(minval=0, maxval=None, seed=10):
-    return tf.random.uniform(minval=minval, maxval=maxval, shape=[],
+def randint(minval=0, maxval=None, seed=10, num=1):
+    if num == 1:
+        shape = []
+    else:
+        shape = [num]
+    return tf.random.uniform(minval=minval, maxval=maxval, shape=shape,
                              dtype=tf.int32, seed=seed)
 
 

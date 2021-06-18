@@ -29,6 +29,7 @@ class ScalingFactorDataset(Dataset):
             n_classes,
             codec=None,
             jpeg_quality=100,
+            per_batch_sub=64,
             **kwargs,
     ):
         """
@@ -59,6 +60,10 @@ class ScalingFactorDataset(Dataset):
         self.classes = tf.linspace(*self.scales, num=n_classes)
         self.class_multiplier = tf.convert_to_tensor(
             n_classes / (self.scales[1] - self.scales[0]))
+        self.n_classes = n_classes
+        self.per_batch_sub = per_batch_sub
+        self.val_data_batch_size = per_batch_sub * len(
+            self.methods) * n_classes
         if codec:
             self.codec = TFJPEG(quality=jpeg_quality, codec=codec)
             if codec == 'libjpeg':
@@ -66,7 +71,7 @@ class ScalingFactorDataset(Dataset):
         else:
             self.codec = None
 
-    def preprocess_batch(self, batch, training=True, **kwargs):
+    def preprocess_batch(self, batch, training=False, **kwargs):
         """
         Resize a batch with the desired scaling factor and sampling method.
         Includes JPEG compression when required.
@@ -76,7 +81,8 @@ class ScalingFactorDataset(Dataset):
         ----------
         batch : np.array
             Batch to be preprocessed.
-
+        training : bool
+            Flag for training
         Returns
         -------
         rescaled_images : tf.Tensor
@@ -88,17 +94,21 @@ class ScalingFactorDataset(Dataset):
             sf = float(kwargs['sf'])
             class_id = tf.math.floor(
                 tf.math.multiply(self.class_multiplier, sf - self.classes[0]))
-        else:
+        elif training:
+            # todo validation has a big bug. i dont want to sample but have a
+            #  fixed validation set.
             # changed to sampling from finite set instead of infinite
-            class_id = randint(maxval=len(self.classes), seed=self.seed)
+            class_id = randint(maxval=self.n_classes, seed=self.seed)
             sf = self.classes[class_id]
+        else:
+            raise RuntimeError("Pass an sf value when not training")
 
         patch_size = self.train_rgb_patch_size \
             if training else self.val_rgb_patch_size
 
         resized_size = tf.cast(tf.math.multiply(sf, patch_size), tf.int32)
         # Choose sampling method.
-        if self.random_method:
+        if training and self.random_method:
             m = self.methods[randint(maxval=len(self.methods), seed=self.seed)]
         else:
             m = self.sampling_method
@@ -142,8 +152,14 @@ class ScalingFactorDataset(Dataset):
             size=[len(images), resized_size, resized_size, self.channels]
         )
 
-    def get_training_pipeline(self, discard="flat"):
+    def get_validation_generator(self, **kwargs):
+        for m, method in enumerate(self.methods):
+            self.sampling_method = method
+            for s, sf in enumerate(self.classes):
+                batch = self.data["validation"]["y"][:self.batch_size]
+                yield self.preprocess_batch(batch, training=False, sf=sf)
 
+    def get_training_pipeline(self, discard="flat"):
         return tf.data.Dataset.from_generator(
             self.get_training_generator,
             args=(discard,),
