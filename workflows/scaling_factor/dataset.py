@@ -57,6 +57,9 @@ class ScalingFactorDataset(Dataset):
         self.sampling_method = sampling_method
         self.methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
         self.random_method = self.sampling_method == "random"
+        self.test_methods = self.methods \
+            if self.random_method else self.sampling_method
+
         self.classes = tf.linspace(*self.scales, num=n_classes)
         self.class_multiplier = tf.convert_to_tensor(
             n_classes / (self.scales[1] - self.scales[0]))
@@ -153,8 +156,9 @@ class ScalingFactorDataset(Dataset):
         )
 
     def get_validation_generator(self, **kwargs):
-        for m, method in enumerate(self.methods):
-            self.sampling_method = method
+        for m, method in enumerate(self.test_methods):
+            if self.random_method:
+                self.sampling_method = method
             for s, sf in enumerate(self.classes):
                 batch = self.data["validation"]["y"][:self.batch_size]
                 yield self.preprocess_batch(batch, training=False, sf=sf)

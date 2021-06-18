@@ -57,7 +57,7 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                                        len(data.classes)))
 
                 i = 0
-                for images, labels in data.get_validation_generator(sf=sf):
+                for images, labels in data.super().get_validation_generator(sf=sf):
                     if uncertainty_method in ["vanilla", "ensemble"]:
                         logits[i: i + batch_size] = (model(
                             images, training=False) / model.temperature).numpy()
