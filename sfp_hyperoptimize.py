@@ -99,7 +99,7 @@ class Trainable:
                     x=self.train_data,
                     validation_data=self.val_data,
                     epochs=self.epochs,
-                    verbose=0,
+                    verbose=self.verbose,
                     callbacks=self.callbacks,
                     validation_steps=self.classes,
                     validation_freq=10,
