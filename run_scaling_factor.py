@@ -154,7 +154,7 @@ def main():
             verbose=0,
             callbacks=callbacks,
             validation_freq=args.validation_freq,
-            validation_steps=args.n_classes * len(data.methods),
+            validation_steps=args.n_classes * len(data.test_methods),
         )
         # save the training performance
         history = train_performance.history
