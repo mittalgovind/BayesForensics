@@ -51,7 +51,7 @@ def get_tf_hparams(tf_space, parameters):
 class Trainable:
     def __init__(self, root, lr, save_dir, epochs, memory_growth,
                  verbose, train_data, val_data, callbacks, tf_space,
-                 classes, patch_size, counter):
+                 classes, patch_size, counter, validation_freq):
         self.epochs = epochs
         self.root = root
         self.lr = lr
@@ -66,6 +66,7 @@ class Trainable:
         self.callbacks = callbacks
         self.tf_space = tf_space
         self.counter = counter
+        self.validation_freq = validation_freq
 
     def train(self, config):
         if self.set_once and self.memory_growth:
@@ -103,7 +104,7 @@ class Trainable:
                     verbose=self.verbose,
                     callbacks=self.callbacks,
                     validation_steps=self.classes,
-                    validation_freq=10,
+                    validation_freq=self.validation_freq,
                 )
                 rval = {'loss': np.mean(history.history['val_accuracy'][-10:]),
                         'status': STATUS_OK}
@@ -111,12 +112,13 @@ class Trainable:
                     tf.summary.scalar('Accuracy',
                                       history.history['accuracy'][i],
                                       step=i + 1)
-                    tf.summary.scalar('Val Accuracy',
-                                      history.history['val_accuracy'][i],
-                                      step=i + 1)
                     tf.summary.scalar('Loss',
                                       history.history['loss'][i],
                                       step=i + 1)
+                for i, val in enumerate(history.history['val_accuracy']):
+                    tf.summary.scalar('Val Accuracy',
+                                      history.history['val_accuracy'][i],
+                                      step=i * self.validation_freq + 1)
                 writer.close()
             except:
                 logger.info(logdir + ' crashed')
@@ -248,7 +250,8 @@ def run_trials(args, search_space, train_data, val_data, callbacks,
     trainer = Trainable(args.root, args.lr, args.save_dir,
                         args.epochs, args.memory_growth, args.verbose,
                         train_data, val_data, callbacks, tf_search_space,
-                        args.classes, args.patch_size, len(trials.trials))
+                        args.classes, args.patch_size, len(trials.trials),
+                        args.validation_freq)
 
     fmin(fn=trainer.train,
          space=search_space,
@@ -276,6 +279,7 @@ if __name__ == "__main__":
         parser.add_argument("--v-images", default=1024, type=int)
         parser.add_argument("--patch-size", default=128, type=int)
         parser.add_argument("--classes", default=96, type=int)
+        parser.add_argument("--validation-freq", default=5, type=int)
         parser.add_argument("--lr", default=0.001, type=float)
         parser.add_argument("--save-dir",
                             default='/scratch/gm2724/nip_runs/sfp_hyper',
