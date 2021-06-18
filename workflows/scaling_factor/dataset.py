@@ -29,7 +29,7 @@ class ScalingFactorDataset(Dataset):
             n_classes,
             codec=None,
             jpeg_quality=100,
-            per_batch_sub=64,
+            per_batch_sub=128,
             **kwargs,
     ):
         """
@@ -158,7 +158,7 @@ class ScalingFactorDataset(Dataset):
             if self.random_method:
                 self.sampling_method = method
             for s, sf in enumerate(self.classes):
-                batch = self.data["validation"]["y"][:self.batch_size]
+                batch = self.data["validation"]["y"][:self.per_batch_sub]
                 yield self.preprocess_batch(batch, training=False, sf=sf)
 
     def get_training_pipeline(self, discard="flat"):

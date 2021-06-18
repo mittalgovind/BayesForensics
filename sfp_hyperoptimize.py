@@ -271,15 +271,15 @@ if __name__ == "__main__":
         import argparse
 
         parser = argparse.ArgumentParser(description="Hyperopt")
-        parser.add_argument("--epochs", default=100, type=int)
+        parser.add_argument("--epochs", default=175, type=int)
         parser.add_argument("--verbose", default=0, type=int)
-        parser.add_argument("--bs", default=2048, type=int)
+        parser.add_argument("--bs", default=64, type=int)
         parser.add_argument("--num-samples", default=250, type=int)
         parser.add_argument("--n-images", default=1024, type=int)
-        parser.add_argument("--v-images", default=1024, type=int)
+        parser.add_argument("--v-images", default=128, type=int)
         parser.add_argument("--patch-size", default=128, type=int)
         parser.add_argument("--classes", default=96, type=int)
-        parser.add_argument("--validation-freq", default=5, type=int)
+        parser.add_argument("--validation-freq", default=15, type=int)
         parser.add_argument("--lr", default=0.001, type=float)
         parser.add_argument("--save-dir",
                             default='/scratch/gm2724/nip_runs/sfp_hyper',
