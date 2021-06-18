@@ -153,6 +153,7 @@ class ScalingFactorDataset(Dataset):
             size=[len(images), resized_size, resized_size, self.channels]
         )
 
+    @tf.function(experimental_compile=True)
     def get_validation_generator(self, **kwargs):
         for m, method in enumerate(self.test_methods):
             if self.random_method:
