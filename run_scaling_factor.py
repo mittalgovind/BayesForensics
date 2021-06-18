@@ -11,6 +11,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from loguru import logger
+
 # Internal libraries
 from helpers.results_data import ResultCache
 from helpers.plots import perf
@@ -142,9 +143,6 @@ def main():
             update_freq=args.validation_freq,
             steps_per_epoch=steps_per_epoch
         )
-
-        # for images, labels in data.get_validation_generator():
-        #     pass
 
         # Start training
         train_performance = model._model.fit(

@@ -11,32 +11,46 @@ from helpers import tf_helpers
 
 class PaddedConv2D(tf.keras.layers.Layer):
     def __init__(
-        self,
-        n_filters,
-        kernel=3,
-        activation=None,
-        use_bias=True,
-        padding="reflect",
-        use_bn=False,
+            self,
+            n_filters,
+            kernel=3,
+            activation=None,
+            use_bias=True,
+            padding="reflect",
+            use_bn=False,
+            **kwargs
     ):
         super().__init__()
         self.padding = padding
         self._activation = activation
         self._pad = (kernel - 1) // 2
-        self._padding_spec = [
-            [0, 0],
-            [self._pad, self._pad],
-            [self._pad, self._pad],
-            [0, 0],
-        ]
+        if padding == "same":
+            # symmetrically pad one by one, as"same" was removed in TF 2.5.0.
+            self._padding_spec = [
+                [0, 0],
+                [1, 1],
+                [1, 1],
+                [0, 0]
+            ]
+            self.padding = 'SYMMETRIC'
+        else:
+            self._padding_spec = [
+                [0, 0],
+                [self._pad, self._pad],
+                [self._pad, self._pad],
+                [0, 0],
+            ]
+            self._pad = 1
+
         self._conv = tf.keras.layers.Conv2D(
             n_filters, kernel, 1, "valid", activation=None, use_bias=use_bias
         )
         self._bn = tf.keras.layers.BatchNormalization() if use_bn else None
 
-    def call(self, input, *, training=False):
-        y = self._conv(tf.pad(input, self._padding_spec, self.padding),
-                       training=training)
+    def call(self, inputs, *, training=False):
+        for i in range(self._pad):
+            inputs = tf.pad(inputs, self._padding_spec, self.padding)
+        y = self._conv(inputs, training=training)
         y = self._bn(y) if self._bn is not None else y
         y = self._activation(y) if self._activation is not None else y
         return y
@@ -45,6 +59,44 @@ class PaddedConv2D(tf.keras.layers.Layer):
         tf_helpers.reset_layer(self._conv, alpha)
         tf_helpers.reset_layer(self._bn, alpha)
 
+
+# class PaddedConvVariational(tfp.layers.conv_variational):
+#     def __init__(
+#         self,
+#         n_filters,
+#         kernel=3,
+#         activation=None,
+#         use_bias=True,
+#         padding="reflect",
+#         use_bn=False,
+#         **kwargs
+#     ):
+#         super().__init__()
+#         self.padding = padding
+#         self._activation = activation
+#         self._pad = (kernel - 1) // 2
+#         self._padding_spec = [
+#             [0, 0],
+#             [self._pad, self._pad],
+#             [self._pad, self._pad],
+#             [0, 0],
+#         ]
+#         self._conv = tfp.layers.Conv2DFlipout(
+#             n_filters, kernel, 1, "valid", activation=None, use_bias=use_bias
+#         )
+#         self._bn = tf.keras.layers.BatchNormalization() if use_bn else None
+#
+#     def call(self, input, *, training=False):
+#         y = self._conv(tf.pad(input, self._padding_spec, self.padding),
+#                        training=training)
+#         y = self._bn(y) if self._bn is not None else y
+#         y = self._activation(y) if self._activation is not None else y
+#         return y
+#
+#     def reset_layer(self, alpha=0):
+#         tf_helpers.reset_layer(self._conv, alpha)
+#         tf_helpers.reset_layer(self._bn, alpha)
+#
 
 class ConstrainedConv2D(tf.keras.layers.Layer):
     """
@@ -73,7 +125,6 @@ class ConstrainedConv2D(tf.keras.layers.Layer):
     def __init__(self, filter_strength=100, trainable=True):
         super().__init__()
         self.filter_strength = filter_strength
-
         f = np.array(
             [
                 [0, 0, 0, 0, 0],
@@ -86,7 +137,8 @@ class ConstrainedConv2D(tf.keras.layers.Layer):
         self.kernel = self.add_weight(
             "kernel",
             shape=(5, 5, 3, 3),
-            initializer=tf.constant_initializer(helpers.kernels.repeat_2dfilter(f, 3)),
+            initializer=tf.constant_initializer(
+                helpers.kernels.repeat_2dfilter(f, 3)),
             trainable=trainable,
         )
 
@@ -99,7 +151,8 @@ class ConstrainedConv2D(tf.keras.layers.Layer):
         # Normalize the residual filter
         nf = self.kernel * (1 - tf_ind)
         df = tf.tile(
-            tf.reshape(tf.reduce_sum(nf, axis=(0, 1, 2)), [1, 1, 1, 3]), [5, 5, 3, 1]
+            tf.reshape(tf.reduce_sum(nf, axis=(0, 1, 2)), [1, 1, 1, 3]),
+            [5, 5, 3, 1]
         )
         nf = self.filter_strength * nf / df
         nf = nf - self.filter_strength * tf_ind
@@ -191,13 +244,13 @@ class Quantization(tf.keras.layers.Layer):
     """
 
     def __init__(
-        self,
-        rounding="soft",
-        v=50,
-        gamma=25,
-        latent_bpf=4,
-        trainable=False,
-        taylor_terms=1,
+            self,
+            rounding="soft",
+            v=50,
+            gamma=25,
+            latent_bpf=4,
+            trainable=False,
+            taylor_terms=1,
     ):
         """
         Note that not all parameters are applicable to all approximation modes.
@@ -300,7 +353,8 @@ class Quantization(tf.keras.layers.Layer):
                     self.codebook, dtype=prec_dtype
                 )
                 dff = self.gamma * dff
-                weights = tf.pow((1 + tf.pow(dff, 2) / self.v), -(self.v + 1) / 2)
+                weights = tf.pow((1 + tf.pow(dff, 2) / self.v),
+                                 -(self.v + 1) / 2)
 
             weights = (weights + eps) / (
                 tf.reduce_sum(weights + eps, axis=1, keepdims=True)
@@ -310,7 +364,8 @@ class Quantization(tf.keras.layers.Layer):
 
             soft = tf.reduce_mean(
                 tf.matmul(
-                    weights, tf.transpose(tf.cast(self.codebook, dtype=prec_dtype))
+                    weights,
+                    tf.transpose(tf.cast(self.codebook, dtype=prec_dtype))
                 ),
                 axis=1,
             )
@@ -335,13 +390,13 @@ class DiscreteLatent(tf.keras.layers.Layer):
     """
 
     def __init__(
-        self,
-        rounding="soft",
-        v=50,
-        gamma=25,
-        latent_bpf=4,
-        trainable_codebook=False,
-        trainable_scale=True,
+            self,
+            rounding="soft",
+            v=50,
+            gamma=25,
+            latent_bpf=4,
+            trainable_codebook=False,
+            trainable_scale=True,
     ):
         super(DiscreteLatent, self).__init__()
         self.trainable_scale = trainable_scale
@@ -390,7 +445,8 @@ class DemosaicingLayer(tf.keras.layers.Layer):
             self._bilinear = tf.keras.layers.Conv2D(
                 3,
                 kernel,
-                kernel_initializer=tf.constant_initializer(self._bilinear_kernel),
+                kernel_initializer=tf.constant_initializer(
+                    self._bilinear_kernel),
                 use_bias=False,
                 activation=None,
                 padding="VALID",
@@ -438,7 +494,8 @@ class DemosaicingLayer(tf.keras.layers.Layer):
             bayer = tf.pad(
                 inputs,
                 tf.constant(
-                    [[0, 0], [self._pad, self._pad], [self._pad, self._pad], [0, 0]]
+                    [[0, 0], [self._pad, self._pad], [self._pad, self._pad],
+                     [0, 0]]
                 ),
                 "REFLECT",
             )

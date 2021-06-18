@@ -98,8 +98,6 @@ class ScalingFactorDataset(Dataset):
             class_id = tf.math.floor(
                 tf.math.multiply(self.class_multiplier, sf - self.classes[0]))
         elif training:
-            # todo validation has a big bug. i dont want to sample but have a
-            #  fixed validation set.
             # changed to sampling from finite set instead of infinite
             class_id = randint(maxval=self.n_classes, seed=self.seed)
             sf = self.classes[class_id]

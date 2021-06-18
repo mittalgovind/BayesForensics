@@ -66,7 +66,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
 
         # Depending on method, Conv2D, Dense and Dropout layers are chosen.
         if "mc" in uncertainty_method:
-            self.conv2d = tf.keras.layers.Conv2D
+            self.conv2d = PaddedConv2D#tf.keras.layers.Conv2D
             self.dropout = MCDropoutLayer
             self.dense = tf.keras.layers.Dense
 
@@ -89,7 +89,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             )
 
         else:
-            self.conv2d = tf.keras.layers.Conv2D
+            self.conv2d = PaddedConv2D#tf.keras.layers.Conv2D
             self.dropout = tf.keras.layers.Dropout
             self.dense = tf.keras.layers.Dense
 

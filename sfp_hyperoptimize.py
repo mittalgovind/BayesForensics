@@ -101,6 +101,8 @@ class Trainable:
                     epochs=self.epochs,
                     verbose=0,
                     callbacks=self.callbacks,
+                    validation_steps=self.classes,
+                    validation_freq=10,
                 )
                 rval = {'loss': np.mean(history.history['val_loss'][-10:]),
                         'status': STATUS_OK}
@@ -129,7 +131,7 @@ def create_search_space():
     # NAMES NEEDS TO BE IN LEXICOGRAPHICAL ORDER
     hspace = {
         "conv_layers": hp.choice("conv_layers", [3, 4, 5]),
-        "dense_dropout": hp.choice("dense_dropout", [0.0, 0.05, 0.5]),
+        "dense_dropout": hp.choice("dense_dropout", [0.0, 0.1, 0.5]),
         "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
         "dense_units": hp.choice("dense_units", [128, 256, 384]),
         "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
@@ -140,7 +142,7 @@ def create_search_space():
     # NAMES NEEDS TO BE IN LEXICOGRAPHICAL ORDER
     tf_hspace = [
         tfhp.HParam("conv_layers", tfhp.Discrete([3, 4, 5])),
-        tfhp.HParam("dense_dropout", tfhp.Discrete([0.0, 0.05, 0.5])),
+        tfhp.HParam("dense_dropout", tfhp.Discrete([0.0, 0.1, 0.5])),
         tfhp.HParam("dense_layers", tfhp.Discrete([1, 2, 3, 4])),
         tfhp.HParam("dense_units", tfhp.Discrete([128, 256, 384])),
         tfhp.HParam("filter_multiplier", tfhp.Discrete([1, 2])),
@@ -177,9 +179,9 @@ def main(args):
         v_images=args.v_images,
         seed=69,
         val_rgb_patch_size=args.patch_size,
-        n_classes=16,
+        n_classes=args.classes,
         scales="0.25,1.0",
-        sampling_method="random",
+        sampling_method="bilinear",
         codec=None,
         batch_size=args.bs,
     )
@@ -243,7 +245,7 @@ def run_trials(args, search_space, train_data, val_data, callbacks,
     trainer = Trainable(args.root, args.lr, args.save_dir,
                         args.epochs, args.memory_growth, args.verbose,
                         train_data, val_data, callbacks, tf_search_space,
-                        16, args.patch_size, len(trials.trials))
+                        args.classes, args.patch_size, len(trials.trials))
 
     fmin(fn=trainer.train,
          space=search_space,
@@ -270,6 +272,7 @@ if __name__ == "__main__":
         parser.add_argument("--n-images", default=1024, type=int)
         parser.add_argument("--v-images", default=1024, type=int)
         parser.add_argument("--patch-size", default=128, type=int)
+        parser.add_argument("--classes", default=96, type=int)
         parser.add_argument("--lr", default=0.001, type=float)
         parser.add_argument("--save-dir",
                             default='/scratch/gm2724/nip_runs/sfp_hyper',
