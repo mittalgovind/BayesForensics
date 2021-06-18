@@ -105,7 +105,7 @@ class Trainable:
                     validation_steps=self.classes,
                     validation_freq=10,
                 )
-                rval = {'loss': np.mean(history.history['val_loss'][-10:]),
+                rval = {'loss': np.mean(history.history['val_accuracy'][-10:]),
                         'status': STATUS_OK}
                 for i in history.epoch:
                     tf.summary.scalar('Accuracy',
@@ -116,9 +116,6 @@ class Trainable:
                                       step=i + 1)
                     tf.summary.scalar('Loss',
                                       history.history['loss'][i],
-                                      step=i + 1)
-                    tf.summary.scalar('Val Loss',
-                                      history.history['val_loss'][i],
                                       step=i + 1)
                 writer.close()
             except:
@@ -185,6 +182,7 @@ def main(args):
         sampling_method="bilinear",
         codec=None,
         batch_size=args.bs,
+        xla=True
     )
 
     train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
@@ -199,8 +197,8 @@ def main(args):
             hparams=tf_search_space,
             metrics=[tfhp.Metric('Accuracy'),
                      tfhp.Metric('Val Accuracy'),
-                     tfhp.Metric('Loss'),
-                     tfhp.Metric('Val Loss')],
+                     tfhp.Metric('Loss')
+                     ],
         )
 
     callbacks = []
