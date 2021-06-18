@@ -15,6 +15,7 @@ from hyperopt import hp, fmin, tpe, Trials, tpe, partial, STATUS_OK, \
 from loguru import logger
 import tensorflow as tf
 from tensorboard.plugins.hparams import api as tfhp
+from tqdm.keras import TqdmCallback
 
 # Internal Libraries
 from workflows.scaling_factor.dataset import ScalingFactorDataset
@@ -203,6 +204,10 @@ def main(args):
         )
 
     callbacks = []
+    if args.verbose > 0:
+        callbacks.append(TqdmCallback(verbose=0))
+        args.verbose = 0
+
     if args.tensorboard:
         callbacks.append(tf.keras.callbacks.TensorBoard())
 
@@ -290,4 +295,3 @@ if __name__ == "__main__":
 
         logger.error(traceback.format_exc())
         raise
-
