@@ -106,7 +106,7 @@ class Trainable:
                     validation_steps=self.classes,
                     validation_freq=self.validation_freq,
                 )
-                rval = {'loss': np.mean(history.history['val_accuracy'][-10:]),
+                rval = {'loss': 1-np.mean(history.history['val_accuracy'][-6:]),
                         'status': STATUS_OK}
                 for i in history.epoch:
                     tf.summary.scalar('Accuracy',
