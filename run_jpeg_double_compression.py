@@ -152,6 +152,7 @@ def main():
             verbose=0,
             callbacks=callbacks,
             validation_freq=args.validation_freq,
+            validation_steps=len(data.qf_val_pairs)
         )
 
         # save the training performance

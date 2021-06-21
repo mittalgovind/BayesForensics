@@ -154,11 +154,11 @@ class ScalingFactorDataset(Dataset):
         )
 
     def get_validation_generator(self, **kwargs):
+        batch = self.data["validation"]["y"][:self.per_batch_sub]
         for m, method in enumerate(self.test_methods):
             if self.random_method:
                 self.sampling_method = method
             for s, sf in enumerate(self.classes):
-                batch = self.data["validation"]["y"][:self.per_batch_sub]
                 yield self.preprocess_batch(batch, training=False, sf=sf)
 
     def get_training_pipeline(self, discard="flat"):
