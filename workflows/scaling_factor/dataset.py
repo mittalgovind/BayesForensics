@@ -29,7 +29,6 @@ class ScalingFactorDataset(Dataset):
             n_classes,
             codec=None,
             jpeg_quality=100,
-            per_batch_sub=128,
             **kwargs,
     ):
         """
@@ -58,15 +57,14 @@ class ScalingFactorDataset(Dataset):
         self.methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
         self.random_method = self.sampling_method == "random"
         self.test_methods = self.methods \
-            if self.random_method else self.sampling_method
+            if self.random_method else [self.sampling_method]
 
         self.classes = tf.linspace(*self.scales, num=n_classes)
         self.class_multiplier = tf.convert_to_tensor(
             n_classes / (self.scales[1] - self.scales[0]))
         self.n_classes = n_classes
-        self.per_batch_sub = per_batch_sub
-        self.val_data_batch_size = per_batch_sub * len(
-            self.methods) * n_classes
+        self.val_batch = self.data["validation"]["y"][:self.batch_size]
+
         if codec:
             self.codec = TFJPEG(quality=jpeg_quality, codec=codec)
             if codec == 'libjpeg':
@@ -154,12 +152,11 @@ class ScalingFactorDataset(Dataset):
         )
 
     def get_validation_generator(self, **kwargs):
-        batch = self.data["validation"]["y"][:self.per_batch_sub]
         for m, method in enumerate(self.test_methods):
             if self.random_method:
                 self.sampling_method = method
-            for s, sf in enumerate(self.classes):
-                yield self.preprocess_batch(batch, training=False, sf=sf)
+            for s, sf in enumerate(self.classes[:-1]):
+                yield self.preprocess_batch(self.val_batch, training=False, sf=sf)
 
     def get_training_pipeline(self, discard="flat"):
         return tf.data.Dataset.from_generator(

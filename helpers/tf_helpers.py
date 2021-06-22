@@ -519,7 +519,7 @@ class TuneReporter(tf.keras.callbacks.Callback):
 
 def get_callbacks(path, model_name=None, save_freq=0, monitor='loss',
                   patience=200, tensorboard=False, verbose=0,
-                  save_best_only=False, min_delta=0.001, update_freq='epoch',
+                  save_best_only=True, min_delta=0.001, update_freq='epoch',
                   steps_per_epoch=1,
                   write_graph=False):
     """callbacks list for keras models."""

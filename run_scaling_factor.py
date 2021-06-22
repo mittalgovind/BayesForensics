@@ -152,7 +152,8 @@ def main():
             verbose=0,
             callbacks=callbacks,
             validation_freq=args.validation_freq,
-            validation_steps=args.n_classes * len(data.test_methods),
+            # -1 because of an error of val_loss being nan for last class
+            validation_steps=(args.n_classes - 1) * len(data.test_methods),
         )
         # save the training performance
         history = train_performance.history

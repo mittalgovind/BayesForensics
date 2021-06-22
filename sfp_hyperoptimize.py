@@ -103,10 +103,10 @@ class Trainable:
                     epochs=self.epochs,
                     verbose=self.verbose,
                     callbacks=self.callbacks,
-                    validation_steps=self.classes,
+                    validation_steps=self.classes - 1,
                     validation_freq=self.validation_freq,
                 )
-                rval = {'loss': 1-np.mean(history.history['val_accuracy'][-6:]),
+                rval = {'loss': np.mean(history.history['val_loss'][-6:]),
                         'status': STATUS_OK}
                 for i in history.epoch:
                     tf.summary.scalar('Accuracy',
@@ -119,6 +119,9 @@ class Trainable:
                     tf.summary.scalar('Val Accuracy',
                                       history.history['val_accuracy'][i],
                                       step=i * self.validation_freq + 1)
+                    tf.summary.scalar('Val Loss',
+                                      history.history['val_loss'][i],
+                                      step=i * self.validation_freq + 1)
                 writer.close()
             except:
                 logger.info(logdir + ' crashed')
@@ -130,23 +133,23 @@ class Trainable:
 def create_search_space():
     # NAMES NEEDS TO BE IN LEXICOGRAPHICAL ORDER
     hspace = {
-        "conv_layers": hp.choice("conv_layers", [3, 4, 5]),
-        "dense_dropout": hp.choice("dense_dropout", [0.0, 0.1, 0.5]),
+        "conv_layers": hp.choice("conv_layers", [4, 5, 6]),
+        "dense_dropout": hp.choice("dense_dropout", [0.0, 0.1]),
         "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
         "dense_units": hp.choice("dense_units", [128, 256, 384]),
         "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
-        "filters": hp.choice("filters", [16, 32, 64, 128]),
+        "filters": hp.choice("filters", [32, 64, 96, 128]),
         "kernel": hp.choice("kernel", [3, 5]),
         "pool_size": hp.choice("pool_size", [1, 2])
     }
     # NAMES NEEDS TO BE IN LEXICOGRAPHICAL ORDER
     tf_hspace = [
-        tfhp.HParam("conv_layers", tfhp.Discrete([3, 4, 5])),
-        tfhp.HParam("dense_dropout", tfhp.Discrete([0.0, 0.1, 0.5])),
+        tfhp.HParam("conv_layers", tfhp.Discrete([4, 5, 6])),
+        tfhp.HParam("dense_dropout", tfhp.Discrete([0.0, 0.1])),
         tfhp.HParam("dense_layers", tfhp.Discrete([1, 2, 3, 4])),
         tfhp.HParam("dense_units", tfhp.Discrete([128, 256, 384])),
         tfhp.HParam("filter_multiplier", tfhp.Discrete([1, 2])),
-        tfhp.HParam("filters", tfhp.Discrete([16, 32, 64, 128])),
+        tfhp.HParam("filters", tfhp.Discrete([32, 64, 96, 128])),
         tfhp.HParam("kernel", tfhp.Discrete([3, 5])),
         tfhp.HParam("pool_size", tfhp.Discrete([1, 2])),
     ]
@@ -199,7 +202,8 @@ def main(args):
             hparams=tf_search_space,
             metrics=[tfhp.Metric('Accuracy'),
                      tfhp.Metric('Val Accuracy'),
-                     tfhp.Metric('Loss')
+                     tfhp.Metric('Loss'),
+                     tfhp.Metric('Val Loss')
                      ],
         )
 
