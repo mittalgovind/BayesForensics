@@ -8,7 +8,7 @@
   "dense_multiplier": 1.0,
   "filter_multiplier": 1.0,
   "dense_dropout": 0.00,
-  "use_bn": false,
+  "use_bn": true,
   "residual_type": "trainable",
   "activation": "leaky_relu"
 }
