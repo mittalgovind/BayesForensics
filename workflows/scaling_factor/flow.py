@@ -116,7 +116,7 @@ class ScalingFactor(BayesBaseModel):
             layers.append(
                 tf.keras.layers.Conv2D(filters,
                             kernel_size=self._h.kernel,
-
+                            padding='same',
                             # padding='valid',
                             # use_bn=self._h.use_bn,
                             activation=self.activation,
@@ -132,6 +132,7 @@ class ScalingFactor(BayesBaseModel):
             tf.keras.layers.Conv2D(
                 int(filters // self._h.filter_multiplier),
                 kernel_size=1,
+                padding='same',
                 activation=self.activation,
                 # **self.uncertainty_method_args
             )
