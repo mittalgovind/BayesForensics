@@ -134,7 +134,6 @@ class ScalingFactorDataset(Dataset):
             rescaled_images = self.unpad(rescaled_images, pad_before,
                                          resized_size)
 
-
         rescaled_images = tf.math.divide(rescaled_images, 255)
         sf_labels = tf.repeat(class_id, batch.shape[0])
 
@@ -167,11 +166,12 @@ class ScalingFactorDataset(Dataset):
         if 'sf' in kwargs:
             for batch in self.data["validation"]["y"]:
                 yield self.preprocess_batch(batch, training=False, **kwargs)
-        for m, method in enumerate(self.test_methods):
-            if self.random_method:
-                self.sampling_method = method
-            for s, sf in enumerate(self.classes[:-1]):
-                yield self.preprocess_batch(self.val_batch, training=False, sf=sf)
+        else:
+            for m, method in enumerate(self.test_methods):
+                if self.random_method:
+                    self.sampling_method = method
+                for s, sf in enumerate(self.classes[:-1]):
+                    yield self.preprocess_batch(self.val_batch, training=False, sf=sf)
 
     def get_training_generator(self, discard="flat", gamma=False,
                                brighten=False, rotate=False, **kwargs):
