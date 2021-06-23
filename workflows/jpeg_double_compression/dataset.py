@@ -95,7 +95,7 @@ class DoubleCompressionDataset(Dataset):
             self.codec.process(batch, QF1), QF2)
         images = tf.concat((batch_single_compressed, batch_double_compressed),
                            axis=0)
-
+        images = tf.math.divide(images, 255)
         labels = tf.concat((tf.zeros(self.batch_size),
                             tf.ones(self.batch_size)), axis=0)
 

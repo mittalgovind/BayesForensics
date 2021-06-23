@@ -234,7 +234,6 @@ class Dataset(object):
                                    self.train_rgb_patch_size, self.channels])
             patch = tf.expand_dims(patch, axis=0)
             patches = tf.concat((patches, patch), axis=0)
-        patches = tf.math.divide(patches, 255)
         return patches
 
     @tf.function(experimental_compile=True)

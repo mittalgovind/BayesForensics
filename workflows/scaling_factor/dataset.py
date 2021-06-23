@@ -114,6 +114,14 @@ class ScalingFactorDataset(Dataset):
         else:
             m = self.sampling_method
 
+        # Do data augmentation
+        if kwargs['rotate']:
+            batch = tf.image.rot90(batch, k=randint(maxval=3, seed=self.seed))
+        if kwargs['brighten']:
+            batch = tf.image.stateless_random_brightness(batch, 0.2)
+        if kwargs['gamma']:
+            batch = tf.image.adjust_gamma(batch, 0.5)
+
         # Resize batch.
         rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
                                           method=m)
@@ -126,6 +134,8 @@ class ScalingFactorDataset(Dataset):
             rescaled_images = self.unpad(rescaled_images, pad_before,
                                          resized_size)
 
+
+        rescaled_images = tf.math.divide(rescaled_images, 255)
         sf_labels = tf.repeat(class_id, batch.shape[0])
 
         return rescaled_images, sf_labels
