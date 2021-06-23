@@ -63,7 +63,7 @@ class ScalingFactorDataset(Dataset):
         self.class_multiplier = tf.convert_to_tensor(
             n_classes / (self.scales[1] - self.scales[0]))
         self.n_classes = n_classes
-        self.val_batch = self.data["validation"]["y"][:self.batch_size]
+        self.val_batch = self.data["validation"]["y"][0]
 
         if codec:
             self.codec = TFJPEG(quality=jpeg_quality, codec=codec)
@@ -156,7 +156,7 @@ class ScalingFactorDataset(Dataset):
     def get_validation_generator(self, **kwargs):
         if 'sf' in kwargs:
             for batch in self.data["validation"]["y"]:
-                yield self.preprocess_batch(batch, training=False, sf=sf)
+                yield self.preprocess_batch(batch, training=False, **kwargs)
         for m, method in enumerate(self.test_methods):
             if self.random_method:
                 self.sampling_method = method
