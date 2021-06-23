@@ -17,7 +17,7 @@ from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, \
     mutual_information
 
 
-def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
+def validate(model, data, batch_size, cache, uncertainty_method, test_classes, num_runs=50):
     tests_summary = {}
     performance = None
     if cache:
@@ -31,19 +31,19 @@ def validate(model, data, batch_size, cache, uncertainty_method, num_runs=50):
                 "performance cache from training could not be loaded."
                 " Making a new one."
             )
-
-    conf_matrix = np.zeros((len(data.methods), len(data.classes),
+    
+    conf_matrix = np.zeros((len(data.methods), len(test_classes),
                             len(data.classes)))
 
     # not testing on random method
     data.random_method = False
 
-    with progress_bar(len(data.methods) * len(data.classes),
+    with progress_bar(len(data.methods) * len(test_classes),
                       "Evaluation") as pbar:
         for m, method in enumerate(data.methods):
             tests_summary[method] = {}
             data.sampling_method = method
-            for s, sf in enumerate(data.classes):
+            for s, sf in enumerate(test_classes):
                 if uncertainty_method == "vanilla":
                     logits = np.zeros(
                         (data.count_validation, len(data.classes)))

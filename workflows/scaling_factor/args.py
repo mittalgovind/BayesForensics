@@ -154,12 +154,6 @@ def parse_args():
         default=False,
         help="Overwrite the output folder, if exists.",
     )
-    # TODO something is weird here. why two arguments?
-    parser.add_argument("-a", "--adversarial", dest="adversarial",
-                        action="store_true")
-    parser.add_argument("--no-adversarial", dest="adversarial",
-                        action="store_false")
-    parser.set_defaults(adversarial=False)
     parser.add_argument(
         "-eps",
         "--epsilon",
@@ -246,6 +240,23 @@ def parse_args():
         default=None,
         type=str,
         help="Uses presampled data. Pass the path to npy file.",
+    )
+    parser.add_argument(
+        "--test-scales",
+        dest="test_scales",
+        action="store",
+        default="0.25,1.0",
+        type=str,
+        help="Comma separated values for lower and upper bound of scales,"
+             " e.g. '0.25,1.0'",
+    )
+    parser.add_argument(
+        "--test-classes",
+        dest="test_n_classes",
+        action="store",
+        default=31,
+        type=int,
+        help="Number of classes in the range defined by scales argument",
     )
     return parser.parse_args()
 

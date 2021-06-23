@@ -17,6 +17,7 @@ from helpers.tf_helpers import activation_mapping
 from models.layers import ConstrainedConv2D
 from models.bayes import BayesBaseModel
 from tensorflow.keras.layers import Input
+from loguru import logger
 
 
 class ScalingFactor(BayesBaseModel):
@@ -181,7 +182,7 @@ class ScalingFactor(BayesBaseModel):
 
             # Final 1 x 1 convolution
             layers[i].extend([
-                self.conv2d(filters // self._h.filter_multiplier,
+                self.conv2d(int(filters // self._h.filter_multiplier),
                             kernel_size=1, padding='same',
                             activation=self.activation),
                 # tf.keras.layers.SpatialDropout2D(self._h.conv_dropout),
@@ -211,6 +212,7 @@ class ScalingFactor(BayesBaseModel):
             outputs = inputs
 
             for layer in layers[i]:
+                logger.warning(layer.name)
                 outputs = layer(outputs)
 
             outputs_list.append(outputs)

@@ -11,11 +11,11 @@ import os
 # External libraries
 import tensorflow as tf
 from loguru import logger
-import numpy as np
 
 # Internal libraries
 from helpers.tf_dataset import Dataset
 from helpers.tf_jpeg import TFJPEG
+from helpers.loading import randint
 
 # Hacky fix
 sys.path.append("/scratch/jms1595/neural-imaging-dev/")
@@ -65,8 +65,7 @@ class ScalingFactorDataset(Dataset):
                 logger.info('Using libjpeg will be slowing the computation.')
         else:
             self.codec = None
-
-        self.sf_distribution = {}
+        self.seen_sfs = []
 
     def preprocess_batch(self, batch, training=True, **kwargs):
         """
@@ -93,14 +92,13 @@ class ScalingFactorDataset(Dataset):
 
         if 'sf' in kwargs:
             sf = float(kwargs['sf'])
+            class_id = tf.math.floor(
+                tf.math.multiply(self.class_multiplier, sf - self.classes[0]))
         else:
-            sf = tf.random.uniform((1,), *self.scales)[0].numpy() - 1e-10
-
-            rounded_sf = np.round(sf, decimals=3)
-
-            if rounded_sf not in self.sf_distribution.keys():
-                self.sf_distribution[rounded_sf] = 0
-            self.sf_distribution[rounded_sf] += 1
+            # changed to sampling from finite set instead of infinite
+            class_id = randint(maxval=len(self.classes), seed=self.seed)
+            sf = self.classes[class_id]
+            self.seen_sfs.append(sf.numpy())
 
         patch_size = self.train_rgb_patch_size \
             if training else self.val_rgb_patch_size
@@ -117,14 +115,7 @@ class ScalingFactorDataset(Dataset):
 
         # Resize batch.
         rescaled_images = tf.image.resize(batch, resized_size, method=m)
-        class_id = tf.math.floor(
-            tf.math.multiply(self.class_multiplier, sf - self.classes[0]))
         sf_labels = tf.repeat(class_id, batch.shape[0])
-        '''
-        # Convert to JPEG if a codec is passed.
-        if self.codec:
-            rescaled_images = self.codec.process(rescaled_images)
-        '''
         return rescaled_images, sf_labels
 
     def get_training_pipeline(self, discard="flat"):
