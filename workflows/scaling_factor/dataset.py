@@ -118,8 +118,7 @@ class ScalingFactorDataset(Dataset):
         if 'rotate' in kwargs and kwargs['rotate']:
             batch = tf.image.rot90(batch, k=randint(maxval=3, seed=self.seed))
         if 'brighten' in kwargs and kwargs['brighten']:
-            batch = tf.image.stateless_random_brightness(batch, 0.2,
-                                                         seed=self.seed)
+            batch = tf.image.random_brightness(batch, 0.2, seed=self.seed)
         if 'gamma' in kwargs and kwargs['gamma']:
             batch = tf.image.adjust_gamma(batch, 0.5)
 
