@@ -71,6 +71,7 @@ class ScalingFactorDataset(Dataset):
                 logger.info('Using libjpeg will be slowing the computation.')
         else:
             self.codec = None
+        self.seen_sfs = []
 
     def preprocess_batch(self, batch, training=False, **kwargs):
         """
@@ -99,6 +100,7 @@ class ScalingFactorDataset(Dataset):
             # changed to sampling from finite set instead of infinite
             class_id = randint(maxval=self.n_classes, seed=self.seed)
             sf = self.classes[class_id]
+            self.seen_sfs.append(sf.numpy())
         else:
             raise RuntimeError("Pass an sf value when not training")
 
@@ -152,6 +154,9 @@ class ScalingFactorDataset(Dataset):
         )
 
     def get_validation_generator(self, **kwargs):
+        if 'sf' in kwargs:
+            for batch in self.data["validation"]["y"]:
+                yield self.preprocess_batch(batch, training=False, sf=sf)
         for m, method in enumerate(self.test_methods):
             if self.random_method:
                 self.sampling_method = method

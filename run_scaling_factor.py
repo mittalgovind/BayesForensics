@@ -11,6 +11,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from loguru import logger
+import matplotlib.pyplot as plt
 
 # Internal libraries
 from helpers.results_data import ResultCache
@@ -59,7 +60,7 @@ def main():
         else:
             logger.warning("Overwriting output directory.")
     else:
-        os.mkdir(args.save_dir)
+        os.makedirs(args.save_dir)
 
     # initializations
     args.codec = args.codec if args.jpeg_compression else None
@@ -164,15 +165,24 @@ def main():
 
     if args.calibrate:
         model.set_temp(data)
-
+    
     logger.info("Started Testing")
+    
+    test_scales = (float(args.test_scales.split(",")[0]),
+                   float(args.test_scales.split(",")[1]))
+    test_classes = tf.linspace(*test_scales, num=args.test_n_classes)
     tests_summary, conf_matrix = validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
-        uncertainty_method=args.uncertainty_method, num_runs=args.num_runs
+        uncertainty_method=args.uncertainty_method, test_classes=test_classes,
+        num_runs=args.num_runs
     )
-
-    sf_plot(tests_summary, conf_matrix, data.classes.numpy(),
+    
+    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
             args.sampling_method, args.save_dir)
+
+    fig, ax = plt.subplots()
+    ax.hist(np.array(data.seen_sfs), bins=len(data.classes))
+    fig.savefig(os.path.join(args.save_dir, "seen_sfs.png"))
 
 
 if __name__ == "__main__":

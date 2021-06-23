@@ -169,7 +169,6 @@ class ScalingFactor(BayesBaseModel):
         for i in range(self.n_models):
             layers.append(self._seq_model(set_model=False))
 
-
         inputs = Input(shape=(None, None, self.channels))
         outputs_list = []
 

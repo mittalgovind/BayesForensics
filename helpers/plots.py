@@ -1098,16 +1098,26 @@ def uncertainty_matrix(
 
 
 def confusion_matrix(
-    conf_matrix, classes, axes=None, title=None, xlabel=None, ylabel=None, **kwargs
+    conf_matrix, classes=None, classes_x=None, classes_y=None,
+    axes=None, title=None, xlabel=None, ylabel=None, **kwargs
 ):
+    if classes is None and classes_x is None and classes_y is None:
+        raise RunTimeError('Either classes or classes_x and classes_y needs to be set.')
+    
     if axes is None:
         fig = get_figure()
         axes = fig.gca()
         return_fig = True
     else:
         return_fig = False
-
-    df_cm = pd.DataFrame(conf_matrix, index=classes, columns=classes)
+    
+    if classes_x is None:
+        classes_x = classes
+    
+    if classes_y is None:
+        classes_y = classes
+    
+    df_cm = pd.DataFrame(conf_matrix, index=classes_x, columns=classes_y)
 
     sns.heatmap(df_cm, ax=axes, **kwargs)
 
