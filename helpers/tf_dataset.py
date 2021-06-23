@@ -189,9 +189,9 @@ class Dataset(object):
 
             self.data["validation"]["y"] = tf.math.divide(
                 self.data["validation"]["y"], 2 ** 8 - 1)
-            # self.data["validation"]["y"] = tf.data.Dataset.from_tensor_slices(
-            #     self.data["validation"]["y"]).batch(batch_size,
-            #                                         drop_remainder=True)
+            self.data["validation"]["y"] = tf.data.Dataset.from_tensor_slices(
+                self.data["validation"]["y"]).batch(batch_size,
+                                                    drop_remainder=True)
             if calibrate:
                 self.data["calibration"]["y"] = tf.math.divide(
                     self.data["calibration"]["y"], 2 ** 8 - 1)
