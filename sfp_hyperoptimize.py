@@ -133,8 +133,8 @@ class Trainable:
 def create_search_space():
     # NAMES NEEDS TO BE IN LEXICOGRAPHICAL ORDER
     hspace = {
-        "conv_layers": hp.choice("conv_layers", [4, 5, 6]),
-        "dense_dropout": hp.choice("dense_dropout", [0.0, 0.1]),
+        "conv_layers": hp.choice("conv_layers", [3, 4, 5, 6]),
+        "dense_dropout": hp.choice("dense_dropout", [0.1, 0.5]),
         "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
         "dense_units": hp.choice("dense_units", [128, 256, 384]),
         "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
@@ -144,8 +144,8 @@ def create_search_space():
     }
     # NAMES NEEDS TO BE IN LEXICOGRAPHICAL ORDER
     tf_hspace = [
-        tfhp.HParam("conv_layers", tfhp.Discrete([4, 5, 6])),
-        tfhp.HParam("dense_dropout", tfhp.Discrete([0.0, 0.1])),
+        tfhp.HParam("conv_layers", tfhp.Discrete([3, 4, 5, 6])),
+        tfhp.HParam("dense_dropout", tfhp.Discrete([0.1, 0.5])),
         tfhp.HParam("dense_layers", tfhp.Discrete([1, 2, 3, 4])),
         tfhp.HParam("dense_units", tfhp.Discrete([128, 256, 384])),
         tfhp.HParam("filter_multiplier", tfhp.Discrete([1, 2])),
@@ -277,9 +277,9 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Hyperopt")
         parser.add_argument("--epochs", default=175, type=int)
         parser.add_argument("--verbose", default=0, type=int)
-        parser.add_argument("--bs", default=64, type=int)
+        parser.add_argument("--bs", default=256, type=int)
         parser.add_argument("--num-samples", default=350, type=int)
-        parser.add_argument("--n-images", default=1024, type=int)
+        parser.add_argument("--n-images", default=2560, type=int)
         parser.add_argument("--v-images", default=128, type=int)
         parser.add_argument("--patch-size", default=128, type=int)
         parser.add_argument("--classes", default=31, type=int)
