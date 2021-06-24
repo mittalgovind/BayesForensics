@@ -124,7 +124,9 @@ def main():
         )
 
         # Data pipeline prep
-        train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
+        train_data = data.get_training_pipeline(
+            gamma=args.gamma, brighten=args.brighten, rotate=args.rotate
+        ).prefetch(tf.data.AUTOTUNE)
         val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
         options = tf.data.Options()
         options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA

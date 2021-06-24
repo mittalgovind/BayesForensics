@@ -234,7 +234,6 @@ class Dataset(object):
                                    self.train_rgb_patch_size, self.channels])
             patch = tf.expand_dims(patch, axis=0)
             patches = tf.concat((patches, patch), axis=0)
-        patches = tf.math.divide(patches, 255)
         return patches
 
     @tf.function(experimental_compile=True)
@@ -390,7 +389,7 @@ class Dataset(object):
             images, labels = self.preprocess_batch(batch, **kwargs)
             yield images, labels
 
-    def get_training_pipeline(self, discard="flat"):
+    def get_training_pipeline(self, discard="flat", **kwargs):
         """training pipeline. override for giving correct shape for batch."""
         types = (
             tf.float32, tf.float32) if self.is_raw_and_rgb() else tf.float32
@@ -402,7 +401,7 @@ class Dataset(object):
         )
         return tf.data.Dataset.from_generator(
             self.get_training_generator,
-            args=(discard,),
+            args=(discard, kwargs),
             output_types=types,
             output_shapes=shapes,
         )

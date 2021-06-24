@@ -223,6 +223,24 @@ def parse_args():
         help="Enables GPU utilization.",
     )
     parser.add_argument(
+        "--gamma",
+        action="store_true",
+        default=False,
+        help="Data augmentation using gamma correction.",
+    )
+    parser.add_argument(
+        "--brighten",
+        action="store_true",
+        default=False,
+        help="Data augmentation using brightening",
+    )
+    parser.add_argument(
+        "--rotate",
+        action="store_true",
+        default=False,
+        help="Data augmentation using rotation",
+    )
+    parser.add_argument(
         "--verbose",
         type=int,
         default=2,
