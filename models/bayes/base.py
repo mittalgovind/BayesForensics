@@ -14,7 +14,6 @@ from loguru import logger
 
 # Internal libraries
 from models.tfmodel import TFModel
-from models.layers import PaddedConv2D
 import helpers.tf_helpers as tfh
 from .temp_scaling import TemperatureScaling
 
@@ -66,7 +65,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
 
         # Depending on method, Conv2D, Dense and Dropout layers are chosen.
         if "mc" in uncertainty_method:
-            self.conv2d = PaddedConv2D#tf.keras.layers.Conv2D
+            self.conv2d = tf.keras.layers.Conv2D
             self.dropout = MCDropoutLayer
             self.dense = tf.keras.layers.Dense
 
@@ -89,7 +88,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             )
 
         else:
-            self.conv2d = PaddedConv2D#tf.keras.layers.Conv2D
+            self.conv2d = tf.keras.layers.Conv2D
             self.dropout = tf.keras.layers.Dropout
             self.dense = tf.keras.layers.Dense
 
