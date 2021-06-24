@@ -64,7 +64,7 @@ def sf_plot(summary, conf_matrix, classes, test_classes, training_method, save_d
             classes_x=text_classes,
             classes_y=text_test_classes,
             axes=acc_axes[i],
-            title="Tested using {} - Accuracy = {.2f}%".format(
+            title="Tested using {} - Accuracy = {:.2f}%".format(
                 method_titles[i], 100*conf_matrix[i].diagonal().mean()),
             cbar=False,
             cmap="Greys",
