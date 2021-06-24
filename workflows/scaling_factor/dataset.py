@@ -172,7 +172,7 @@ class ScalingFactorDataset(Dataset):
             for m, method in enumerate(self.test_methods):
                 if self.random_method:
                     self.sampling_method = method
-                for s, sf in enumerate(self.classes):
+                for s, sf in enumerate(self.classes[:-1]):
                     yield self.preprocess_batch(self.val_batch, training=False, sf=sf)
 
     def get_training_generator(self, discard="flat", gamma=False,
