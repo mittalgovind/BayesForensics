@@ -120,7 +120,9 @@ class ScalingFactorDataset(Dataset):
         if 'brighten' in kwargs and kwargs['brighten']:
             batch = tf.image.random_brightness(batch, 0.2, seed=self.seed)
         if 'gamma' in kwargs and kwargs['gamma']:
-            batch = tf.image.adjust_gamma(batch, 0.5)
+            batch = tf.image.adjust_gamma(batch,
+                                          randint(minval=6, maxval=10,
+                                                  seed=self.seed) * 0.1)
 
         # Resize batch.
         rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
