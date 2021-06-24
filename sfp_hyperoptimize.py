@@ -171,7 +171,7 @@ def create_search_space():
 def main(args):
     # Create save directory
     os.makedirs(args.save_dir, exist_ok=True)
-
+    np.random.seed(7861)
     search_space, tf_search_space, best_config = create_search_space()
     logger.info("Initializing scheduler and search algorithms")
 
@@ -180,7 +180,7 @@ def main(args):
         data_dir=os.path.join(args.root, 'native12k'),
         n_images=args.n_images,
         v_images=args.v_images,
-        seed=69,
+        seed=7861,
         val_rgb_patch_size=args.patch_size,
         n_classes=args.classes,
         scales="0.25,1.0",
