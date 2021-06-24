@@ -519,8 +519,9 @@ class TuneReporter(tf.keras.callbacks.Callback):
 
 def get_callbacks(path, model_name=None, save_freq=0, monitor='loss',
                   patience=200, tensorboard=False, verbose=0,
-                  save_best_only=False, min_delta=0.001, update_freq='epoch',
-                  steps_per_epoch=1):
+                  save_best_only=True, min_delta=0.001, update_freq='epoch',
+                  steps_per_epoch=1,
+                  write_graph=False):
     """callbacks list for keras models."""
     callbacks = [
         tf.keras.callbacks.EarlyStopping(monitor=monitor,
@@ -547,7 +548,7 @@ def get_callbacks(path, model_name=None, save_freq=0, monitor='loss',
         callbacks.append(tf.keras.callbacks.TensorBoard(
             os.path.join(path, 'tensorboard_logs'),
             profile_batch=(2, steps_per_epoch),
-            # histogram_freq=1,
+            histogram_freq=10,
             update_freq=update_freq,
         ))
 

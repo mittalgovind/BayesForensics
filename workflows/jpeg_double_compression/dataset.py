@@ -5,6 +5,7 @@
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
+from itertools import product
 
 # External libraries
 import tensorflow as tf
@@ -27,7 +28,7 @@ except RuntimeError:
 
 class DoubleCompressionDataset(Dataset):
     def __init__(self, codec, qf_train, qf_test, calc_pywt_residual=False,
-                 **kwargs):
+                 per_batch_sub=128, **kwargs):
         """
         Subclass of helpers.dataset.Dataset class.
 
@@ -70,11 +71,17 @@ class DoubleCompressionDataset(Dataset):
         if calc_pywt_residual:
             self.channels = 6
 
+        self.qf_val_pairs = [(q1, q2) for q1 in self.qf_train
+                             for q2 in self.qf_train if q1 > q2]
+        self.per_batch_sub = per_batch_sub
+
     def preprocess_batch(self, batch, **kwargs):
-        if not self.eval_mode:
+        if 'QF1' not in kwargs or 'QF2' not in kwargs:
             # sample quality factors
-            QF1 = self.qf_train[randint(maxval=self.len_qf_train, seed=self.seed)]
-            QF2 = self.qf_train[randint(maxval=self.len_qf_train, seed=self.seed)]
+            QF1 = self.qf_train[
+                randint(maxval=self.len_qf_train, seed=self.seed)]
+            QF2 = self.qf_train[
+                randint(maxval=self.len_qf_train, seed=self.seed)]
             while QF1 == QF2:
                 QF2 = self.qf_train[randint(maxval=self.len_qf_train,
                                             seed=self.seed)]
@@ -88,7 +95,7 @@ class DoubleCompressionDataset(Dataset):
             self.codec.process(batch, QF1), QF2)
         images = tf.concat((batch_single_compressed, batch_double_compressed),
                            axis=0)
-
+        images = tf.math.divide(images, 255)
         labels = tf.concat((tf.zeros(self.batch_size),
                             tf.ones(self.batch_size)), axis=0)
 
@@ -175,9 +182,6 @@ class DoubleCompressionDataset(Dataset):
         """Append pywt residual"""
         return self.extract_pywt_residual()
 
-    def set_eval_mode(self):
-        self.eval_mode = True
-
     def get_training_pipeline(self, discard="flat"):
         return tf.data.Dataset.from_generator(
             self.get_training_generator,
@@ -190,6 +194,11 @@ class DoubleCompressionDataset(Dataset):
                 tf.TensorSpec(shape=self.batch_size * 2, dtype=tf.float32)
             )
         )
+
+    def get_validation_generator(self, **kwargs):
+        batch = self.data["validation"]["y"][:self.per_batch_sub]
+        for QF1, QF2 in self.qf_val_pairs:
+            yield self.preprocess_batch(batch, QF1=QF1, QF2=QF2)
 
     def get_validation_pipeline(self):
         return tf.data.Dataset.from_generator(

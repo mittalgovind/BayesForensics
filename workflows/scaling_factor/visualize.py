@@ -45,8 +45,9 @@ def get_uncertainties(summary, classes):
     return results
 
 
-def sf_plot(summary, conf_matrix, classes, training_method, save_dir):
+def sf_plot(summary, conf_matrix, classes, test_classes, training_method, save_dir):
     text_classes = [f"{x:.2f}" for x in classes]
+    text_test_classes = [f"{x:.2f}" for x in test_classes]
     methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
     method_titles = ["Nearest", "Bilinear", "Bicubic", "Lanczos 3"]
     measure_titles = [
@@ -59,16 +60,18 @@ def sf_plot(summary, conf_matrix, classes, training_method, save_dir):
     acc_fig, acc_axes = sub(4, ncols=2, figwidth=12)
     for i in range(len(methods)):
         confusion_matrix(
-            conf_matrix[i],
-            classes=text_classes,
+            conf_matrix[i].T,
+            classes_x=text_classes,
+            classes_y=text_test_classes,
             axes=acc_axes[i],
-            title=f"Tested using {method_titles[i]}",
+            title="Tested using {} - Accuracy = {:.2f}%".format(
+                method_titles[i], 100*conf_matrix[i].diagonal().mean()),
             cbar=False,
             cmap="Greys",
         )
 
     acc_fig.savefig(os.path.join(save_dir, "acc_matrix.pdf"))
-
+    '''
     summary = get_uncertainties(summary, classes)
 
     vr = [{} for _ in methods]
@@ -127,3 +130,4 @@ def sf_plot(summary, conf_matrix, classes, training_method, save_dir):
     vr_fig.savefig(os.path.join(save_dir, "vr_matrix.png"))
     pe_fig.savefig(os.path.join(save_dir, "pe_matrix.png"))
     mi_fig.savefig(os.path.join(save_dir, "mi_matrix.png"))
+    '''

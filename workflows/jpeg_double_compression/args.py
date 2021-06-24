@@ -59,7 +59,7 @@ def parse_args():
         "--patch-size",
         dest="patch_size",
         action="store",
-        default=64,
+        default=128,
         type=int,
         help="Square patch size to be sampled from images (default: 64)",
     )
@@ -147,7 +147,7 @@ def parse_args():
     )
     parser.add_argument(
         "--validation-freq",
-        default=50,
+        default=5,
         type=int,
         help="Number of training epochs to run before a new validation run.",
     )
@@ -239,7 +239,7 @@ def load_parameters(parameters=None):
     if parameters:
         f = open(parameters, 'r')
     else:
-        f = open('config/jpeg_double/default_params.json', 'r')
+        f = open('config/jpeg_double/hyper-best.json', 'r')
 
     try:
         parameters = json.load(f)

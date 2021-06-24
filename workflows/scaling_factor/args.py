@@ -61,7 +61,7 @@ def parse_args():
         "--patch-size",
         dest="patch_size",
         action="store",
-        default=64,
+        default=128,
         type=int,
         help="Square patch size to be sampled from images (default: 64)",
     )
@@ -154,12 +154,6 @@ def parse_args():
         default=False,
         help="Overwrite the output folder, if exists.",
     )
-    # TODO something is weird here. why two arguments?
-    parser.add_argument("-a", "--adversarial", dest="adversarial",
-                        action="store_true")
-    parser.add_argument("--no-adversarial", dest="adversarial",
-                        action="store_false")
-    parser.set_defaults(adversarial=False)
     parser.add_argument(
         "-eps",
         "--epsilon",
@@ -226,7 +220,25 @@ def parse_args():
         "--xla",
         action="store_true",
         default=False,
-        help="Enables XLA experimental compilation.",
+        help="Enables GPU utilization.",
+    )
+    parser.add_argument(
+        "--gamma",
+        action="store_true",
+        default=False,
+        help="Data augmentation using gamma correction.",
+    )
+    parser.add_argument(
+        "--brighten",
+        action="store_true",
+        default=False,
+        help="Data augmentation using brightening",
+    )
+    parser.add_argument(
+        "--rotate",
+        action="store_true",
+        default=False,
+        help="Data augmentation using rotation",
     )
     parser.add_argument(
         "--verbose",
@@ -253,6 +265,23 @@ def parse_args():
         type=str,
         help="Uses presampled data. Pass the path to npy file.",
     )
+    parser.add_argument(
+        "--test-scales",
+        dest="test_scales",
+        action="store",
+        default="0.25,1.0",
+        type=str,
+        help="Comma separated values for lower and upper bound of scales,"
+             " e.g. '0.25,1.0'",
+    )
+    parser.add_argument(
+        "--test-classes",
+        dest="test_n_classes",
+        action="store",
+        default=31,
+        type=int,
+        help="Number of classes in the range defined by scales argument",
+    )
     return parser.parse_args()
 
 
@@ -262,7 +291,7 @@ def load_parameters(parameters):
     if parameters:
         f = open(parameters, 'r')
     else:
-        f = open('config/scaling_factor/default_params.json', 'r')
+        f = open('config/scaling_factor/hyper-best.json', 'r')
 
     try:
         parameters = json.load(f)

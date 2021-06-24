@@ -14,7 +14,6 @@ from loguru import logger
 
 # Internal libraries
 from models.tfmodel import TFModel
-from models.layers import PaddedConv2D
 import helpers.tf_helpers as tfh
 from .temp_scaling import TemperatureScaling
 
@@ -78,6 +77,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
                 lambda q, p, _: tfp.distributions.kl_divergence(q, p) / tf.cast(
                     n_train_images, dtype=tf.float32)
             )
+
         elif uncertainty_method == "reparameterization":
             self.conv2d = tfp.layers.Convolution2DReparameterization
             self.dropout = tf.keras.layers.Dropout
@@ -86,13 +86,17 @@ class BayesBaseModel(TFModel, TemperatureScaling):
                 lambda q, p, _: tfp.distributions.kl_divergence(q, p) / tf.cast(
                     n_train_images, dtype=tf.float32)
             )
+
         else:
             self.conv2d = tf.keras.layers.Conv2D
             self.dropout = tf.keras.layers.Dropout
             self.dense = tf.keras.layers.Dense
 
+        # this will be used in case of flipout and rep trick as kl
         if kl_divergence_function:
-            self.uncertainty_method_args['kl_divergence_function'] = kl_divergence_function
+            logger.info("Please add **self.uncertainty_method_args"
+                        " to any flipout and rep trick layers.")
+            self.uncertainty_method_args['kernel_divergence_fn'] = kl_divergence_function
 
         self.temperature = 1.0
 

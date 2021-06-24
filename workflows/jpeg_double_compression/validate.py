@@ -29,7 +29,6 @@ def validate(model, data, cache, num_runs):
     num_runs
     cache
     """
-    data.set_eval_mode()
     q_factors = data.qf_test
     accuracies = np.zeros((len(q_factors), len(q_factors)))
     sizes = np.zeros((len(q_factors), len(q_factors)))

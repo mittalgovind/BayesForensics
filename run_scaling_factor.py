@@ -11,6 +11,8 @@ import os
 import numpy as np
 import tensorflow as tf
 from loguru import logger
+import matplotlib.pyplot as plt
+
 # Internal libraries
 from helpers.results_data import ResultCache
 from helpers.plots import perf
@@ -58,7 +60,7 @@ def main():
         else:
             logger.warning("Overwriting output directory.")
     else:
-        os.mkdir(args.save_dir)
+        os.makedirs(args.save_dir)
 
     # initializations
     args.codec = args.codec if args.jpeg_compression else None
@@ -122,7 +124,9 @@ def main():
         )
 
         # Data pipeline prep
-        train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
+        train_data = data.get_training_pipeline(
+            gamma=args.gamma, brighten=args.brighten, rotate=args.rotate
+        ).prefetch(tf.data.AUTOTUNE)
         val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
         options = tf.data.Options()
         options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
@@ -130,8 +134,8 @@ def main():
         val_data = val_data.with_options(options)
 
         # get callbacks using options
-        save_freq = args.save_every * args.n_train_images // args.batch_size
-
+        steps_per_epoch = args.n_train_images // args.batch_size
+        save_freq = args.save_every * steps_per_epoch
         callbacks = get_callbacks(
             args.save_dir,
             model_name=model.model_filename,
@@ -151,6 +155,8 @@ def main():
             verbose=0,
             callbacks=callbacks,
             validation_freq=args.validation_freq,
+            # -1 because of an error of val_loss being nan for last class
+            validation_steps=(args.n_classes - 1) * len(data.test_methods),
         )
         # save the training performance
         history = train_performance.history
@@ -161,15 +167,24 @@ def main():
 
     if args.calibrate:
         model.set_temp(data)
-
+    
     logger.info("Started Testing")
+    
+    test_scales = (float(args.test_scales.split(",")[0]),
+                   float(args.test_scales.split(",")[1]))
+    test_classes = tf.linspace(*test_scales, num=args.test_n_classes)
     tests_summary, conf_matrix = validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
-        uncertainty_method=args.uncertainty_method, num_runs=args.num_runs
+        uncertainty_method=args.uncertainty_method, test_classes=test_classes,
+        num_runs=args.num_runs
     )
-
-    sf_plot(tests_summary, conf_matrix, data.classes.numpy(),
+    
+    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
             args.sampling_method, args.save_dir)
+
+    fig, ax = plt.subplots()
+    ax.hist(np.array(data.seen_sfs), bins=len(data.classes))
+    fig.savefig(os.path.join(args.save_dir, "seen_sfs.png"))
 
 
 if __name__ == "__main__":

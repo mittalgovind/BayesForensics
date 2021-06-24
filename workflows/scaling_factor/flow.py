@@ -7,8 +7,6 @@
 # Standard libraries
 
 # External libraries
-from abc import ABC
-
 import tensorflow as tf
 
 # Internal libraries
@@ -17,7 +15,6 @@ from helpers.tf_helpers import activation_mapping
 from models.layers import ConstrainedConv2D
 from models.bayes import BayesBaseModel
 from tensorflow.keras.layers import Input
-import tensorflow_probability as tfp
 
 
 class ScalingFactor(BayesBaseModel):
@@ -171,7 +168,7 @@ class ScalingFactor(BayesBaseModel):
 
         layers = []
         for i in range(self.n_models):
-            layers.append(self._seq_model())
+            layers.append(self._seq_model(set_model=False))
 
         inputs = Input(shape=(None, None, self.channels))
         outputs_list = []

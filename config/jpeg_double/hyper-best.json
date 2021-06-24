@@ -1,0 +1,14 @@
+{
+  "conv_layers": 3,
+  "dense_layers": 3,
+  "dense_units": 384,
+  "filters": 32,
+  "kernel": 3,
+  "pool_size": 1,
+  "dense_multiplier": 1.0,
+  "filter_multiplier": 1.0,
+  "dense_dropout": 0.00,
+  "use_bn": true,
+  "residual_type": "trainable",
+  "activation": "leaky_relu"
+}

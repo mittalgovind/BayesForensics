@@ -15,6 +15,7 @@ from hyperopt import hp, fmin, tpe, Trials, tpe, partial, STATUS_OK, \
 from loguru import logger
 import tensorflow as tf
 from tensorboard.plugins.hparams import api as tfhp
+from tqdm.keras import TqdmCallback
 
 # Internal Libraries
 from workflows.scaling_factor.dataset import ScalingFactorDataset
@@ -50,7 +51,7 @@ def get_tf_hparams(tf_space, parameters):
 class Trainable:
     def __init__(self, root, lr, save_dir, epochs, memory_growth,
                  verbose, train_data, val_data, callbacks, tf_space,
-                 classes, patch_size, counter):
+                 classes, patch_size, counter, validation_freq):
         self.epochs = epochs
         self.root = root
         self.lr = lr
@@ -65,6 +66,7 @@ class Trainable:
         self.callbacks = callbacks
         self.tf_space = tf_space
         self.counter = counter
+        self.validation_freq = validation_freq
 
     def train(self, config):
         if self.set_once and self.memory_growth:
@@ -99,24 +101,27 @@ class Trainable:
                     x=self.train_data,
                     validation_data=self.val_data,
                     epochs=self.epochs,
-                    verbose=0,
+                    verbose=self.verbose,
                     callbacks=self.callbacks,
+                    validation_steps=self.classes - 1,
+                    validation_freq=self.validation_freq,
                 )
-                rval = {'loss': np.mean(history.history['val_loss'][-10:]),
+                rval = {'loss': np.mean(history.history['val_loss'][-6:]),
                         'status': STATUS_OK}
                 for i in history.epoch:
                     tf.summary.scalar('Accuracy',
                                       history.history['accuracy'][i],
                                       step=i + 1)
-                    tf.summary.scalar('Val Accuracy',
-                                      history.history['val_accuracy'][i],
-                                      step=i + 1)
                     tf.summary.scalar('Loss',
                                       history.history['loss'][i],
                                       step=i + 1)
+                for i, val in enumerate(history.history['val_accuracy']):
+                    tf.summary.scalar('Val Accuracy',
+                                      history.history['val_accuracy'][i],
+                                      step=i * self.validation_freq + 1)
                     tf.summary.scalar('Val Loss',
                                       history.history['val_loss'][i],
-                                      step=i + 1)
+                                      step=i * self.validation_freq + 1)
                 writer.close()
             except:
                 logger.info(logdir + ' crashed')
@@ -128,23 +133,23 @@ class Trainable:
 def create_search_space():
     # NAMES NEEDS TO BE IN LEXICOGRAPHICAL ORDER
     hspace = {
-        "conv_layers": hp.choice("conv_layers", [3, 4, 5]),
-        "dense_dropout": hp.choice("dense_dropout", [0.0, 0.05, 0.5]),
+        "conv_layers": hp.choice("conv_layers", [3, 4, 5, 6]),
+        "dense_dropout": hp.choice("dense_dropout", [0.1, 0.5]),
         "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
         "dense_units": hp.choice("dense_units", [128, 256, 384]),
         "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
-        "filters": hp.choice("filters", [16, 32, 64, 128]),
+        "filters": hp.choice("filters", [32, 64, 96, 128]),
         "kernel": hp.choice("kernel", [3, 5]),
         "pool_size": hp.choice("pool_size", [1, 2])
     }
     # NAMES NEEDS TO BE IN LEXICOGRAPHICAL ORDER
     tf_hspace = [
-        tfhp.HParam("conv_layers", tfhp.Discrete([3, 4, 5])),
-        tfhp.HParam("dense_dropout", tfhp.Discrete([0.0, 0.05, 0.5])),
+        tfhp.HParam("conv_layers", tfhp.Discrete([3, 4, 5, 6])),
+        tfhp.HParam("dense_dropout", tfhp.Discrete([0.1, 0.5])),
         tfhp.HParam("dense_layers", tfhp.Discrete([1, 2, 3, 4])),
         tfhp.HParam("dense_units", tfhp.Discrete([128, 256, 384])),
         tfhp.HParam("filter_multiplier", tfhp.Discrete([1, 2])),
-        tfhp.HParam("filters", tfhp.Discrete([16, 32, 64, 128])),
+        tfhp.HParam("filters", tfhp.Discrete([32, 64, 96, 128])),
         tfhp.HParam("kernel", tfhp.Discrete([3, 5])),
         tfhp.HParam("pool_size", tfhp.Discrete([1, 2])),
     ]
@@ -166,7 +171,7 @@ def create_search_space():
 def main(args):
     # Create save directory
     os.makedirs(args.save_dir, exist_ok=True)
-
+    np.random.seed(7861)
     search_space, tf_search_space, best_config = create_search_space()
     logger.info("Initializing scheduler and search algorithms")
 
@@ -175,13 +180,14 @@ def main(args):
         data_dir=os.path.join(args.root, 'native12k'),
         n_images=args.n_images,
         v_images=args.v_images,
-        seed=69,
+        seed=7861,
         val_rgb_patch_size=args.patch_size,
-        n_classes=16,
+        n_classes=args.classes,
         scales="0.25,1.0",
-        sampling_method="random",
+        sampling_method="bilinear",
         codec=None,
         batch_size=args.bs,
+        xla=True
     )
 
     train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
@@ -197,10 +203,15 @@ def main(args):
             metrics=[tfhp.Metric('Accuracy'),
                      tfhp.Metric('Val Accuracy'),
                      tfhp.Metric('Loss'),
-                     tfhp.Metric('Val Loss')],
+                     tfhp.Metric('Val Loss')
+                     ],
         )
 
     callbacks = []
+    if args.verbose > 0:
+        callbacks.append(TqdmCallback(verbose=0))
+        args.verbose = 0
+
     if args.tensorboard:
         callbacks.append(tf.keras.callbacks.TensorBoard())
 
@@ -243,7 +254,8 @@ def run_trials(args, search_space, train_data, val_data, callbacks,
     trainer = Trainable(args.root, args.lr, args.save_dir,
                         args.epochs, args.memory_growth, args.verbose,
                         train_data, val_data, callbacks, tf_search_space,
-                        16, args.patch_size, len(trials.trials))
+                        args.classes, args.patch_size, len(trials.trials),
+                        args.validation_freq)
 
     fmin(fn=trainer.train,
          space=search_space,
@@ -263,13 +275,15 @@ if __name__ == "__main__":
         import argparse
 
         parser = argparse.ArgumentParser(description="Hyperopt")
-        parser.add_argument("--epochs", default=100, type=int)
+        parser.add_argument("--epochs", default=175, type=int)
         parser.add_argument("--verbose", default=0, type=int)
-        parser.add_argument("--bs", default=2048, type=int)
-        parser.add_argument("--num-samples", default=250, type=int)
-        parser.add_argument("--n-images", default=1024, type=int)
-        parser.add_argument("--v-images", default=1024, type=int)
+        parser.add_argument("--bs", default=256, type=int)
+        parser.add_argument("--num-samples", default=350, type=int)
+        parser.add_argument("--n-images", default=2560, type=int)
+        parser.add_argument("--v-images", default=128, type=int)
         parser.add_argument("--patch-size", default=128, type=int)
+        parser.add_argument("--classes", default=31, type=int)
+        parser.add_argument("--validation-freq", default=15, type=int)
         parser.add_argument("--lr", default=0.001, type=float)
         parser.add_argument("--save-dir",
                             default='/scratch/gm2724/nip_runs/sfp_hyper',
@@ -287,4 +301,3 @@ if __name__ == "__main__":
 
         logger.error(traceback.format_exc())
         raise
-
