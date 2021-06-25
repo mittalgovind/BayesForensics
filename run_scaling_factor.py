@@ -176,7 +176,7 @@ def main():
     tests_summary, conf_matrix = validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
         uncertainty_method=args.uncertainty_method, test_classes=test_classes,
-        num_runs=args.num_runs
+        strategy=strategy, num_runs=args.num_runs
     )
     
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,

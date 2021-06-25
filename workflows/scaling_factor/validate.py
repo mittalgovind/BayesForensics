@@ -17,7 +17,7 @@ from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, \
     mutual_information
 
 
-def validate(model, data, batch_size, cache, uncertainty_method, test_classes, num_runs=50):
+def validate(model, data, batch_size, cache, uncertainty_method, test_classes,strategy, num_runs=50):
     tests_summary = {}
     performance = None
     if cache:
@@ -38,49 +38,50 @@ def validate(model, data, batch_size, cache, uncertainty_method, test_classes, n
     # not testing on random method
     data.random_method = False
 
-    with progress_bar(len(data.methods) * len(test_classes),
-                      "Evaluation") as pbar:
-        for m, method in enumerate(data.methods):
-            tests_summary[method] = {}
-            data.sampling_method = method
-            for s, sf in enumerate(test_classes):
-                if uncertainty_method == "vanilla":
-                    logits = np.zeros(
-                        (data.count_validation, len(data.classes)))
+    with strategy.scope():
+        with progress_bar(len(data.methods) * len(test_classes),
+                          "Evaluation") as pbar:
+            for m, method in enumerate(data.methods):
+                tests_summary[method] = {}
+                data.sampling_method = method
+                for s, sf in enumerate(test_classes):
+                    if uncertainty_method == "vanilla":
+                        logits = np.zeros(
+                            (data.count_validation, len(data.classes)))
 
-                elif uncertainty_method == "ensemble":
-                    logits = np.zeros((data.count_validation, model.n_models,
-                                       len(data.classes)))
-
-                else:
-                    logits = np.zeros((num_runs, data.count_validation,
-                                       len(data.classes)))
-
-                i = 0
-                for images, labels in data.get_validation_generator(sf=sf):
-                    if uncertainty_method in ["vanilla", "ensemble"]:
-                        logits[i: i + batch_size] = (model(
-                            images, training=False) / model.temperature).numpy()
+                    elif uncertainty_method == "ensemble":
+                        logits = np.zeros((data.count_validation, model.n_models,
+                                           len(data.classes)))
 
                     else:
-                        logits[:, i: i + batch_size] = np.array(
-                            [model(images, training=False) / model.temperature
-                             for _ in range(num_runs)])
+                        logits = np.zeros((num_runs, data.count_validation,
+                                           len(data.classes)))
 
-                    i += batch_size
+                    i = 0
+                    for images, labels in data.get_validation_generator(sf=sf):
+                        if uncertainty_method in ["vanilla", "ensemble"]:
+                            logits[i: i + batch_size] = (model(
+                                images, training=False) / model.temperature).numpy()
 
-                if uncertainty_method == "vanilla":
-                    predictions = logits.argmax(axis=-1)
-                else:
-                    predictions = np.squeeze(get_pred(logits))
+                        else:
+                            logits[:, i: i + batch_size] = np.array(
+                                [model(images, training=False) / model.temperature
+                                 for _ in range(num_runs)])
 
-                labels, counts = np.unique(predictions, return_counts=True)
-                for label, count in zip(labels, counts):
-                    conf_matrix[m][s][label] += count
-                conf_matrix[m][s] /= data.count_validation
+                        i += batch_size
 
-                tests_summary[method] = logits
-                pbar.update(1)
+                    if uncertainty_method == "vanilla":
+                        predictions = logits.argmax(axis=-1)
+                    else:
+                        predictions = np.squeeze(get_pred(logits))
+
+                    labels, counts = np.unique(predictions, return_counts=True)
+                    for label, count in zip(labels, counts):
+                        conf_matrix[m][s][label] += count
+                    conf_matrix[m][s] /= data.count_validation
+
+                    tests_summary[method] = logits
+                    pbar.update(1)
 
     if cache:
         performance["conf_matrices"] = conf_matrix
