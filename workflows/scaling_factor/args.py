@@ -291,7 +291,7 @@ def load_parameters(parameters):
     if parameters:
         f = open(parameters, 'r')
     else:
-        f = open('config/scaling_factor/hyper-best.json', 'r')
+        f = open('config/scaling_factor/default.json', 'r')
 
     try:
         parameters = json.load(f)
