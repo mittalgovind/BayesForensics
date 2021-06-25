@@ -22,6 +22,7 @@ def validate(model, data, batch_size, cache, uncertainty_method,
     tests_summary = {}
     performance = None
     len_test_classes = test_classes.shape[0]
+    test_classes = tf.data.Dataset.from_tensors(test_classes)
     len_test_methods = len(data.methods)
     if cache:
         try:
@@ -45,7 +46,7 @@ def validate(model, data, batch_size, cache, uncertainty_method,
         for m, method in enumerate(data.methods):
             tests_summary[method] = {}
             data.sampling_method = method
-            for s, sf in enumerate(test_classes):
+            for s, sf in enumerate(iter(test_classes)):
                 if uncertainty_method == "vanilla":
                     logits = np.zeros(
                         (data.count_validation, data.n_classes))
