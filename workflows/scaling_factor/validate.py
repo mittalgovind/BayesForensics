@@ -41,23 +41,22 @@ def validate(model, data, batch_size, cache, uncertainty_method,
     # not testing on random method
     data.random_method = False
 
-    with progress_bar(len(data.methods) * len(test_classes),
-                      "Evaluation") as pbar:
+    with progress_bar(len_test_methods * len_test_classes, "Evaluation") as pbar:
         for m, method in enumerate(data.methods):
             tests_summary[method] = {}
             data.sampling_method = method
             for s, sf in enumerate(test_classes):
                 if uncertainty_method == "vanilla":
                     logits = np.zeros(
-                        (data.count_validation, len(data.classes)))
+                        (data.count_validation, data.n_classes))
 
                 elif uncertainty_method == "ensemble":
                     logits = np.zeros((data.count_validation, model.n_models,
-                                       len(data.classes)))
+                                       data.n_classes))
 
                 else:
                     logits = np.zeros((num_runs, data.count_validation,
-                                       len(data.classes)))
+                                       data.n_classes))
 
                 i = 0
                 for images, labels in data.get_validation_generator(sf=sf):
