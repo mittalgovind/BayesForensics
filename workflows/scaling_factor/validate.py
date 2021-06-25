@@ -21,6 +21,8 @@ def validate(model, data, batch_size, cache, uncertainty_method,
              test_classes, num_runs=50):
     tests_summary = {}
     performance = None
+    len_test_classes = test_classes.shape[0]
+    len_test_methods = len(data.methods)
     if cache:
         try:
             performance = cache.load()
@@ -33,8 +35,8 @@ def validate(model, data, batch_size, cache, uncertainty_method,
                 " Making a new one."
             )
 
-    conf_matrix = np.zeros((len(data.methods), len(test_classes),
-                            len(data.classes)))
+    conf_matrix = np.zeros((len_test_methods, len_test_classes,
+                            data.n_classes))
 
     # not testing on random method
     data.random_method = False
