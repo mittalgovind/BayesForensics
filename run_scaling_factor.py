@@ -169,16 +169,18 @@ def main():
         model.set_temp(data, args.save_dir)
 
     logger.info("Started Testing")
-    
-    test_scales = (float(args.test_scales.split(",")[0]),
-                   float(args.test_scales.split(",")[1]))
+
+    test_scales = (
+        float(args.test_scales.split(",")[0]),
+        float(args.test_scales.split(",")[1])
+    )
     test_classes = tf.linspace(*test_scales, num=args.test_n_classes)
     tests_summary, conf_matrix = distributed_validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
         uncertainty_method=args.uncertainty_method, test_classes=test_classes,
         strategy=strategy, num_runs=args.num_runs
     )
-    
+
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
             args.sampling_method, args.save_dir)
 
