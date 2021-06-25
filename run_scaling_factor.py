@@ -166,7 +166,9 @@ def main():
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
     if args.calibrate:
+        data.val_generator = "super"
         model.set_temp(data)
+        data.val_generator = "self"
     
     logger.info("Started Testing")
     

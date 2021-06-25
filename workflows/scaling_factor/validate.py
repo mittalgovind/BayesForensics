@@ -79,7 +79,7 @@ def validate(model, data, batch_size, cache, uncertainty_method, test_classes, n
                     conf_matrix[m][s][label] += count
                 conf_matrix[m][s] /= data.count_validation
 
-                tests_summary[method][sf.numpy()] = logits
+                tests_summary[method] = logits
                 pbar.update(1)
 
     if cache:

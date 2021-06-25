@@ -72,6 +72,7 @@ class ScalingFactorDataset(Dataset):
         else:
             self.codec = None
         self.seen_sfs = []
+        self.val_generator = "self"
 
     def preprocess_batch(self, batch, training=False, **kwargs):
         """
@@ -175,6 +176,14 @@ class ScalingFactorDataset(Dataset):
                 for s, sf in enumerate(self.classes[:-1]):
                     yield self.preprocess_batch(self.val_batch, training=False, sf=sf)
 
+    def get_calibration_generator(self, **kwargs):
+        for m, method in enumerate(self.test_methods):
+            if self.random_method:
+                self.sampling_method = method
+            for s, sf in enumerate(self.classes[:-1]):
+                for batch in self.data["calibration"]["y"]:
+                    yield self.preprocess_batch(batch, training=False, sf=sf)
+
     def get_training_generator(self, discard="flat", gamma=False,
                                brighten=False, rotate=False, **kwargs):
         """
@@ -206,14 +215,6 @@ class ScalingFactorDataset(Dataset):
     def get_validation_pipeline(self):
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
-            output_signature=(tf.TensorSpec((self.batch_size, None, None, 3),
-                                            tf.float32),
-                              tf.TensorSpec((self.batch_size,), tf.float32)),
-        )
-
-    def get_calibration_pipeline(self):
-        return tf.data.Dataset.from_generator(
-            self.get_calibration_generator,
             output_signature=(tf.TensorSpec((self.batch_size, None, None, 3),
                                             tf.float32),
                               tf.TensorSpec((self.batch_size,), tf.float32)),
