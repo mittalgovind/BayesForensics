@@ -92,5 +92,8 @@ def validate(model, data, batch_size, cache, uncertainty_method,
 
 
 @tf.function
-def distributed_validate(strategy, **kwargs):
-    return strategy.run(validate, args=kwargs)
+def distributed_validate(strategy=None, **kwargs):
+    if strategy:
+        return strategy.run(validate, args=kwargs)
+    else:
+        return validate(**kwargs)

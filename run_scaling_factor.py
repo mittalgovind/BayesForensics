@@ -20,7 +20,7 @@ from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu, get_callbacks
 from workflows.scaling_factor import (
     ScalingFactorDataset,
-    validate,
+    distributed_validate,
     parse_args,
     ScalingFactor,
     sf_plot,
@@ -173,7 +173,7 @@ def main():
     test_scales = (float(args.test_scales.split(",")[0]),
                    float(args.test_scales.split(",")[1]))
     test_classes = tf.linspace(*test_scales, num=args.test_n_classes)
-    tests_summary, conf_matrix = validate(
+    tests_summary, conf_matrix = distributed_validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
         uncertainty_method=args.uncertainty_method, test_classes=test_classes,
         strategy=strategy, num_runs=args.num_runs
