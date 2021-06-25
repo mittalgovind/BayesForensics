@@ -72,7 +72,6 @@ class ScalingFactorDataset(Dataset):
         else:
             self.codec = None
         self.seen_sfs = []
-        self.val_generator = "self"
 
     def preprocess_batch(self, batch, training=False, **kwargs):
         """

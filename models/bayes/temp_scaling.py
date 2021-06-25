@@ -5,11 +5,14 @@
 # By: Govind (mittal@nyu.edu)
 
 # Standard libraries
-from abc import abstractmethod, ABC
+from abc import ABC
+import os
 
 # External libraries
 import tensorflow as tf
 import tensorflow_probability as tfp
+from tensorflow_probability.python.internal import prefer_static as ps
+from tensorflow_probability.python.internal import dtype_util
 import numpy as np
 from loguru import logger
 import matplotlib.pyplot as plt
@@ -20,12 +23,13 @@ import matplotlib.pyplot as plt
 class TemperatureScaling(ABC):
     """Decorator for wrapping a TensorFlow model with temperature scaling."""
 
-    def set_temp(self, data, epochs=100, lr=1e-4):
+    def set_temp(self, data, save_dir=None, epochs=100, lr=1e-4):
         """Use validation dataset to calibrate the model."""
         self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
         logits_list = []
         labels_list = []
-        nll_loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        nll_loss = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True)
         opt = tf.optimizers.Adam(learning_rate=lr)
 
         # Before training
@@ -35,14 +39,16 @@ class TemperatureScaling(ABC):
         num_classes = len(logits_list[0][0])
 
         init_logits = tf.stack(logits_list)
-        init_logits = tf.cast(tf.reshape(init_logits, (-1, num_classes)), dtype=tf.float32)
+        init_logits = tf.cast(tf.reshape(init_logits, (-1, num_classes)),
+                              dtype=tf.float32)
 
         init_labels = tf.stack(labels_list)
         init_labels = tf.cast(tf.reshape(init_labels, -1), dtype=tf.int32)
 
         init_nll_loss = nll_loss(init_labels, init_logits)
-        init_ece_loss = tfp.stats.expected_calibration_error(
-            num_classes, init_logits, init_labels)
+        init_ece_loss, init_acc, init_conf = self.expected_calibration_error(
+            num_classes, init_logits, init_labels, return_conf=True)
+        self.plot_conf(init_ece_loss, init_acc, init_conf, save_dir, "init")
 
         # train to find temperature
         loss = init_ece_loss
@@ -50,26 +56,151 @@ class TemperatureScaling(ABC):
             if loss < 0.01 or self.temperature < 0.1:
                 break
             for images, labels in data.get_calibration_generator():
-                logits = tf.cast(self._model(images, training=False), tf.float32)
+                logits = tf.cast(self._model(images, training=False),
+                                 tf.float32)
                 labels = tf.cast(labels, tf.int32)
                 with tf.GradientTape() as tape:
                     tape.watch(self.temperature)
-                    loss = tfp.stats.expected_calibration_error(num_classes, logits / self.temperature, labels)
+                    loss = tfp.stats.expected_calibration_error(num_classes,
+                                                                logits / self.temperature,
+                                                                labels)
                 grads = [tape.gradient(loss, self.temperature)]
                 opt.apply_gradients(zip(grads, [self.temperature]))
 
         final_nll_loss = nll_loss(init_labels, init_logits / self.temperature)
-        final_ece_loss = tfp.stats.expected_calibration_error(
-            num_classes, init_logits / self.temperature, init_labels
+        final_ece_loss, final_acc, final_conf = self.expected_calibration_error(
+            num_classes, init_logits / self.temperature, init_labels,
+            return_conf=True
         )
+        logger.info(
+            'Calibrated! Temperature set to {}'.format(self.temperature))
+        logger.info(
+            "NLL Loss diff = {:.6f}".format(final_nll_loss - init_nll_loss))
+        logger.info(
+            "ECE Loss diff = {:.6f}".format((final_ece_loss - init_ece_loss)))
+        self.plot_conf(final_ece_loss, final_acc, final_conf, save_dir, "final")
 
-        logger.info('Calibrated! Temperature set to {}'.format(self.temperature))
-        # self.plot_conf(final_ece_loss, final_acc_list, final_conf_list, "final")
-        logger.info("NLL Loss diff = {:.6f}".format(final_nll_loss - init_nll_loss))
-        logger.info("ECE Loss diff = {:.6f}".format((final_ece_loss - init_ece_loss)))
+    def expected_calibration_error(self, num_bins, logits=None,
+                                   labels_true=None,
+                                   labels_predicted=None, name=None,
+                                   return_conf=False):
+        """Compute the Expected Calibration Error (ECE).
+        This method implements equation (3) in [1].  In this equation the probability
+        of the decided label being correct is used to estimate the calibration
+        property of the predictor.
+        Note: a trade-off exist between using a small number of `num_bins` and the
+        estimation reliability of the ECE.  In particular, this method may produce
+        unreliable ECE estimates in case there are few samples available in some bins.
+        As an alternative to this method, consider also using
+        `bayesian_expected_calibration_error`.
+        #### References
+        [1]: Chuan Guo, Geoff Pleiss, Yu Sun, Kilian Q. Weinberger,
+             On Calibration of Modern Neural Networks.
+             Proceedings of the 34th International Conference on Machine Learning
+             (ICML 2017).
+             arXiv:1706.04599
+             https://arxiv.org/pdf/1706.04599.pdf
+        Args:
+          num_bins: int, number of probability bins, e.g. 10.
+          logits: Tensor, (n,nlabels), with logits for n instances and nlabels.
+          labels_true: Tensor, (n,), with tf.int32 or tf.int64 elements containing
+            ground truth class labels in the range [0,nlabels].
+          labels_predicted: Tensor, (n,), with tf.int32 or tf.int64 elements
+            containing decisions of the predictive system.  If `None`, we will use
+            the argmax decision using the `logits`.
+          name: Python `str` name prefixed to Ops created by this function.
+        Returns:
+          ece: Tensor, scalar, tf.float32.
+        """
+        with tf.name_scope(name or 'expected_calibration_error'):
+            logits = tf.convert_to_tensor(logits)
+            labels_true = tf.convert_to_tensor(labels_true)
+            if labels_predicted is not None:
+                labels_predicted = tf.convert_to_tensor(labels_predicted)
+
+            # Compute empirical counts over the events defined by the sets
+            # {incorrect,correct}x{0,1,..,num_bins-1}, as well as the empirical averages
+            # of predicted probabilities in each probability bin.
+            event_bin_counts, pmean_observed = self._compute_calibration_bin_statistics(
+                num_bins, logits=logits, labels_true=labels_true,
+                labels_predicted=labels_predicted)
+
+            # Compute the marginal probability of observing a probability bin.
+            event_bin_counts = tf.cast(event_bin_counts, tf.float32)
+            bin_n = tf.reduce_sum(event_bin_counts, axis=0)
+            pbins = bin_n / tf.reduce_sum(
+                bin_n)  # Compute the marginal bin probability
+
+            # Compute the marginal probability of making a correct decision given an
+            # observed probability bin.
+            tiny = np.finfo(np.float32).tiny
+            pcorrect = event_bin_counts[1, :] / (bin_n + tiny)
+
+            # Compute the ECE statistic as defined in reference [1].
+            ece = tf.reduce_sum(pbins * tf.abs(pcorrect - pmean_observed))
+
+            if return_conf:
+                return ece, pcorrect, pmean_observed
+            else:
+                return ece
 
     @staticmethod
-    def plot_conf(ece, acc, conf, title="init"):
+    def _compute_calibration_bin_statistics(
+            num_bins, logits=None, labels_true=None, labels_predicted=None):
+        """Compute binning statistics required for calibration measures.
+        Args:
+          num_bins: int, number of probability bins, e.g. 10.
+          logits: Tensor, (n,nlabels), with logits for n instances and nlabels.
+          labels_true: Tensor, (n,), with tf.int32 or tf.int64 elements containing
+            ground truth class labels in the range [0,nlabels].
+          labels_predicted: Tensor, (n,), with tf.int32 or tf.int64 elements
+            containing decisions of the predictive system.  If `None`, we will use
+            the argmax decision using the `logits`.
+        Returns:
+          bz: Tensor, shape (2,num_bins), tf.int32, counts of incorrect (row 0) and
+            correct (row 1) predictions in each of the `num_bins` probability bins.
+          pmean_observed: Tensor, shape (num_bins,), tf.float32, the mean predictive
+            probabilities in each probability bin.
+        """
+
+        if labels_predicted is None:
+            # If no labels are provided, we take the label with the maximum probability
+            # decision.  This corresponds to the optimal expected minimum loss decision
+            # under 0/1 loss.
+            pred_y = tf.argmax(logits, axis=1, output_type=labels_true.dtype)
+        else:
+            pred_y = labels_predicted
+
+        correct = tf.cast(tf.equal(pred_y, labels_true), tf.int32)
+
+        # Collect predicted probabilities of decisions
+        pred = tf.nn.softmax(logits, axis=1)
+        prob_y = tf.gather(
+            pred, pred_y[:, tf.newaxis], batch_dims=1)  # p(pred_y | x)
+        prob_y = tf.reshape(prob_y, (ps.size(prob_y),))
+
+        # Compute b/z histogram statistics:
+        # bz[0,bin] contains counts of incorrect predictions in the probability bin.
+        # bz[1,bin] contains counts of correct predictions in the probability bin.
+        bins = tf.histogram_fixed_width_bins(prob_y, [0.0, 1.0],
+                                             nbins=num_bins)
+        event_bin_counts = tf.math.bincount(
+            correct * num_bins + bins,
+            minlength=2 * num_bins,
+            maxlength=2 * num_bins)
+        event_bin_counts = tf.reshape(event_bin_counts, (2, num_bins))
+
+        # Compute mean predicted probability value in each of the `num_bins` bins
+        pmean_observed = tf.math.unsorted_segment_sum(prob_y, bins, num_bins)
+        tiny = np.finfo(dtype_util.as_numpy_dtype(logits.dtype)).tiny
+        pmean_observed = pmean_observed / (
+                tf.cast(tf.reduce_sum(event_bin_counts, axis=0),
+                        logits.dtype) + tiny)
+
+        return event_bin_counts, pmean_observed
+
+    @staticmethod
+    def plot_conf(ece, acc, conf, save_dir=None, title="init"):
         fig, ax = plt.subplots(1, 1, figsize=(2.5, 2.25))
         ax.plot([0, 1], [0, 1], "k--")
         ax.plot(conf, acc, marker=".")
@@ -92,5 +223,8 @@ class TemperatureScaling(ABC):
         )
         ax.set_title(r" TS - {}".format(title))
         fig.tight_layout()
-        fig.show()
+        if save_dir:
+            fig.savefig(os.path.join(save_dir, 'ts-{}.png'.format(title)))
+        else:
+            fig.show()
         return fig, ax
