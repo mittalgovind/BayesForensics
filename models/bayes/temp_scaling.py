@@ -201,7 +201,7 @@ class TemperatureScaling(ABC):
 
     @staticmethod
     def plot_conf(ece, acc, conf, save_dir=None, title="init"):
-        fig, ax = plt.subplots(1, 1, figsize=(2.5, 2.25))
+        fig, ax = plt.subplots(1, 1, figsize=(10, 8))
         ax.plot([0, 1], [0, 1], "k--")
         ax.plot(conf, acc, marker=".")
         ax.set_xlabel(r"confidence")
@@ -209,7 +209,7 @@ class TemperatureScaling(ABC):
         ax.set_xticks((np.arange(0, 1.1, step=0.2)))
         ax.set_yticks((np.arange(0, 1.1, step=0.2)))
 
-        textstr_freq_ts = "ECE={:.2f}".format(ece * 100)
+        textstr_freq_ts = "ECE={:.6f}".format(ece)
         props = dict(boxstyle="round", facecolor="white", alpha=0.75)
         ax.text(
             0.075,
