@@ -93,7 +93,6 @@ def validate(model, data, batch_size, cache, uncertainty_method,
     return tests_summary, conf_matrix
 
 
-@tf.function
 def distributed_validate(model, data, batch_size, cache, uncertainty_method,
                          test_classes, strategy=None, num_runs=50):
     if strategy:
