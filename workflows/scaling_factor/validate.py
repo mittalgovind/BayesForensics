@@ -61,7 +61,8 @@ def validate(model, data, batch_size, cache, uncertainty_method,
                 for images, labels in data.get_validation_generator(sf=sf):
                     if uncertainty_method in ["vanilla", "ensemble"]:
                         logits[i: i + batch_size] = (model(
-                            images, training=False) / model.temperature).numpy()
+                            images,
+                            training=False) / model.temperature).numpy()
 
                     else:
                         logits[:, i: i + batch_size] = np.array(
@@ -92,8 +93,12 @@ def validate(model, data, batch_size, cache, uncertainty_method,
 
 
 @tf.function
-def distributed_validate(strategy=None, **kwargs):
+def distributed_validate(model, data, batch_size, cache, uncertainty_method,
+                         test_classes, strategy=None, num_runs=50):
     if strategy:
-        return strategy.run(validate, args=kwargs)
+        return strategy.run(validate, args=(model, data, batch_size, cache,
+                                            uncertainty_method, test_classes,
+                                            num_runs))
     else:
-        return validate(**kwargs)
+        return validate(model, data, batch_size, cache,
+                        uncertainty_method, test_classes, num_runs)
