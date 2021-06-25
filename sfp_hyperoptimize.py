@@ -28,6 +28,7 @@ def create_keras_model(parameters, classes, patch_size):
             uncertainty_method="vanilla",
             n_classes=classes,
             patch_size=patch_size,
+            filter_multiplier=1,
             use_bn=True,
             hyperoptimize=True,
             **parameters
@@ -137,7 +138,6 @@ def create_search_space():
         "dense_dropout": hp.choice("dense_dropout", [0.1, 0.5]),
         "dense_layers": hp.choice("dense_layers", [1, 2, 3, 4]),
         "dense_units": hp.choice("dense_units", [128, 256, 384]),
-        "filter_multiplier": hp.choice("filter_multiplier", [1, 2]),
         "filters": hp.choice("filters", [32, 64, 96, 128]),
         "kernel": hp.choice("kernel", [3, 5]),
         "pool_size": hp.choice("pool_size", [1, 2])
@@ -148,7 +148,6 @@ def create_search_space():
         tfhp.HParam("dense_dropout", tfhp.Discrete([0.1, 0.5])),
         tfhp.HParam("dense_layers", tfhp.Discrete([1, 2, 3, 4])),
         tfhp.HParam("dense_units", tfhp.Discrete([128, 256, 384])),
-        tfhp.HParam("filter_multiplier", tfhp.Discrete([1, 2])),
         tfhp.HParam("filters", tfhp.Discrete([32, 64, 96, 128])),
         tfhp.HParam("kernel", tfhp.Discrete([3, 5])),
         tfhp.HParam("pool_size", tfhp.Discrete([1, 2])),
@@ -156,7 +155,6 @@ def create_search_space():
     # placeholding. Changes later.
     best_config = {
         "filters": 32,
-        "filter_multiplier": 2,
         "conv_layers": 4,
         "kernel": 3,
         "dense_layers": 1,
