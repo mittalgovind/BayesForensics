@@ -35,8 +35,8 @@ def parse_args():
         action="store",
         default="vanilla",
         type=str,
-        help="Uncertainty method. Can be 'vanilla', 'mc-dropout',"
-             "'temp-scaling', 'mc-temp', 'flipout', 'reparameterization'.",
+        help="Uncertainty method. Can be 'vanilla', 'mc-dropout','flipout',"
+             " 'reparameterization'.",
     )
     parser.add_argument(
         "-s",
