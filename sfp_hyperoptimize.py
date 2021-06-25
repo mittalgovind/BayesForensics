@@ -104,7 +104,7 @@ class Trainable:
                     epochs=self.epochs,
                     verbose=self.verbose,
                     callbacks=self.callbacks,
-                    validation_steps=self.classes,
+                    validation_steps=self.classes - 1,
                     validation_freq=self.validation_freq,
                 )
                 rval = {'loss': np.mean(history.history['val_loss'][-6:]),
