@@ -93,7 +93,7 @@ class ScalingFactorDataset(Dataset):
             Tensor containing the target labels.
         """
         if 'sf' in kwargs:
-            sf = float(kwargs['sf'])
+            sf = kwargs['sf']
             class_id = tf.math.floor(
                 tf.math.multiply(self.class_multiplier, sf - self.classes[0]))
         elif training:
