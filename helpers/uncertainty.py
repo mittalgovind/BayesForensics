@@ -22,9 +22,9 @@ def get_pred(logits):
     # logits.shape = (num_runs, batch_size, num_classes)
     # make it batch_first
     # (batch_size, num_runs, num_classes)
-    logits = np.transpose(logits, (1, 0, 2))
+    logits = tf.transpose(logits, (1, 0, 2))
     # (batch_size, num_runs)
-    pred_per_run = np.argmax(logits, axis=-1)
+    pred_per_run = tf.math.argmax(logits, axis=-1)
     # (batch_size, )
     batch_pred = mode(pred_per_run, axis=1)[0]
     return batch_pred

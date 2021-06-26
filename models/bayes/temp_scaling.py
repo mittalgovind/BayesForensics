@@ -16,6 +16,7 @@ from tensorflow_probability.python.internal import dtype_util
 import numpy as np
 from loguru import logger
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 # Internal libraries
 
@@ -23,14 +24,30 @@ import matplotlib.pyplot as plt
 class TemperatureScaling(ABC):
     """Decorator for wrapping a TensorFlow model with temperature scaling."""
 
-    def set_temp(self, data, save_dir=None, epochs=100, lr=1e-4):
+    def calibrate(self, epochs, data, num_classes, lr, loss):
+        opt = tf.optimizers.Adam(learning_rate=lr)
+        for _ in tqdm(range(epochs)):
+            if loss < 0.01 or self.temperature < 0.1:
+                break
+            for images, labels in data.get_calibration_generator():
+                logits = tf.cast(self._model(images, training=False),
+                                 tf.float32)
+                labels = tf.cast(labels, tf.int32)
+                with tf.GradientTape() as tape:
+                    tape.watch(self.temperature)
+                    loss = tfp.stats.expected_calibration_error(num_classes,
+                                                                logits / self.temperature,
+                                                                labels)
+                grads = [tape.gradient(loss, self.temperature)]
+                opt.apply_gradients(zip(grads, [self.temperature]))
+
+    def set_temp(self, data, save_dir=None, epochs=5, lr=5e-4):
         """Use validation dataset to calibrate the model."""
         self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
         logits_list = []
         labels_list = []
         nll_loss = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True)
-        opt = tf.optimizers.Adam(learning_rate=lr)
 
         # Before training
         for images, labels in data.get_calibration_generator():
@@ -48,24 +65,11 @@ class TemperatureScaling(ABC):
         init_nll_loss = nll_loss(init_labels, init_logits)
         init_ece_loss, init_acc, init_conf = self.expected_calibration_error(
             num_classes, init_logits, init_labels, return_conf=True)
-        self.plot_conf(init_ece_loss, init_acc, init_conf, save_dir, "init")
+        self.plot_conf(init_ece_loss, init_acc, init_conf, title="init")
 
         # train to find temperature
         loss = init_ece_loss
-        for epoch in range(epochs):
-            if loss < 0.01 or self.temperature < 0.1:
-                break
-            for images, labels in data.get_calibration_generator():
-                logits = tf.cast(self._model(images, training=False),
-                                 tf.float32)
-                labels = tf.cast(labels, tf.int32)
-                with tf.GradientTape() as tape:
-                    tape.watch(self.temperature)
-                    loss = tfp.stats.expected_calibration_error(num_classes,
-                                                                logits / self.temperature,
-                                                                labels)
-                grads = [tape.gradient(loss, self.temperature)]
-                opt.apply_gradients(zip(grads, [self.temperature]))
+        self.calibrate(epochs, data, num_classes, lr, loss)
 
         final_nll_loss = nll_loss(init_labels, init_logits / self.temperature)
         final_ece_loss, final_acc, final_conf = self.expected_calibration_error(
@@ -203,7 +207,7 @@ class TemperatureScaling(ABC):
     def plot_conf(ece, acc, conf, save_dir=None, title="init"):
         fig, ax = plt.subplots(1, 1, figsize=(10, 8))
         ax.plot([0, 1], [0, 1], "k--")
-        ax.plot(conf, acc, marker=".")
+        ax.bar(conf, acc)
         ax.set_xlabel(r"confidence")
         ax.set_ylabel(r"accuracy")
         ax.set_xticks((np.arange(0, 1.1, step=0.2)))
