@@ -166,6 +166,7 @@ def main():
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
 
     if args.calibrate:
+        logger.info("Started Calibration")
         model.set_temp(data, args.save_dir)
 
     logger.info("Started Testing")

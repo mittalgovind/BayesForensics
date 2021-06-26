@@ -18,6 +18,7 @@ from loguru import logger
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+
 # Internal libraries
 
 
@@ -35,9 +36,10 @@ class TemperatureScaling(ABC):
                 labels = tf.cast(labels, tf.int32)
                 with tf.GradientTape() as tape:
                     tape.watch(self.temperature)
-                    loss = tfp.stats.expected_calibration_error(num_classes,
-                                                                logits / self.temperature,
-                                                                labels)
+                    calibrated_logits = logits / self.temperature
+                    loss = self.expected_calibration_error(num_classes,
+                                                           calibrated_logits,
+                                                           labels)
                 grads = [tape.gradient(loss, self.temperature)]
                 opt.apply_gradients(zip(grads, [self.temperature]))
 
@@ -82,7 +84,8 @@ class TemperatureScaling(ABC):
             "NLL Loss diff = {:.6f}".format(final_nll_loss - init_nll_loss))
         logger.info(
             "ECE Loss diff = {:.6f}".format((final_ece_loss - init_ece_loss)))
-        self.plot_conf(final_ece_loss, final_acc, final_conf, save_dir, "final")
+        self.plot_conf(final_ece_loss, final_acc, final_conf, save_dir,
+                       "final")
 
     def expected_calibration_error(self, num_bins, logits=None,
                                    labels_true=None,
@@ -144,7 +147,7 @@ class TemperatureScaling(ABC):
             ece = tf.reduce_sum(pbins * tf.abs(pcorrect - pmean_observed))
 
             if return_conf:
-                return ece, pcorrect, pmean_observed
+                return ece, pbins, pmean_observed
             else:
                 return ece
 
