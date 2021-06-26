@@ -16,18 +16,11 @@ from helpers.utils import progress_bar
 from helpers.uncertainty import get_pred
 
 
-def get_indices(m, s, batch_size):
-    indices = []
-    for i in range(batch_size):
-        indices.append([m, s, i])
-
-
 def validate(model, data, batch_size, cache, uncertainty_method,
              test_classes, num_runs=50):
     tests_summary = {}
     performance = None
     len_test_classes = test_classes.shape[0]
-    temp = tf.arange(batch_size)
     # making tensor iterable
     test_classes = tf.data.Dataset.from_tensor_slices(test_classes)
     len_test_methods = len(data.methods)
