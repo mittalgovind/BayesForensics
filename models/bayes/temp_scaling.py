@@ -23,18 +23,17 @@ import progressbar
 class TemperatureScaling(ABC):
     """Decorator for wrapping a TensorFlow model with temperature scaling."""
 
-    def calibrate(self, data, num_classes, opt, loss, strategy):
+    def calibrate(self, epochs, data, num_classes, opt, loss, strategy):
         if strategy:
             strategy.run(self.single_calibrate,
                          args=(data, num_classes, opt, loss))
         else:
-            self.single_calibrate(data, num_classes, opt, loss)
+            self.single_calibrate(epochs, data, num_classes, opt, loss)
 
-    def single_calibrate(self, data, num_classes, opt, loss):
+    def single_calibrate(self, epochs, data, num_classes, opt, loss):
         self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
-        with progressbar.ProgressBar(min_value=progressbar.UnknownLength,
-                                     widgets=[progressbar.Variable('ECE_Loss')]) as bar:
-            while True:
+        with progressbar.ProgressBar(widgets=[progressbar.Variable('ECE_Loss')]) as bar:
+            for _ in bar(range(epochs)):
                 if loss < 0.01 or self.temperature < 0.1:
                     break
                 for images, labels in data.get_calibration_generator():
@@ -51,7 +50,7 @@ class TemperatureScaling(ABC):
                     opt.apply_gradients(zip(grads, [self.temperature]))
                 bar.update(ECE_Loss=loss)
 
-    def set_temp(self, data, save_dir=None, strategy=None, lr=1e-3):
+    def set_temp(self, data, save_dir=None, strategy=None, epochs=100, lr=1e-3):
         """Use validation dataset to calibrate the model."""
         logits_list = []
         labels_list = []
@@ -79,7 +78,7 @@ class TemperatureScaling(ABC):
 
         # train to find temperature
         opt = tf.optimizers.Adam(learning_rate=lr)
-        self.calibrate(data, num_classes, opt, init_ece_loss, strategy)
+        self.calibrate(epochs, data, num_classes, opt, init_ece_loss, strategy)
 
         final_nll_loss = nll_loss(init_labels, init_logits / self.temperature)
         final_ece_loss, final_acc, final_conf = self.expected_calibration_error(
