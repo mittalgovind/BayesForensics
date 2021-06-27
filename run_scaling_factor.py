@@ -171,10 +171,14 @@ def main():
 
     logger.info("Started Testing")
 
-    test_scales = (
-        float(args.test_scales.split(",")[0]),
-        float(args.test_scales.split(",")[1])
-    )
+    test_scales = args.test_scales.split(",")
+    if len(test_scales) == 2:
+        test_scales = (float(test_scales[0]), float(test_scales[1]))
+    elif len(test_scales == 3):
+        test_scales = (float(test_scales[0]), float(test_scales[1]),
+                       float(test_scales[2]))
+    else:
+        raise ValueError("Test scales should be comma-separated pair/triplet.")
     test_classes = tf.linspace(*test_scales, num=args.test_n_classes)
     tests_summary, conf_matrix = distributed_validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
