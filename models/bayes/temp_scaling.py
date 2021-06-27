@@ -236,7 +236,7 @@ class TemperatureScaling(ABC):
             0.925,
             textstr_freq_ts,
             transform=ax.transAxes,
-            fontsize=14,
+            fontsize=18,
             verticalalignment="top",
             horizontalalignment="left",
             bbox=props,
