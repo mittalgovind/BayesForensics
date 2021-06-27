@@ -25,14 +25,14 @@ class TemperatureScaling(ABC):
 
     def calibrate(self, epochs, data, num_classes, opt, loss, strategy):
         if strategy:
-            strategy.run(self.distributed_calibrate,
+            strategy.run(self.single_calibrate,
                          args=(epochs, data, num_classes, opt, loss))
         else:
             self.single_calibrate(epochs, data, num_classes, opt, loss)
 
-    @tf.function()
-    def distributed_calibrate(self, epochs, data, num_classes, opt, loss):
-        self.single_calibrate(epochs, data, num_classes, opt, loss)
+    # @tf.function()
+    # def distributed_calibrate(self, epochs, data, num_classes, opt, loss):
+    #     self.single_calibrate(epochs, data, num_classes, opt, loss)
 
     def single_calibrate(self, epochs, data, num_classes, opt, loss):
         self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
