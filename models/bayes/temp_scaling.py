@@ -16,6 +16,8 @@ import numpy as np
 from loguru import logger
 import matplotlib.pyplot as plt
 import progressbar
+
+
 # Internal libraries
 
 
@@ -31,23 +33,25 @@ class TemperatureScaling(ABC):
 
     def single_calibrate(self, data, num_classes, opt, loss):
         self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
-        bar = progressbar.ProgressBar(min_value=progressbar.UnknownLength)
-        while True:
-            if loss < 0.01 or self.temperature < 0.1:
-                break
-            for images, labels in data.get_calibration_generator():
-                logits = tf.cast(self._model(images, training=False),
-                                 tf.float32)
-                labels = tf.cast(labels, tf.int32)
-                with tf.GradientTape() as tape:
-                    tape.watch(self.temperature)
-                    calibrated_logits = logits / self.temperature
-                    loss = self.expected_calibration_error(num_classes,
-                                                           calibrated_logits,
-                                                           labels)
-                grads = [tape.gradient(loss, self.temperature)]
-                opt.apply_gradients(zip(grads, [self.temperature]))
-            bar.update(loss)
+        with progressbar.ProgressBar(min_value=progressbar.UnknownLength,
+                                     widgets=[progressbar.Variable('loss')]) as bar:
+            while True:
+                if loss < 0.01 or self.temperature < 0.1:
+                    break
+                for images, labels in data.get_calibration_generator():
+                    logits = tf.cast(self._model(images, training=False),
+                                     tf.float32)
+                    labels = tf.cast(labels, tf.int32)
+                    with tf.GradientTape() as tape:
+                        tape.watch(self.temperature)
+                        calibrated_logits = logits / self.temperature
+                        loss = self.expected_calibration_error(num_classes,
+                                                               calibrated_logits,
+                                                               labels)
+                    grads = [tape.gradient(loss, self.temperature)]
+                    opt.apply_gradients(zip(grads, [self.temperature]))
+                bar.update(loss=loss)
+                # bar.update(loss)
 
     def set_temp(self, data, save_dir=None, strategy=None, lr=1e-3):
         """Use validation dataset to calibrate the model."""
@@ -57,26 +61,27 @@ class TemperatureScaling(ABC):
             from_logits=True)
 
         # Before training
-        for images, labels in data.get_calibration_generator():
-            logits_list.append(self._model(images, training=False))
-            labels_list.append(labels)
-        num_classes = len(logits_list[0][0])
-
-        init_logits = tf.stack(logits_list)
-        init_logits = tf.cast(tf.reshape(init_logits, (-1, num_classes)),
-                              dtype=tf.float32)
-
-        init_labels = tf.stack(labels_list)
-        init_labels = tf.cast(tf.reshape(init_labels, -1), dtype=tf.int32)
-
-        init_nll_loss = nll_loss(init_labels, init_logits)
-        init_ece_loss, init_acc, init_conf = self.expected_calibration_error(
-            num_classes, init_logits, init_labels, return_conf=True)
-        self.plot_conf(init_ece_loss, init_acc, init_conf, save_dir,
-                       title="init")
+        # for images, labels in data.get_calibration_generator():
+        #     logits_list.append(self._model(images, training=False))
+        #     labels_list.append(labels)
+        num_classes = 96#len(logits_list[0][0])
+        #
+        # init_logits = tf.stack(logits_list)
+        # init_logits = tf.cast(tf.reshape(init_logits, (-1, num_classes)),
+        #                       dtype=tf.float32)
+        #
+        # init_labels = tf.stack(labels_list)
+        # init_labels = tf.cast(tf.reshape(init_labels, -1), dtype=tf.int32)
+        #
+        # init_nll_loss = nll_loss(init_labels, init_logits)
+        # init_ece_loss, init_acc, init_conf = self.expected_calibration_error(
+        #     num_classes, init_logits, init_labels, return_conf=True)
+        # self.plot_conf(init_ece_loss, init_acc, init_conf, save_dir,
+        #                title="init")
 
         # train to find temperature
         opt = tf.optimizers.Adam(learning_rate=lr)
+        init_ece_loss = 10
         self.calibrate(data, num_classes, opt, init_ece_loss, strategy)
 
         final_nll_loss = nll_loss(init_labels, init_logits / self.temperature)
@@ -218,7 +223,7 @@ class TemperatureScaling(ABC):
         conf = np.array(conf)
         fig, ax = plt.subplots(1, 1, figsize=(10, 8))
         ax.plot([0, 1], [0, 1], "k--")
-        plt.bar(conf, acc, 1/(len(conf) * 1.1))
+        plt.bar(conf, acc, 1 / (len(conf) * 1.1))
         ax.set_xlabel(r"confidence")
         ax.set_ylabel(r"accuracy")
         ax.set_xticks((np.arange(0, 1.1, step=0.2)))

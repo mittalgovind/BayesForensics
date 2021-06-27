@@ -25,4 +25,4 @@ jpylyzer
 tensorflow-probability
 seaborn
 PyWavelets
-tensorflow-compression
+progressbar2
