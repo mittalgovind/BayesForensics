@@ -29,6 +29,16 @@ class MCDropoutLayer(tf.keras.layers.Layer):
         return self.dropout(inputs, training=True)
 
 
+class DropConnectLayer(tf.keras.layers.Layer):
+    def __init__(self, rate=0.5, **kwargs):
+        super().__init__(rate, **kwargs)
+        self.keep_rate = 1 - rate
+        self.dropout = tf.keras.layers.Dropout(rate, **kwargs)
+    
+    def call(self, inputs, training=None):
+        return self.dropout(inputs, training=True) * self.keep_rate
+
+
 class BayesBaseModel(TFModel, TemperatureScaling):
     """Defines a Tensorflow model (keras or not)."""
 
@@ -67,6 +77,11 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         if "mc" in uncertainty_method:
             self.conv2d = tf.keras.layers.Conv2D
             self.dropout = MCDropoutLayer
+            self.dense = tf.keras.layers.Dense
+        
+        elif uncertainty_method == "dropconnect":
+            self.conv2d = PaddedConv2D
+            self.dropout = DropConnectLayer
             self.dense = tf.keras.layers.Dense
 
         elif uncertainty_method == "flipout":

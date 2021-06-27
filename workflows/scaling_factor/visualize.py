@@ -3,6 +3,7 @@ import os
 import tensorflow as tf
 import numpy as np
 import seaborn as sns
+import pandas as pd
 
 from helpers.plots import sub, confusion_matrix
 from helpers.uncertainty import (
@@ -45,6 +46,44 @@ def get_uncertainties(summary, classes):
     return results
 
 
+def uncertainty_graph(data, unc_measure, sampling_method, ax=None, **kwargs):
+    uncertainties = {}
+    for method in data.keys():
+        if method != sampling_method:
+            continue
+        
+        for sf in data[method].keys():
+            if f"{sf:.2f}" not in uncertainties.keys():
+                uncertainties[f"{sf:.2f}"] = []
+
+            for i in range(data[method][sf].shape[0]):
+                logits = np.transpose(np.array([data[method][sf][i]]), (1, 0, 2))
+                unc = unc_measure(logits)[0]
+                uncertainties[f"{sf:.2f}"].append(unc)
+    
+    uncertainties_df = pd.DataFrame(uncertainties)
+    
+    x = uncertainties_df.columns
+    y = []
+    low = []
+    high = []
+    for col in x:
+        mean = np.mean(uncertainties_df[col])
+        y.append(mean)
+        std = np.std(uncertainties_df[col])
+        low.append(np.percentile(uncertainties_df[col], 5))
+        high.append(np.percentile(uncertainties_df[col], 95))
+    
+    if ax is None:
+        ax = sns.lineplot(x=x, y=y, **kwargs)
+    else:
+        ax = sns.lineplot(x=x, y=y, ax=ax, **kwargs)
+    
+    ax.fill_between(x, low, high, alpha=0.3)
+    
+    return ax
+
+
 def sf_plot(summary, conf_matrix, classes, test_classes, training_method, save_dir):
     text_classes = [f"{x:.2f}" for x in classes]
     text_test_classes = [f"{x:.2f}" for x in test_classes]
@@ -71,6 +110,17 @@ def sf_plot(summary, conf_matrix, classes, test_classes, training_method, save_d
         )
 
     acc_fig.savefig(os.path.join(save_dir, "acc_matrix.pdf"))
+    
+    unc_fig, unc_axes = sub(3, figwidth=16, ncols=1)
+    unc_functions = [variation_ratio, predictive_entropy, mutual_information]
+    unc_titles = ['Variation Ratio', 'Predictive Entropy', 'Mutual Information']
+
+    for i in range(len(unc_axes)):
+        uncertainty_graph(summary, unc_functions[i], training_method, ax=unc_axes[i])
+        unc_axes[i].set_title(unc_titles[i])
+        
+    unc_fig.savefig(os.path.join(save_dir, "uncertainties.pdf"))
+    
     '''
     summary = get_uncertainties(summary, classes)
 
