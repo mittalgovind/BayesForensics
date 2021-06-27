@@ -10,14 +10,12 @@ import os
 
 # External libraries
 import tensorflow as tf
-import tensorflow_probability as tfp
 from tensorflow_probability.python.internal import prefer_static as ps
 from tensorflow_probability.python.internal import dtype_util
 import numpy as np
 from loguru import logger
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-
 
 # Internal libraries
 
@@ -67,11 +65,11 @@ class TemperatureScaling(ABC):
         init_nll_loss = nll_loss(init_labels, init_logits)
         init_ece_loss, init_acc, init_conf = self.expected_calibration_error(
             num_classes, init_logits, init_labels, return_conf=True)
-        self.plot_conf(init_ece_loss, init_acc, init_conf, title="init")
+        self.plot_conf(init_ece_loss, init_acc, init_conf, save_dir,
+                       title="init")
 
         # train to find temperature
-        loss = init_ece_loss
-        self.calibrate(epochs, data, num_classes, lr, loss)
+        self.calibrate(epochs, data, num_classes, lr, init_ece_loss)
 
         final_nll_loss = nll_loss(init_labels, init_logits / self.temperature)
         final_ece_loss, final_acc, final_conf = self.expected_calibration_error(
@@ -147,7 +145,7 @@ class TemperatureScaling(ABC):
             ece = tf.reduce_sum(pbins * tf.abs(pcorrect - pmean_observed))
 
             if return_conf:
-                return ece, pbins, pmean_observed
+                return ece, pcorrect, pmean_observed
             else:
                 return ece
 
@@ -208,9 +206,11 @@ class TemperatureScaling(ABC):
 
     @staticmethod
     def plot_conf(ece, acc, conf, save_dir=None, title="init"):
+        acc = np.array(acc)
+        conf = np.array(conf)
         fig, ax = plt.subplots(1, 1, figsize=(10, 8))
         ax.plot([0, 1], [0, 1], "k--")
-        ax.bar(conf, acc)
+        plt.bar(conf, acc, 1/(len(conf) * 1.1))
         ax.set_xlabel(r"confidence")
         ax.set_ylabel(r"accuracy")
         ax.set_xticks((np.arange(0, 1.1, step=0.2)))
@@ -229,9 +229,8 @@ class TemperatureScaling(ABC):
             bbox=props,
         )
         ax.set_title(r" TS - {}".format(title))
-        fig.tight_layout()
+        plt.tight_layout()
         if save_dir:
-            fig.savefig(os.path.join(save_dir, 'ts-{}.png'.format(title)))
+            plt.savefig(os.path.join(save_dir, 'ts-{}.png'.format(title)))
         else:
-            fig.show()
-        return fig, ax
+            plt.show()
