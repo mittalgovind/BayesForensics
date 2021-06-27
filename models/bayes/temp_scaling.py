@@ -33,7 +33,7 @@ class TemperatureScaling(ABC):
     def single_calibrate(self, epochs, data, num_classes, opt, loss):
         self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
         with progressbar.ProgressBar(widgets=[progressbar.Variable('ECE_Loss')]) as bar:
-            for _ in bar(range(epochs)):
+            for i in bar(range(epochs)):
                 if loss < 0.01 or self.temperature < 0.1:
                     break
                 total_loss = 0.0
@@ -52,7 +52,7 @@ class TemperatureScaling(ABC):
                     opt.apply_gradients(zip(grads, [self.temperature]))
                     total_loss += loss
                     runs += 1
-                bar.update(ECE_Loss=total_loss / runs)
+                bar.update(i, ECE_Loss=total_loss / runs)
 
     def set_temp(self, data, save_dir=None, strategy=None, epochs=100, lr=1e-3):
         """Use validation dataset to calibrate the model."""
