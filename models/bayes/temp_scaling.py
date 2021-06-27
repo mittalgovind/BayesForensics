@@ -36,6 +36,8 @@ class TemperatureScaling(ABC):
             for _ in bar(range(epochs)):
                 if loss < 0.01 or self.temperature < 0.1:
                     break
+                total_loss = 0.0
+                runs = 0
                 for images, labels in data.get_calibration_generator():
                     logits = tf.cast(self._model(images, training=False),
                                      tf.float32)
@@ -48,7 +50,9 @@ class TemperatureScaling(ABC):
                                                                labels)
                     grads = [tape.gradient(loss, self.temperature)]
                     opt.apply_gradients(zip(grads, [self.temperature]))
-                bar.update(ECE_Loss=loss)
+                    total_loss += loss
+                    runs += 1
+                bar.update(ECE_Loss=total_loss / runs)
 
     def set_temp(self, data, save_dir=None, strategy=None, epochs=100, lr=1e-3):
         """Use validation dataset to calibrate the model."""
