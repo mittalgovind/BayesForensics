@@ -13,13 +13,17 @@ import numpy as np
 
 # Internal libraries
 from helpers.utils import progress_bar
-from helpers.uncertainty import get_pred, variation_ratio, predictive_entropy, \
-    mutual_information
+from helpers.uncertainty import get_pred
 
 
-def validate(model, data, batch_size, cache, uncertainty_method, test_classes, num_runs=50):
+def validate(model, data, batch_size, cache, uncertainty_method,
+             test_classes, num_runs=50):
     tests_summary = {}
     performance = None
+    len_test_classes = test_classes.shape[0]
+    # making tensor iterable
+    test_classes = tf.data.Dataset.from_tensor_slices(test_classes)
+    len_test_methods = len(data.methods)
     if cache:
         try:
             performance = cache.load()
@@ -32,59 +36,74 @@ def validate(model, data, batch_size, cache, uncertainty_method, test_classes, n
                 " Making a new one."
             )
 
-    conf_matrix = np.zeros((len(data.methods), len(test_classes),
-                            len(data.classes)))
+    conf_matrix = tf.zeros((len_test_methods, len_test_classes,
+                            data.n_classes))
 
     # not testing on random method
     data.random_method = False
+    if uncertainty_method == "vanilla":
+        logits = tf.zeros((len_test_methods, len_test_classes,
+                           data.count_validation, data.n_classes))
 
-    with progress_bar(len(data.methods) * len(test_classes),
-                      "Evaluation") as pbar:
+    elif uncertainty_method == "ensemble":
+        logits = tf.zeros((len_test_methods, len_test_classes,
+                           data.count_validation, model.n_models,
+                           data.n_classes))
+
+    else:
+        logits = tf.zeros((len_test_methods, len_test_classes,
+                           num_runs, data.count_validation,
+                           data.n_classes))
+
+    with progress_bar(len_test_methods * len_test_classes, "Evaluation") as pbar:
         for m, method in enumerate(data.methods):
-            tests_summary[method] = {}
             data.sampling_method = method
             for s, sf in enumerate(test_classes):
-                if uncertainty_method == "vanilla":
-                    logits = np.zeros(
-                        (data.count_validation, len(data.classes)))
-
-                elif uncertainty_method == "ensemble":
-                    logits = np.zeros((data.count_validation, model.n_models,
-                                       len(data.classes)))
-
-                else:
-                    logits = np.zeros((num_runs, data.count_validation,
-                                       len(data.classes)))
-
                 i = 0
                 for images, labels in data.get_validation_generator(sf=sf):
                     if uncertainty_method in ["vanilla", "ensemble"]:
-                        logits[i: i + batch_size] = (model(
-                            images, training=False) / model.temperature).numpy()
-
+                        logit = model(
+                            images, training=False) / model.temperature
+                        logits = tf.tensor_scatter_nd_update(
+                            logits, [[m, s, i + k] for k in range(batch_size)],
+                            logit)
                     else:
-                        logits[:, i: i + batch_size] = np.array(
-                            [model(images, training=False) / model.temperature
-                             for _ in range(num_runs)])
+                        logit = [model(images, training=False) / model.temperature
+                                 for _ in range(num_runs)]
+                        logit = tf.reshape(logit, (-1, data.n_classes))
+                        logits = tf.tensor_scatter_nd_update(logits,
+                                    [[m, s, r, i + k] for r in range(num_runs)
+                                     for k in range(batch_size)], logit)
 
                     i += batch_size
 
                 if uncertainty_method == "vanilla":
-                    predictions = logits.argmax(axis=-1)
+                    predictions = tf.math.argmax(logits, axis=-1)
                 else:
                     predictions = np.squeeze(get_pred(logits))
 
                 labels, counts = np.unique(predictions, return_counts=True)
-                for label, count in zip(labels, counts):
-                    conf_matrix[m][s][label] += count
-                conf_matrix[m][s] /= data.count_validation
+                conf_matrix = tf.tensor_scatter_nd_add(
+                        conf_matrix, [[m, s, label] for label in labels], counts)
 
-                tests_summary[method][sf.numpy()] = logits
                 pbar.update(1)
 
+    conf_matrix = tf.math.divide(conf_matrix, data.count_validation)
     if cache:
         performance["conf_matrices"] = conf_matrix
-        performance["tests_summary"] = tests_summary
+        performance["tests_summary"] = logits
         cache.save(performance, step="performance")
 
     return tests_summary, conf_matrix
+
+
+# @tf.function
+def distributed_validate(model, data, batch_size, cache, uncertainty_method,
+                         test_classes, strategy=None, num_runs=50):
+    if strategy:
+        return strategy.run(validate, args=(model, data, batch_size, cache,
+                                            uncertainty_method, test_classes,
+                                            num_runs))
+    else:
+        return validate(model, data, batch_size, cache,
+                        uncertainty_method, test_classes, num_runs)

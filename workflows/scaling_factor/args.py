@@ -35,8 +35,8 @@ def parse_args():
         action="store",
         default="vanilla",
         type=str,
-        help="Uncertainty method. Can be 'vanilla', 'mc-dropout',"
-             "'temp-scaling', 'mc-temp', 'flipout', 'reparameterization'.",
+        help="Uncertainty method. Can be 'vanilla', 'mc-dropout','flipout',"
+             " 'reparameterization'.",
     )
     parser.add_argument(
         "-s",
@@ -291,7 +291,7 @@ def load_parameters(parameters):
     if parameters:
         f = open(parameters, 'r')
     else:
-        f = open('config/scaling_factor/hyper-best.json', 'r')
+        f = open('config/scaling_factor/default.json', 'r')
 
     try:
         parameters = json.load(f)
