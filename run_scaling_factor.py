@@ -92,7 +92,7 @@ def main():
     if args.load_model:
         data = ScalingFactorDataset(
             load="y",
-            n_images=0,
+            n_images=args.n_val_images,
             v_images=args.n_val_images,
             preloaded_rgb_val_data=loaded_val_data,
             val_n_patches=val_n_patches,
