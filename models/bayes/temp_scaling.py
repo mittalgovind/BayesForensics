@@ -58,7 +58,7 @@ class TemperatureScaling(ABC):
         nll_loss = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True)
 
-        Before training
+        # Before training
         for images, labels in data.get_calibration_generator():
             logits_list.append(self._model(images, training=False))
             labels_list.append(labels)
