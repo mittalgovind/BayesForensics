@@ -167,7 +167,7 @@ def main():
 
     if args.calibrate:
         logger.info("Started Calibration")
-        model.set_temp(data=data, save_dir=args.save_dir, strategy=strategy)
+        model.set_temp(data=data, save_dir=args.save_dir)
 
     logger.info("Started Testing")
 

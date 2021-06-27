@@ -15,7 +15,7 @@ from tensorflow_probability.python.internal import dtype_util
 import numpy as np
 from loguru import logger
 import matplotlib.pyplot as plt
-
+import progressbar
 # Internal libraries
 
 
@@ -31,6 +31,7 @@ class TemperatureScaling(ABC):
 
     def single_calibrate(self, data, num_classes, opt, loss):
         self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
+        bar = progressbar.ProgressBar(min_value=progressbar.UnknownLength)
         while True:
             if loss < 0.01 or self.temperature < 0.1:
                 break
@@ -46,6 +47,7 @@ class TemperatureScaling(ABC):
                                                            labels)
                 grads = [tape.gradient(loss, self.temperature)]
                 opt.apply_gradients(zip(grads, [self.temperature]))
+            bar.update(loss)
 
     def set_temp(self, data, save_dir=None, strategy=None, lr=1e-3):
         """Use validation dataset to calibrate the model."""
