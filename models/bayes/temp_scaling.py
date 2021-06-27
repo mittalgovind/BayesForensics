@@ -23,19 +23,18 @@ from tqdm import tqdm
 class TemperatureScaling(ABC):
     """Decorator for wrapping a TensorFlow model with temperature scaling."""
 
-    def calibrate(self, epochs, data, num_classes, lr, loss, strategy):
+    def calibrate(self, epochs, data, num_classes, opt, loss, strategy):
         if strategy:
             strategy.run(self.distributed_calibrate,
-                         args=(epochs, data, num_classes, lr, loss))
+                         args=(epochs, data, num_classes, opt, loss))
         else:
-            self.single_calibrate(epochs, data, num_classes, lr, loss)
+            self.single_calibrate(epochs, data, num_classes, opt, loss)
 
     @tf.function()
-    def distributed_calibrate(self, epochs, data, num_classes, lr, loss):
-        self.single_calibrate(epochs, data, num_classes, lr, loss)
+    def distributed_calibrate(self, epochs, data, num_classes, opt, loss):
+        self.single_calibrate(epochs, data, num_classes, opt, loss)
 
-    def single_calibrate(self, epochs, data, num_classes, lr, loss):
-        opt = tf.optimizers.Adam(learning_rate=lr)
+    def single_calibrate(self, epochs, data, num_classes, opt, loss):
         for _ in tqdm(range(epochs)):
             if loss < 0.01 or self.temperature < 0.1:
                 break
@@ -80,7 +79,8 @@ class TemperatureScaling(ABC):
                        title="init")
 
         # train to find temperature
-        self.calibrate(epochs, data, num_classes, lr, init_ece_loss, strategy)
+        opt = tf.optimizers.Adam(learning_rate=lr)
+        self.calibrate(epochs, data, num_classes, opt, init_ece_loss, strategy)
 
         final_nll_loss = nll_loss(init_labels, init_logits / self.temperature)
         final_ece_loss, final_acc, final_conf = self.expected_calibration_error(
