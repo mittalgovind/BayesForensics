@@ -23,6 +23,7 @@ from tqdm import tqdm
 class TemperatureScaling(ABC):
     """Decorator for wrapping a TensorFlow model with temperature scaling."""
 
+    @tf.function(experimental_compile=True)
     def calibrate(self, epochs, data, num_classes, lr, loss):
         opt = tf.optimizers.Adam(learning_rate=lr)
         for _ in tqdm(range(epochs)):
