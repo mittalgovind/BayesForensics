@@ -42,7 +42,7 @@ class TemperatureScaling(ABC):
                 grads = [tape.gradient(loss, self.temperature)]
                 opt.apply_gradients(zip(grads, [self.temperature]))
 
-    def set_temp(self, data, save_dir=None, epochs=5, lr=5e-4):
+    def set_temp(self, data, save_dir=None, epochs=100, lr=1e-3):
         """Use validation dataset to calibrate the model."""
         self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
         logits_list = []
