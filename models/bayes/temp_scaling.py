@@ -23,8 +23,18 @@ from tqdm import tqdm
 class TemperatureScaling(ABC):
     """Decorator for wrapping a TensorFlow model with temperature scaling."""
 
+    def calibrate(self, epochs, data, num_classes, lr, loss, strategy):
+        if strategy:
+            strategy.run(self.distributed_calibrate,
+                         args=(epochs, data, num_classes, lr, loss))
+        else:
+            self.single_calibrate(epochs, data, num_classes, lr, loss)
+
     @tf.function()
-    def calibrate(self, epochs, data, num_classes, lr, loss):
+    def distributed_calibrate(self, epochs, data, num_classes, lr, loss):
+        self.single_calibrate(epochs, data, num_classes, lr, loss)
+
+    def single_calibrate(self, epochs, data, num_classes, lr, loss):
         opt = tf.optimizers.Adam(learning_rate=lr)
         for _ in tqdm(range(epochs)):
             if loss < 0.01 or self.temperature < 0.1:
@@ -42,7 +52,7 @@ class TemperatureScaling(ABC):
                 grads = [tape.gradient(loss, self.temperature)]
                 opt.apply_gradients(zip(grads, [self.temperature]))
 
-    def set_temp(self, data, save_dir=None, epochs=100, lr=1e-3):
+    def set_temp(self, data, save_dir=None, epochs=100, strategy=None, lr=1e-3):
         """Use validation dataset to calibrate the model."""
         self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
         logits_list = []
@@ -70,7 +80,7 @@ class TemperatureScaling(ABC):
                        title="init")
 
         # train to find temperature
-        self.calibrate(epochs, data, num_classes, lr, init_ece_loss)
+        self.calibrate(epochs, data, num_classes, lr, init_ece_loss, strategy)
 
         final_nll_loss = nll_loss(init_labels, init_logits / self.temperature)
         final_ece_loss, final_acc, final_conf = self.expected_calibration_error(
