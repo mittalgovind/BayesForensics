@@ -35,6 +35,7 @@ class TemperatureScaling(ABC):
         self.single_calibrate(epochs, data, num_classes, opt, loss)
 
     def single_calibrate(self, epochs, data, num_classes, opt, loss):
+        self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
         for _ in tqdm(range(epochs)):
             if loss < 0.01 or self.temperature < 0.1:
                 break
@@ -53,7 +54,6 @@ class TemperatureScaling(ABC):
 
     def set_temp(self, data, save_dir=None, epochs=100, strategy=None, lr=1e-3):
         """Use validation dataset to calibrate the model."""
-        self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
         logits_list = []
         labels_list = []
         nll_loss = tf.keras.losses.SparseCategoricalCrossentropy(
