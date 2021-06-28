@@ -17,7 +17,7 @@ from helpers.uncertainty import get_pred
 
 
 def validate(model, data, batch_size, cache, uncertainty_method,
-             test_classes, num_runs=50):
+             test_classes, num_runs=50, prefix=None):
     tests_summary = {}
     performance = None
     len_test_classes = test_classes.shape[0]
@@ -61,12 +61,21 @@ def validate(model, data, batch_size, cache, uncertainty_method,
             for s, sf in enumerate(test_classes):
                 i = 0
                 for images, labels in data.get_validation_generator(sf=sf):
-                    if uncertainty_method in ["vanilla", "ensemble"]:
-                        logit = model(
-                            images, training=False) / model.temperature
+                    if uncertainty_method == "vanilla":
+                        logit = model(images, training=False) / model.temperature
                         logits = tf.tensor_scatter_nd_update(
                             logits, [[m, s, i + k] for k in range(batch_size)],
                             logit)
+                    
+                    elif uncertainty_method == "ensemble":
+                        logit = tf.convert_to_tensor(
+                            model(images, training=False)) / model.temperature
+                        logit = tf.reshape(logit, (-1, data.n_classes))
+                        logits = tf.tensor_scatter_nd_update(
+                            logits,
+                            [[m, s, r, i + k] for r in range(model.n_models)
+                             for k in range(batch_size)], logit)
+                    
                     else:
                         logit = [model(images, training=False) / model.temperature
                                  for _ in range(num_runs)]
@@ -78,9 +87,9 @@ def validate(model, data, batch_size, cache, uncertainty_method,
                     i += batch_size
 
                 if uncertainty_method == "vanilla":
-                    predictions = tf.math.argmax(logits, axis=-1)
+                    predictions = tf.math.argmax(logits[m][s], axis=-1)
                 else:
-                    predictions = np.squeeze(get_pred(logits))
+                    predictions = np.squeeze(get_pred(logits[m][s]))
 
                 labels, counts = np.unique(predictions, return_counts=True)
                 conf_matrix = tf.tensor_scatter_nd_add(
@@ -91,19 +100,22 @@ def validate(model, data, batch_size, cache, uncertainty_method,
     conf_matrix = tf.math.divide(conf_matrix, data.count_validation)
     if cache:
         performance["conf_matrices"] = conf_matrix
-        performance["tests_summary"] = logits
-        cache.save(performance, step="performance")
+        performance["logits"] = logits
+        if prefix:
+            cache.save(performance, step=f"{prefix}_performance")
+        else:
+            cache.save(performance, step="performance")
 
     return tests_summary, conf_matrix
 
 
 # @tf.function
 def distributed_validate(model, data, batch_size, cache, uncertainty_method,
-                         test_classes, strategy=None, num_runs=50):
+                         test_classes, strategy=None, num_runs=50, prefix=None):
     if strategy:
         return strategy.run(validate, args=(model, data, batch_size, cache,
                                             uncertainty_method, test_classes,
-                                            num_runs))
+                                            num_runs, prefix))
     else:
         return validate(model, data, batch_size, cache,
-                        uncertainty_method, test_classes, num_runs)
+                        uncertainty_method, test_classes, num_runs, prefix)

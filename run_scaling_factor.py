@@ -168,8 +168,32 @@ def main():
     if args.calibrate:
         logger.info("Started Calibration")
         model.set_temp(data=data, save_dir=args.save_dir)
+    
+    fig, ax = plt.subplots()
+    ax.hist(np.array(data.seen_sfs), bins=len(data.classes))
+    fig.savefig(os.path.join(args.save_dir, "seen_sfs.png"))
 
-    logger.info("Started Testing")
+    logger.info("Started Testing (1/2)")
+    
+    test_scales = (
+        float(args.scales.split(",")[0]),
+        float(args.scales.split(",")[1])
+    )
+    test_classes = tf.linspace(*test_scales, num=args.n_classes * 5)
+    tests_summary, conf_matrix = distributed_validate(
+        model=model, data=data, batch_size=args.batch_size, cache=cache,
+        uncertainty_method=args.uncertainty_method, test_classes=test_classes,
+        strategy=strategy, num_runs=args.num_runs, prefix='in_range'
+    )
+    
+    performance = cache.load(step='in_range_performance')
+    tests_summary = performance["tests_summary"]
+    conf_matrix = performance["conf_matrices"]
+
+    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
+            args.sampling_method, args.save_dir, prefix='in_range')
+    
+    logger.info("Started Testing (2/2)")
 
     test_scales = args.test_scales.split(",")
     if len(test_scales) == 2:
@@ -183,15 +207,15 @@ def main():
     tests_summary, conf_matrix = distributed_validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
         uncertainty_method=args.uncertainty_method, test_classes=test_classes,
-        strategy=strategy, num_runs=args.num_runs
+        strategy=strategy, num_runs=args.num_runs, prefix='out_of_range'
     )
+    
+    performance = cache.load(step='out_of_range_performance')
+    tests_summary = performance["tests_summary"]
+    conf_matrix = performance["conf_matrices"]
 
-    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
-            args.sampling_method, args.save_dir)
-
-    fig, ax = plt.subplots()
-    ax.hist(np.array(data.seen_sfs), bins=len(data.classes))
-    fig.savefig(os.path.join(args.save_dir, "seen_sfs.png"))
+    sf_plot(tests_summary, conf_matrix.numpy(), data.classes.numpy(), test_classes,
+            args.sampling_method, args.save_dir, prefix='out_of_range')
 
 
 if __name__ == "__main__":

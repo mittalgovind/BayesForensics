@@ -80,7 +80,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             self.dense = tf.keras.layers.Dense
         
         elif uncertainty_method == "dropconnect":
-            self.conv2d = PaddedConv2D
+            self.conv2d = tf.keras.layers.Conv2D
             self.dropout = DropConnectLayer
             self.dense = tf.keras.layers.Dense
 
