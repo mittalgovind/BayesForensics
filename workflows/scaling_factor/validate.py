@@ -100,7 +100,7 @@ def validate(model, data, batch_size, cache, uncertainty_method,
     conf_matrix = tf.math.divide(conf_matrix, data.count_validation)
     if cache:
         performance["conf_matrices"] = conf_matrix
-        performance["tests_summary"] = logits
+        performance["logits"] = logits
         if prefix:
             cache.save(performance, step=f"{prefix}_performance")
         else:
