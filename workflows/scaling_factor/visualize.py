@@ -84,7 +84,7 @@ def uncertainty_graph(data, unc_measure, sampling_method, ax=None, **kwargs):
     return ax
 
 
-def sf_plot(summary, conf_matrix, classes, test_classes, training_method, save_dir):
+def sf_plot(summary, conf_matrix, classes, test_classes, training_method, save_dir, prefix=None):
     text_classes = [f"{x:.2f}" for x in classes]
     text_test_classes = [f"{x:.2f}" for x in test_classes]
     methods = ["nearest", "bilinear", "bicubic", "lanczos3"]
@@ -108,9 +108,11 @@ def sf_plot(summary, conf_matrix, classes, test_classes, training_method, save_d
             cbar=False,
             cmap="Greys",
         )
-
-    acc_fig.savefig(os.path.join(save_dir, "acc_matrix.pdf"))
-    
+    if prefix:
+        acc_fig.savefig(os.path.join(save_dir, f"{prefix}_acc_matrix.pdf"))
+    else:
+        acc_fig.savefig(os.path.join(save_dir, f"acc_matrix.pdf"))
+    '''
     unc_fig, unc_axes = sub(3, figwidth=16, ncols=1)
     unc_functions = [variation_ratio, predictive_entropy, mutual_information]
     unc_titles = ['Variation Ratio', 'Predictive Entropy', 'Mutual Information']
@@ -119,65 +121,8 @@ def sf_plot(summary, conf_matrix, classes, test_classes, training_method, save_d
         uncertainty_graph(summary, unc_functions[i], training_method, ax=unc_axes[i])
         unc_axes[i].set_title(unc_titles[i])
         
-    unc_fig.savefig(os.path.join(save_dir, "uncertainties.pdf"))
-    
-    '''
-    summary = get_uncertainties(summary, classes)
-
-    vr = [{} for _ in methods]
-    pe = [{} for _ in methods]
-    mi = [{} for _ in methods]
-
-    for elm in summary:
-        ind = methods.index(elm["method"])
-        err = np.abs(elm["correct"] - elm["pred"])
-        if err not in vr[ind].keys():
-            vr[ind][err] = []
-            pe[ind][err] = []
-            mi[ind][err] = []
-
-        vr[ind][err].append(elm["variation_ratio"])
-        pe[ind][err].append(elm["predictive_entropy"])
-        mi[ind][err].append(elm["mutual_information"])
-
-    for i in range(len(methods)):
-        for j in vr[i].keys():
-            vr[i][j] = np.mean(vr[i][j])
-            pe[i][j] = np.mean(pe[i][j])
-            mi[i][j] = np.mean(mi[i][j])
-
-    vr_fig, vr_axes = sub(4, ncols=2, figwidth=12)
-    pe_fig, pe_axes = sub(4, ncols=2, figwidth=12)
-    mi_fig, mi_axes = sub(4, ncols=2, figwidth=12)
-
-    for i in range(len(methods)):
-        sns.lineplot(x=vr[i].keys(), y=vr[i].values(), ax=vr_axes[i])
-        sns.lineplot(x=pe[i].keys(), y=pe[i].values(), ax=pe_axes[i])
-        sns.lineplot(x=mi[i].keys(), y=mi[i].values(), ax=mi_axes[i])
-
-    for axes in [acc_axes, vr_axes, pe_axes, mi_axes]:
-        for i in range(len(axes)):
-            if i < 2:
-                axes[i].xaxis.tick_top()
-                axes[i].xaxis.set_label_position("top")
-
-            if (i % 2) == 1:
-                axes[i].yaxis.tick_right()
-                axes[i].yaxis.set_label_position("right")
-
-            axes[i].set_yticklabels(axes[i].get_yticklabels(),
-                                    rotation="horizontal")
-            axes[i].set_title(f"Tested using {method_titles[i]}")
-
-    figs = [acc_fig, vr_fig, pe_fig, mi_fig]
-    for i in range(len(figs)):
-        figs[i].suptitle(
-            f"{measure_titles[i]} for model trained on {training_method}",
-            size=24
-        )
-
-    acc_fig.savefig(os.path.join(save_dir, "acc_matrix.png"))
-    vr_fig.savefig(os.path.join(save_dir, "vr_matrix.png"))
-    pe_fig.savefig(os.path.join(save_dir, "pe_matrix.png"))
-    mi_fig.savefig(os.path.join(save_dir, "mi_matrix.png"))
+    if prefix:
+        unc_fig.savefig(os.path.join(save_dir, f"{prefix}_uncertainties.pdf"))
+    else:
+        unc_fig.savefig(os.path.join(save_dir, "uncertainties.pdf"))
     '''
