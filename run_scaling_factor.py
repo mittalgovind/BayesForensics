@@ -175,8 +175,27 @@ def main():
         logger.info("Started Calibration")
         model.set_temp(data=data, save_dir=args.save_dir)
     
-    logger.info("Started Testing (1/2)")
+    logger.info("Started Testing (1/3)")
+    train_scales = (
+        float(args.scales.split(",")[0]),
+        float(args.scales.split(",")[1])
+    )
+    train_classes = tf.linspace(*train_scales, num=args.n_classes)
+    tests_summary, conf_matrix = distributed_validate(
+        model=model, data=data, batch_size=args.batch_size, cache=cache,
+        uncertainty_method=args.uncertainty_method, test_classes=train_classes,
+        strategy=strategy, num_runs=args.num_runs, prefix='normal_range'
+    )
     
+    performance = cache.load(step='normal_range_performance')
+    tests_summary = performance["tests_summary"]
+    conf_matrix = performance["conf_matrices"]
+
+    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
+            args.sampling_method, args.save_dir, prefix='normal_range')
+
+    logger.info("Started Testing (2/3)")
+
     train_scales = (
         float(args.scales.split(",")[0]),
         float(args.scales.split(",")[1])
@@ -187,7 +206,7 @@ def main():
         uncertainty_method=args.uncertainty_method, test_classes=train_classes,
         strategy=strategy, num_runs=args.num_runs, prefix='in_range'
     )
-    
+
     performance = cache.load(step='in_range_performance')
     tests_summary = performance["tests_summary"]
     conf_matrix = performance["conf_matrices"]
@@ -195,7 +214,7 @@ def main():
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
             args.sampling_method, args.save_dir, prefix='in_range')
     
-    logger.info("Started Testing (2/2)")
+    logger.info("Started Testing (3/3)")
 
     test_scales = args.test_scales.split(",")
     if len(test_scales) == 2:
@@ -206,11 +225,11 @@ def main():
     else:
         raise ValueError("Test scales should be comma-separated pair/triplet.")
     test_classes = tf.linspace(*test_scales, num=args.test_n_classes)
-    # tests_summary, conf_matrix = distributed_validate(
-    #     model=model, data=data, batch_size=args.batch_size, cache=cache,
-    #     uncertainty_method=args.uncertainty_method, test_classes=test_classes,
-    #     strategy=strategy, num_runs=args.num_runs, prefix='out_of_range'
-    # )
+    tests_summary, conf_matrix = distributed_validate(
+         model=model, data=data, batch_size=args.batch_size, cache=cache,
+         uncertainty_method=args.uncertainty_method, test_classes=test_classes,
+         strategy=strategy, num_runs=args.num_runs, prefix='out_of_range'
+    )
     
     performance = cache.load(step='out_of_range_performance')
     tests_summary = performance["tests_summary"]
