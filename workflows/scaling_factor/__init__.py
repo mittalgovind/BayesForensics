@@ -15,4 +15,3 @@ from .validate import distributed_validate
 from .flow import ScalingFactor
 from .visualize import sf_plot
 from .args import parse_args, load_parameters
-from .loss import FlipoutLoss, FixedLRSchedule

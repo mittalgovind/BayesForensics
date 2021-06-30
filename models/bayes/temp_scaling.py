@@ -223,7 +223,7 @@ class TemperatureScaling(ABC):
         conf = np.array(conf)
         fig, ax = plt.subplots(1, 1, figsize=(10, 8))
         ax.plot([0, 1], [0, 1], "k--")
-        plt.bar(conf, acc, 1 / (len(conf) * 1.1))
+        plt.hist(conf, acc, 1 / (len(conf) * 1.1))
         ax.set_xlabel(r"confidence")
         ax.set_ylabel(r"accuracy")
         ax.set_xticks((np.arange(0, 1.1, step=0.2)))
