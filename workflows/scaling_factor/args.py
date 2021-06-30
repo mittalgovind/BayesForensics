@@ -155,6 +155,13 @@ def parse_args():
         help="Overwrite the output folder, if exists.",
     )
     parser.add_argument(
+        "--imagenet-val",
+        action="store_true",
+        default=False,
+        help="Use presampled imagenet val data.",
+    )
+
+    parser.add_argument(
         "-eps",
         "--epsilon",
         dest="epsilon",
