@@ -80,11 +80,17 @@ def main():
 
     # load presampled validation data
     if args.use_presampled:
-        val_n_patches = 20
-        loaded_val_data = np.load(
-            os.path.join(args.use_presampled, 'native12k_20k_val.npy'))[
-                          :val_n_patches * args.n_val_images]
-
+        if args.imagenet_val:
+            val_n_patches = 1
+            loaded_val_data = np.load(
+                "/scratch/gm2724/data/rgb/imagenet_128_4974.npy")[
+                :args.n_val_images
+            ]
+        else:
+            val_n_patches = 20
+            loaded_val_data = np.load(
+                os.path.join(args.use_presampled, 'native12k_20k_val.npy'))[
+                              :val_n_patches * args.n_val_images]
     else:
         loaded_val_data = None
         val_n_patches = 1
@@ -92,7 +98,7 @@ def main():
     if args.load_model:
         data = ScalingFactorDataset(
             load="y",
-            n_images=args.n_val_images,
+            n_images=0,
             v_images=args.n_val_images,
             preloaded_rgb_val_data=loaded_val_data,
             val_n_patches=val_n_patches,
@@ -169,10 +175,6 @@ def main():
         logger.info("Started Calibration")
         model.set_temp(data=data, save_dir=args.save_dir)
     
-    fig, ax = plt.subplots()
-    ax.hist(np.array(data.seen_sfs), bins=len(data.classes))
-    fig.savefig(os.path.join(args.save_dir, "seen_sfs.png"))
-
     logger.info("Started Testing (1/2)")
     
     train_scales = (
@@ -204,17 +206,17 @@ def main():
     else:
         raise ValueError("Test scales should be comma-separated pair/triplet.")
     test_classes = tf.linspace(*test_scales, num=args.test_n_classes)
-    tests_summary, conf_matrix = distributed_validate(
-        model=model, data=data, batch_size=args.batch_size, cache=cache,
-        uncertainty_method=args.uncertainty_method, test_classes=test_classes,
-        strategy=strategy, num_runs=args.num_runs, prefix='out_of_range'
-    )
+    # tests_summary, conf_matrix = distributed_validate(
+    #     model=model, data=data, batch_size=args.batch_size, cache=cache,
+    #     uncertainty_method=args.uncertainty_method, test_classes=test_classes,
+    #     strategy=strategy, num_runs=args.num_runs, prefix='out_of_range'
+    # )
     
     performance = cache.load(step='out_of_range_performance')
     tests_summary = performance["tests_summary"]
     conf_matrix = performance["conf_matrices"]
 
-    sf_plot(tests_summary, conf_matrix.numpy(), data.classes.numpy(), test_classes,
+    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
             args.sampling_method, args.save_dir, prefix='out_of_range')
 
 
