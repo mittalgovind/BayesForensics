@@ -8,5 +8,4 @@
   "pool_size": 2,
   "dense_dropout": 0.50,
   "use_bn": true,
-  "use_gap": false
 }
