@@ -142,7 +142,7 @@ class ScalingFactor(BayesBaseModel):
             # GAP / Feature formation
             layers.append(tf.keras.layers.GlobalAveragePooling2D())
         else:
-            layers.append(tf.keras.layer.Flatten())
+            layers.append(tf.keras.layers.Flatten())
         # Fully-connected classifier
         for _ in range(self._h.dense_layers):
             layers.append(
