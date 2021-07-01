@@ -29,6 +29,7 @@ class ScalingFactorDataset(Dataset):
             n_classes,
             codec=None,
             jpeg_quality=100,
+            crop_size=64,
             **kwargs,
     ):
         """
@@ -51,6 +52,7 @@ class ScalingFactorDataset(Dataset):
             JPEG quality to compress with.
         """
         super().__init__(**kwargs)
+        self.crop_size = crop_size
         self.scales = (float(scales.split(",")[0]),
                        float(scales.split(",")[1]))
         self.sampling_method = sampling_method
@@ -217,8 +219,8 @@ class ScalingFactorDataset(Dataset):
             self.get_training_generator,
             args=(discard, gamma, brighten, rotate),
             output_signature=(
-            tf.TensorSpec((self.batch_size, self.train_rgb_patch_size,
-                           self.train_rgb_patch_size, 3),
+            tf.TensorSpec((self.batch_size, self.crop_size,
+                           self.crop_size, 3),
                           tf.float32),
             tf.TensorSpec((self.batch_size,), tf.float32)),
         )
@@ -227,8 +229,8 @@ class ScalingFactorDataset(Dataset):
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
             output_signature=(
-            tf.TensorSpec((self.batch_size, self.val_rgb_patch_size,
-                           self.val_rgb_patch_size, 3),
+            tf.TensorSpec((self.batch_size, self.crop_size,
+                           self.crop_size, 3),
                           tf.float32),
             tf.TensorSpec((self.batch_size,), tf.float32)),
         )

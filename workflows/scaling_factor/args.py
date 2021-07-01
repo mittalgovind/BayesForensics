@@ -289,6 +289,12 @@ def parse_args():
         type=int,
         help="Number of classes in the range defined by scales argument",
     )
+    parser.add_argument(
+        "--crop-size",
+        default=64,
+        type=int,
+        help="Crop size of image used for training",
+    )
     return parser.parse_args()
 
 
