@@ -127,26 +127,24 @@ class ScalingFactorDataset(Dataset):
         # Resize batch.
         rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
                                           method=m)
-        pad = patch_size - resized_size
-        rescaled_images = tf.pad(rescaled_images, [[0, 0], [pad, pad],
-                                                   [pad, pad], [0, 0]])
-        # Convert to JPEG if a codec is passed.
-        if self.codec:
-            rescaled_images, pad_before = self.pad(
-                rescaled_images, resized_size)
-            rescaled_images = self.codec.process(rescaled_images)
-            rescaled_images = self.unpad(rescaled_images, pad_before,
-                                         resized_size)
-
         rescaled_images = tf.math.divide(rescaled_images, 255)
+
+        rescaled_images = self.pad(rescaled_images)
+        # Convert to JPEG if a codec is passed.
+        # if self.codec:
+        #     rescaled_images, pad_before = self.pad(
+        #         rescaled_images, resized_size)
+        #     rescaled_images = self.codec.process(rescaled_images)
+        #     rescaled_images = self.unpad(rescaled_images, pad_before,
+        #                                  resized_size)
+
         sf_labels = tf.repeat(class_id, batch.shape[0])
 
         return rescaled_images, sf_labels
 
-    @staticmethod
-    def pad(images, resized_size):
+    def pad(self, images):
         """pad with zeros for multiple of 8"""
-        pad_size = 8 - resized_size.numpy() % 8
+        pad_size = self.train_rgb_patch_size - images.shape[1]
         if pad_size % 2 == 1:
             pad_size //= 2
             pad_before = pad_size + 1
@@ -157,7 +155,7 @@ class ScalingFactorDataset(Dataset):
         paddings = [[0, 0], [pad_before, pad_size],
                     [pad_before, pad_size], [0, 0]]
 
-        return tf.pad(images, paddings), pad_before
+        return tf.pad(images, paddings)
 
     def unpad(self, images, pad_before, resized_size):
         """pad with zeros for multiple of 8"""
@@ -208,7 +206,8 @@ class ScalingFactorDataset(Dataset):
         return tf.data.Dataset.from_generator(
             self.get_training_generator,
             args=(discard, gamma, brighten, rotate),
-            output_signature=(tf.TensorSpec((self.batch_size, None, None, 3),
+            output_signature=(tf.TensorSpec((self.batch_size, self.train_rgb_patch_size,
+                                             self.train_rgb_patch_size, 3),
                                             tf.float32),
                               tf.TensorSpec((self.batch_size,), tf.float32)),
         )
@@ -216,7 +215,8 @@ class ScalingFactorDataset(Dataset):
     def get_validation_pipeline(self):
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
-            output_signature=(tf.TensorSpec((self.batch_size, None, None, 3),
+            output_signature=(tf.TensorSpec((self.batch_size, self.val_rgb_patch_size,
+                                             self.val_rgb_patch_size, 3),
                                             tf.float32),
                               tf.TensorSpec((self.batch_size,), tf.float32)),
         )

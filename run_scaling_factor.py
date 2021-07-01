@@ -153,7 +153,10 @@ def main():
             update_freq=args.validation_freq,
             steps_per_epoch=steps_per_epoch
         )
-
+            
+        for images, label in data.get_training_generator():
+            pass
+        
         # Start training
         train_performance = model._model.fit(
             x=train_data,
