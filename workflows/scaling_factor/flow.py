@@ -99,6 +99,7 @@ class ScalingFactor(BayesBaseModel):
         self.performance = dict()
         self.channels = channels
         self.n_models = num_models
+        self.patch_size = patch_size
         # Needs to be called as the last line in the subclass.
         if hyperoptimize:
             self._seq_model()
@@ -170,7 +171,7 @@ class ScalingFactor(BayesBaseModel):
         for i in range(self.n_models):
             layers.append(self._seq_model(set_model=False))
 
-        inputs = Input(shape=(None, None, self.channels))
+        inputs = Input(shape=(self.patch_size, self.patch_size, self.channels))
         outputs_list = []
 
         for i in range(self.n_models):

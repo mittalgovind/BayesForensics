@@ -127,7 +127,9 @@ class ScalingFactorDataset(Dataset):
         # Resize batch.
         rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
                                           method=m)
-
+        pad = patch_size - resized_size
+        rescaled_images = tf.pad(rescaled_images, [[0, 0], [pad, pad],
+                                                   [pad, pad], [0, 0]])
         # Convert to JPEG if a codec is passed.
         if self.codec:
             rescaled_images, pad_before = self.pad(
