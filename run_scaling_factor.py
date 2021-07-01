@@ -82,8 +82,9 @@ def main():
     if args.use_presampled:
         if args.imagenet_val:
             val_n_patches = 1
+            # loaded_val_data = np.zeros((1024, 128, 128, 3), np.float32)
             loaded_val_data = np.load(
-                "/scratch/gm2724/data/rgb/imagenet_128_4974.npy")[
+                "./data/rgb/imagenet_128_4974.npy")[
                 :args.n_val_images
             ]
         else:
