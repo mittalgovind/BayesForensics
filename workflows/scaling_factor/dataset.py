@@ -132,13 +132,10 @@ class ScalingFactorDataset(Dataset):
         rescaled_images = tf.math.divide(rescaled_images, 255)
 
         rescaled_images = self.crop_middle(rescaled_images)
+
         # Convert to JPEG if a codec is passed.
-        # if self.codec:
-        #     rescaled_images, pad_before = self.pad(
-        #         rescaled_images, resized_size)
-        #     rescaled_images = self.codec.process(rescaled_images)
-        #     rescaled_images = self.unpad(rescaled_images, pad_before,
-        #                                  resized_size)
+        if self.codec:
+            rescaled_images = self.codec.process(rescaled_images)
 
         sf_labels = tf.repeat(class_id, batch.shape[0])
 
@@ -166,13 +163,6 @@ class ScalingFactorDataset(Dataset):
                     [pad_before, pad_size], [0, 0]]
 
         return tf.pad(images, paddings)
-
-    def unpad(self, images, pad_before, resized_size):
-        """pad with zeros for multiple of 8"""
-        return tf.slice(
-            images, begin=[0, pad_before, pad_before, 0],
-            size=[len(images), resized_size, resized_size, self.channels]
-        )
 
     def get_validation_generator(self, **kwargs):
         if 'sf' in kwargs:
