@@ -27,8 +27,8 @@ class ScalingFactorDataset(Dataset):
             scales,
             sampling_method,
             n_classes,
+            jpeg_quality,
             codec=None,
-            jpeg_quality=100,
             crop_size=64,
             **kwargs,
     ):
@@ -68,7 +68,14 @@ class ScalingFactorDataset(Dataset):
         self.val_batch = tf.convert_to_tensor(list(
             self.data["validation"]["y"].unbatch())[:self.batch_size])
         if codec:
-            self.codec = TFJPEG(quality=jpeg_quality, codec=codec)
+            if "," in jpeg_quality:
+                jpeg_quality = jpeg_quality.split(',')
+                self.lower_quality, self.higher_quality = int(jpeg_quality[0]),\
+                                                int(jpeg_quality[1])
+                self.codec = TFJPEG(quality=None, codec=codec)
+            else:
+                self.lower_quality, self.higher_quality = None, None
+                self.codec = TFJPEG(quality=int(jpeg_quality), codec=codec)
             if codec == 'libjpeg':
                 logger.info('Using libjpeg will be slowing the computation.')
         else:
@@ -136,7 +143,11 @@ class ScalingFactorDataset(Dataset):
 
         # Convert to JPEG if a codec is passed.
         if self.codec:
-            rescaled_images = self.codec.process(rescaled_images)
+            if self.lower_quality:
+                rand_quality = randint(self.lower_quality, self.higher_quality, self.seed)
+                rescaled_images = self.codec.process(rescaled_images, quality=rand_quality)
+            else:
+                rescaled_images = self.codec.process(rescaled_images)
 
         sf_labels = tf.repeat(class_id, batch.shape[0])
 

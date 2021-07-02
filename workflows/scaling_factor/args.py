@@ -193,9 +193,9 @@ def parse_args():
     parser.add_argument(
         "--jpeg-quality",
         "-jq",
-        default=95,
+        default="95",
         action="store",
-        type=int,
+        type=str,
         dest="jpeg_quality",
         help="Quality factor for jpeg compression.",
     )
