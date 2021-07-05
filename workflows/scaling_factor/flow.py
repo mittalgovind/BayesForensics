@@ -116,7 +116,6 @@ class ScalingFactor(BayesBaseModel):
         # Standard convolutional layers
         filters = self._h.filters
         for j in range(self._h.conv_layers):
-            layers.append(self.dropout(self._h.dense_dropout))
             layers.append(
                 self.conv2d(filters,
                             kernel_size=self._h.kernel,
