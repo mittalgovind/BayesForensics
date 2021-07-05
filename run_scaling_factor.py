@@ -153,7 +153,7 @@ def main():
             update_freq=args.validation_freq,
             steps_per_epoch=steps_per_epoch
         )
-
+            
         # Start training
         train_performance = model._model.fit(
             x=train_data,

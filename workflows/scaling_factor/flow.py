@@ -27,6 +27,7 @@ class ScalingFactor(BayesBaseModel):
             self,
             n_classes,
             patch_size=None,
+            crop_size=64,
             filters=32,
             filter_multiplier=2,
             conv_layers=4,
@@ -99,6 +100,8 @@ class ScalingFactor(BayesBaseModel):
         self.performance = dict()
         self.channels = channels
         self.n_models = num_models
+        self.patch_size = patch_size
+        self.crop_size = crop_size
         # Needs to be called as the last line in the subclass.
         if hyperoptimize:
             self._seq_model()
@@ -135,9 +138,11 @@ class ScalingFactor(BayesBaseModel):
                 **self.uncertainty_method_args
             )
         )
-        # GAP / Feature formation
-        layers.append(tf.keras.layers.GlobalAveragePooling2D())
-
+        if self._h.use_gap:
+            # GAP / Feature formation
+            layers.append(tf.keras.layers.GlobalAveragePooling2D())
+        else:
+            layers.append(tf.keras.layers.Flatten())
         # Fully-connected classifier
         for _ in range(self._h.dense_layers):
             layers.append(
@@ -170,7 +175,7 @@ class ScalingFactor(BayesBaseModel):
         for i in range(self.n_models):
             layers.append(self._seq_model(set_model=False))
 
-        inputs = Input(shape=(None, None, self.channels))
+        inputs = Input(shape=(self.crop_size, self.crop_size, self.channels))
         outputs_list = []
 
         for i in range(self.n_models):

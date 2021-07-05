@@ -27,8 +27,9 @@ class ScalingFactorDataset(Dataset):
             scales,
             sampling_method,
             n_classes,
+            jpeg_quality,
             codec=None,
-            jpeg_quality=100,
+            crop_size=64,
             **kwargs,
     ):
         """
@@ -51,6 +52,7 @@ class ScalingFactorDataset(Dataset):
             JPEG quality to compress with.
         """
         super().__init__(**kwargs)
+        self.crop_size = crop_size
         self.scales = (float(scales.split(",")[0]),
                        float(scales.split(",")[1]))
         self.sampling_method = sampling_method
@@ -66,7 +68,14 @@ class ScalingFactorDataset(Dataset):
         self.val_batch = tf.convert_to_tensor(list(
             self.data["validation"]["y"].unbatch())[:self.batch_size])
         if codec:
-            self.codec = TFJPEG(quality=jpeg_quality, codec=codec)
+            if "," in jpeg_quality:
+                jpeg_quality = jpeg_quality.split(',')
+                self.lower_quality, self.higher_quality = int(jpeg_quality[0]),\
+                                                int(jpeg_quality[1])
+                self.codec = TFJPEG(quality=None, codec=codec)
+            else:
+                self.lower_quality, self.higher_quality = None, None
+                self.codec = TFJPEG(quality=int(jpeg_quality), codec=codec)
             if codec == 'libjpeg':
                 logger.info('Using libjpeg will be slowing the computation.')
         else:
@@ -120,31 +129,41 @@ class ScalingFactorDataset(Dataset):
         if 'brighten' in kwargs and kwargs['brighten']:
             batch = tf.image.random_brightness(batch, 0.2, seed=self.seed)
         if 'gamma' in kwargs and kwargs['gamma']:
-            batch = tf.image.adjust_gamma(batch,
-                                          randint(minval=6, maxval=10,
-                                                  seed=self.seed) * 0.1)
+            gamma = tf.cast(tf.math.divide(
+                randint(minval=6, maxval=10, seed=self.seed), 10), tf.float32)
+            batch = tf.image.adjust_gamma(batch, gamma=gamma)
 
         # Resize batch.
         rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
                                           method=m)
+        if tf.math.reduce_max(rescaled_images) > 1:
+            rescaled_images = tf.math.divide(rescaled_images, 255)
+
+        rescaled_images = self.crop_middle(rescaled_images)
 
         # Convert to JPEG if a codec is passed.
         if self.codec:
-            rescaled_images, pad_before = self.pad(
-                rescaled_images, resized_size)
-            rescaled_images = self.codec.process(rescaled_images)
-            rescaled_images = self.unpad(rescaled_images, pad_before,
-                                         resized_size)
+            if self.lower_quality:
+                rand_quality = randint(self.lower_quality, self.higher_quality, self.seed)
+                rescaled_images = self.codec.process(rescaled_images, quality=rand_quality)
+            else:
+                rescaled_images = self.codec.process(rescaled_images)
 
-        rescaled_images = tf.math.divide(rescaled_images, 255)
         sf_labels = tf.repeat(class_id, batch.shape[0])
 
         return rescaled_images, sf_labels
 
-    @staticmethod
-    def pad(images, resized_size):
+    def crop_middle(self, images):
+        shape = images.shape
+        start = (shape[1] - self.crop_size) // 2
+        return tf.slice(
+            images, begin=[0, start, start, 0],
+            size=[len(images), self.crop_size, self.crop_size, self.channels]
+        )
+
+    def pad(self, images):
         """pad with zeros for multiple of 8"""
-        pad_size = 8 - resized_size.numpy() % 8
+        pad_size = self.train_rgb_patch_size - images.shape[1]
         if pad_size % 2 == 1:
             pad_size //= 2
             pad_before = pad_size + 1
@@ -155,14 +174,7 @@ class ScalingFactorDataset(Dataset):
         paddings = [[0, 0], [pad_before, pad_size],
                     [pad_before, pad_size], [0, 0]]
 
-        return tf.pad(images, paddings), pad_before
-
-    def unpad(self, images, pad_before, resized_size):
-        """pad with zeros for multiple of 8"""
-        return tf.slice(
-            images, begin=[0, pad_before, pad_before, 0],
-            size=[len(images), resized_size, resized_size, self.channels]
-        )
+        return tf.pad(images, paddings)
 
     def get_validation_generator(self, **kwargs):
         if 'sf' in kwargs:
@@ -173,13 +185,15 @@ class ScalingFactorDataset(Dataset):
                 if self.random_method:
                     self.sampling_method = method
                 for s, sf in enumerate(self.classes[:-1]):
-                    yield self.preprocess_batch(self.val_batch, training=False, sf=sf)
+                    yield self.preprocess_batch(self.val_batch, training=False,
+                                                sf=sf)
 
     def get_calibration_generator(self, **kwargs):
         for m, method in enumerate(self.test_methods):
             if self.random_method:
                 self.sampling_method = method
-            for s, sf in enumerate(tf.data.Dataset.from_tensor_slices(self.classes[:-1])):
+            for s, sf in enumerate(
+                    tf.data.Dataset.from_tensor_slices(self.classes[:-1])):
                 for batch in self.data["calibration"]["y"]:
                     yield self.preprocess_batch(batch, training=False, sf=sf)
 
@@ -206,15 +220,19 @@ class ScalingFactorDataset(Dataset):
         return tf.data.Dataset.from_generator(
             self.get_training_generator,
             args=(discard, gamma, brighten, rotate),
-            output_signature=(tf.TensorSpec((self.batch_size, None, None, 3),
-                                            tf.float32),
-                              tf.TensorSpec((self.batch_size,), tf.float32)),
+            output_signature=(
+            tf.TensorSpec((self.batch_size, self.crop_size,
+                           self.crop_size, 3),
+                          tf.float32),
+            tf.TensorSpec((self.batch_size,), tf.float32)),
         )
 
     def get_validation_pipeline(self):
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
-            output_signature=(tf.TensorSpec((self.batch_size, None, None, 3),
-                                            tf.float32),
-                              tf.TensorSpec((self.batch_size,), tf.float32)),
+            output_signature=(
+            tf.TensorSpec((self.batch_size, self.crop_size,
+                           self.crop_size, 3),
+                          tf.float32),
+            tf.TensorSpec((self.batch_size,), tf.float32)),
         )
