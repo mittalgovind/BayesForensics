@@ -47,7 +47,7 @@ def validate(model, data, batch_size, cache, uncertainty_method,
 
     elif uncertainty_method == "ensemble":
         logits = tf.zeros((len_test_methods, len_test_classes,
-                           data.count_validation, model.n_models,
+                           model.n_models, data.count_validation,
                            data.n_classes))
 
     else:
@@ -106,7 +106,7 @@ def validate(model, data, batch_size, cache, uncertainty_method,
         else:
             cache.save(performance, step="performance")
 
-    return tests_summary, conf_matrix
+    return logits, conf_matrix
 
 
 # @tf.function

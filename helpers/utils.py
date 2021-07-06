@@ -529,3 +529,11 @@ def standardize_keras_history(history):
                          "validation": history["val_accuracy"]},
             "loss": {"training": history["loss"],
                      "validation": history["val_loss"]}}
+
+
+def perreplica_to_tensor(perreplica, strategy):
+    if strategy.num_replicas_in_sync > 1:
+        return tf.concat(perreplica.values, axis=0)
+    
+    else:
+        return perreplica
