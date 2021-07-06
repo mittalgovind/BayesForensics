@@ -7,5 +7,6 @@
   "dense_units": 128,
   "pool_size": 2,
   "dense_dropout": 0.1,
-  "use_bn": true
+  "use_bn": false,
+  "use_gap": false
 }

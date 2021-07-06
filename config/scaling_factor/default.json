@@ -6,6 +6,6 @@
   "dense_layers": 1,
   "dense_units": 128,
   "pool_size": 2,
-  "dense_dropout": 0.50,
-  "use_bn": false
+  "dense_dropout": 0.50
 }
+

@@ -46,22 +46,17 @@ _numeric_types = {
     np.uint16,
     np.uint64,
 }
-'''
+
 _tf_numeric_types = {
-    tf.bool,
-    tf.float16,
     tf.float32,
     tf.float64,
-    tf.int8,
     tf.int32,
-    tf.int16,
     tf.int64,
     tf.uint8,
     tf.uint32,
-    tf.uint16,
     tf.uint64,
 }
-'''
+
 
 def setup_logging(filename=None, long_date=False, level="INFO"):
     """

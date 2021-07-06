@@ -104,31 +104,33 @@ class Dataset(object):
                 data_dir, randomize=seed, n_images=n_images,
                 v_images=v_images, c_images=c_images,
             )
-        elif preloaded_rgb_train_data is None or preloaded_rgb_val_data is None:
+        elif (preloaded_rgb_train_data is None and n_images > 0) \
+                or preloaded_rgb_val_data is None:
             raise RuntimeError("No data directory given.")
 
         # flags for storing way train data was prepared, with default values.
         self.preloading_train = 0
 
         # Preparing training data
-        if preloaded_rgb_train_data is not None:
-            self.data["training"]['y'] = preloaded_rgb_train_data
-            self.preloading_train = 1
+        if n_images > 0:
+            if preloaded_rgb_train_data is not None:
+                self.data["training"]['y'] = preloaded_rgb_train_data
+                self.preloading_train = 1
 
-        elif presample_epochs != 0:
-            self.data["training"] = loading.load_patches(
-                self.files["training"],
-                data_dir,
-                patch_size=train_rgb_patch_size // 2,
-                n_patches=train_n_patches,
-                load=load,
-                discard=val_discard,
-            )
-            self.preloading_train = 1
-        else:
-            self.data["training"] = loading.load_images(
-                self.files["training"], data_dir, load=load
-            )
+            elif presample_epochs != 0:
+                self.data["training"] = loading.load_patches(
+                    self.files["training"],
+                    data_dir,
+                    patch_size=train_rgb_patch_size // 2,
+                    n_patches=train_n_patches,
+                    load=load,
+                    discard=val_discard,
+                )
+                self.preloading_train = 1
+            else:
+                self.data["training"] = loading.load_images(
+                    self.files["training"], data_dir, load=load
+                )
 
         # Prepare validation data
         if preloaded_rgb_val_data is not None:
@@ -159,13 +161,14 @@ class Dataset(object):
 
         # Conversion to tensor and batching of loaded data
         if "x" in load:
-            if self.preloading_train:
-                self.data["training"]["x"] = tf.math.divide(
-                    self.data["training"]["x"], 2 ** 16 - 1)
-            self.data["training"][
-                "x"] = tf.data.Dataset.from_tensor_slices(
-                self.data["training"]["x"]).batch(batch_size,
-                                                  drop_remainder=True)
+            if n_images > 0:
+                if self.preloading_train:
+                    self.data["training"]["x"] = tf.math.divide(
+                        self.data["training"]["x"], 2 ** 16 - 1)
+                self.data["training"][
+                    "x"] = tf.data.Dataset.from_tensor_slices(
+                    self.data["training"]["x"]).batch(batch_size,
+                                                      drop_remainder=True)
             self.data["validation"]["x"] = tf.math.divide(
                 self.data["validation"]["x"], 2 ** 16 - 1)
             self.data["validation"]["x"] = tf.data.Dataset.from_tensor_slices(
@@ -179,13 +182,14 @@ class Dataset(object):
                     self.data["calibration"]["x"]).batch(batch_size,
                                                          drop_remainder=True)
         if "y" in load:
-            if self.preloading_train:
-                self.data["training"]["y"] = tf.math.divide(
-                    self.data["training"]["y"], 2 ** 8 - 1)
-            self.data["training"][
-                "y"] = tf.data.Dataset.from_tensor_slices(
-                self.data["training"]["y"]).batch(batch_size,
-                                                  drop_remainder=True)
+            if n_images > 0:
+                if self.preloading_train:
+                    self.data["training"]["y"] = tf.math.divide(
+                        self.data["training"]["y"], 2 ** 8 - 1)
+                self.data["training"][
+                    "y"] = tf.data.Dataset.from_tensor_slices(
+                    self.data["training"]["y"]).batch(batch_size,
+                                                      drop_remainder=True)
 
             self.data["validation"]["y"] = tf.math.divide(
                 self.data["validation"]["y"], 2 ** 8 - 1)

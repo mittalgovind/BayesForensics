@@ -80,11 +80,18 @@ def main():
 
     # load presampled validation data
     if args.use_presampled:
-        val_n_patches = 20
-        loaded_val_data = np.load(
-            os.path.join(args.use_presampled, 'native12k_20k_val.npy'))[
-                          :val_n_patches * args.n_val_images]
-
+        if args.imagenet_val:
+            val_n_patches = 1
+            # loaded_val_data = np.zeros((1024, 128, 128, 3), np.float32)
+            loaded_val_data = np.load(
+                "./data/rgb/imagenet_128_4974.npy")[
+                :args.n_val_images
+            ]
+        else:
+            val_n_patches = 20
+            loaded_val_data = np.load(
+                os.path.join(args.use_presampled, 'native12k_20k_val.npy'))[
+                              :val_n_patches * args.n_val_images]
     else:
         loaded_val_data = None
         val_n_patches = 1
@@ -92,7 +99,7 @@ def main():
     if args.load_model:
         data = ScalingFactorDataset(
             load="y",
-            n_images=args.n_val_images,
+            n_images=0,
             v_images=args.n_val_images,
             preloaded_rgb_val_data=loaded_val_data,
             val_n_patches=val_n_patches,
@@ -146,7 +153,7 @@ def main():
             update_freq=args.validation_freq,
             steps_per_epoch=steps_per_epoch
         )
-
+            
         # Start training
         train_performance = model._model.fit(
             x=train_data,
@@ -172,40 +179,67 @@ def main():
     if args.calibrate:
         logger.info("Started Calibration")
         model.set_temp(data=data, save_dir=args.save_dir)
-
-    logger.info("Started Testing (1/2)")
+   
+  
+    logger.info("Started Testing (1/3)")
     
-    test_scales = (
+    train_scales = (
         float(args.scales.split(",")[0]),
         float(args.scales.split(",")[1])
     )
-    test_classes = tf.linspace(*test_scales, num=args.n_classes * 5)
+    train_classes = tf.linspace(*train_scales, num=args.n_classes)
+    tests_summary, conf_matrix = distributed_validate(
+        model=model, data=data, batch_size=args.batch_size, cache=cache,
+        uncertainty_method=args.uncertainty_method, test_classes=train_classes,
+        strategy=strategy, num_runs=args.num_runs, prefix='normal_range'
+    )
+    
+    tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))
+    conf_matrix = np.array(perreplica_to_tensor(conf_matrix, strategy))
+
+    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
+            args.sampling_method, args.save_dir, prefix='normal_range')
+
+    
+    logger.info("Started Testing (2/3)")
+
+    train_scales = (
+        float(args.scales.split(",")[0]),
+        float(args.scales.split(",")[1])
+    )
+    train_classes = tf.linspace(*train_scales, num=args.n_classes * 5)
     
     tests_summary, conf_matrix = distributed_validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
-        uncertainty_method=args.uncertainty_method, test_classes=test_classes,
+        uncertainty_method=args.uncertainty_method, test_classes=train_classes,
         strategy=strategy, num_runs=args.num_runs, prefix='in_range'
     )
     
     tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))
     conf_matrix = np.array(perreplica_to_tensor(conf_matrix, strategy))
 
-    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
+    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
             args.sampling_method, args.save_dir, prefix='in_range')
     
-    logger.info("Started Testing (2/2)")
     
-    test_scales = (
-        float(args.test_scales.split(",")[0]),
-        float(args.test_scales.split(",")[1])
-    )
+    logger.info("Started Testing (3/3)")
+
+    test_scales = args.test_scales.split(",")
+    if len(test_scales) == 2:
+        test_scales = (float(test_scales[0]), float(test_scales[1]))
+    elif len(test_scales == 3):
+        test_scales = (float(test_scales[0]), float(test_scales[1]),
+                       float(test_scales[2]))
+    else:
+        raise ValueError("Test scales should be comma-separated pair/triplet.")
+        
     test_classes = tf.linspace(*test_scales, num=args.test_n_classes)
     tests_summary, conf_matrix = distributed_validate(
-        model=model, data=data, batch_size=args.batch_size, cache=cache,
-        uncertainty_method=args.uncertainty_method, test_classes=test_classes,
-        strategy=strategy, num_runs=args.num_runs, prefix='out_of_range'
+         model=model, data=data, batch_size=args.batch_size, cache=cache,
+         uncertainty_method=args.uncertainty_method, test_classes=test_classes,
+         strategy=strategy, num_runs=args.num_runs, prefix='out_of_range'
     )
-    
+
     tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))
     conf_matrix = np.array(perreplica_to_tensor(conf_matrix, strategy))
     

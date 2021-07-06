@@ -155,6 +155,13 @@ def parse_args():
         help="Overwrite the output folder, if exists.",
     )
     parser.add_argument(
+        "--imagenet-val",
+        action="store_true",
+        default=False,
+        help="Use presampled imagenet val data.",
+    )
+
+    parser.add_argument(
         "-eps",
         "--epsilon",
         dest="epsilon",
@@ -186,9 +193,9 @@ def parse_args():
     parser.add_argument(
         "--jpeg-quality",
         "-jq",
-        default=95,
+        default="95",
         action="store",
-        type=int,
+        type=str,
         dest="jpeg_quality",
         help="Quality factor for jpeg compression.",
     )
@@ -281,6 +288,12 @@ def parse_args():
         default=31,
         type=int,
         help="Number of classes in the range defined by scales argument",
+    )
+    parser.add_argument(
+        "--crop-size",
+        default=64,
+        type=int,
+        help="Crop size of image used for training",
     )
     return parser.parse_args()
 
