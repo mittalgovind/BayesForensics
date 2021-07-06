@@ -97,6 +97,8 @@ def main():
         val_n_patches = 1
 
     if args.load_model:
+        logger.warning('As only validation dataset is being loaded, '
+                       'please ensure a seed is passed explicitly.')
         data = ScalingFactorDataset(
             load="y",
             n_images=0,
