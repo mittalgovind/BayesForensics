@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 # Internal libraries
 from helpers.results_data import ResultCache
 from helpers.plots import perf
-from helpers.utils import setup_logging
+from helpers.utils import setup_logging, perreplica_to_tensor
 from helpers.tf_helpers import disable_gpu, get_callbacks
 from workflows.scaling_factor import (
     ScalingFactorDataset,
@@ -171,12 +171,18 @@ def main():
 
         fig = perf(history, alpha=0.1)
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
+        
+        fig, ax = plt.subplots()
+        ax.hist(np.array(data.seen_sfs), bins=len(data.classes))
+        fig.savefig(os.path.join(args.save_dir, "seen_sfs.png"))
 
     if args.calibrate:
         logger.info("Started Calibration")
         model.set_temp(data=data, save_dir=args.save_dir)
-    
+   
+  
     logger.info("Started Testing (1/3)")
+    
     train_scales = (
         float(args.scales.split(",")[0]),
         float(args.scales.split(",")[1])
@@ -188,13 +194,13 @@ def main():
         strategy=strategy, num_runs=args.num_runs, prefix='normal_range'
     )
     
-    performance = cache.load(step='normal_range_performance')
-    tests_summary = performance["tests_summary"]
-    conf_matrix = performance["conf_matrices"]
+    tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))
+    conf_matrix = np.array(perreplica_to_tensor(conf_matrix, strategy))
 
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
             args.sampling_method, args.save_dir, prefix='normal_range')
 
+    
     logger.info("Started Testing (2/3)")
 
     train_scales = (
@@ -202,18 +208,19 @@ def main():
         float(args.scales.split(",")[1])
     )
     train_classes = tf.linspace(*train_scales, num=args.n_classes * 5)
+    
     tests_summary, conf_matrix = distributed_validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
         uncertainty_method=args.uncertainty_method, test_classes=train_classes,
         strategy=strategy, num_runs=args.num_runs, prefix='in_range'
     )
-
-    performance = cache.load(step='in_range_performance')
-    tests_summary = performance["tests_summary"]
-    conf_matrix = performance["conf_matrices"]
+    
+    tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))
+    conf_matrix = np.array(perreplica_to_tensor(conf_matrix, strategy))
 
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
             args.sampling_method, args.save_dir, prefix='in_range')
+    
     
     logger.info("Started Testing (3/3)")
 
@@ -225,20 +232,20 @@ def main():
                        float(test_scales[2]))
     else:
         raise ValueError("Test scales should be comma-separated pair/triplet.")
+        
     test_classes = tf.linspace(*test_scales, num=args.test_n_classes)
     tests_summary, conf_matrix = distributed_validate(
          model=model, data=data, batch_size=args.batch_size, cache=cache,
          uncertainty_method=args.uncertainty_method, test_classes=test_classes,
          strategy=strategy, num_runs=args.num_runs, prefix='out_of_range'
     )
-    
-    performance = cache.load(step='out_of_range_performance')
-    tests_summary = performance["tests_summary"]
-    conf_matrix = performance["conf_matrices"]
 
+    tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))
+    conf_matrix = np.array(perreplica_to_tensor(conf_matrix, strategy))
+    
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
             args.sampling_method, args.save_dir, prefix='out_of_range')
-
+    
 
 if __name__ == "__main__":
     main()

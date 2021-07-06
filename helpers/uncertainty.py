@@ -68,7 +68,7 @@ def mutual_information(logits):
         ]
     )
 
-    return pred_ent + exp_value
+    return np.abs(pred_ent + exp_value)
 
 
 def get_limits(n_models, n_classes):

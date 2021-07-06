@@ -46,28 +46,30 @@ def get_uncertainties(summary, classes):
     return results
 
 
-def uncertainty_graph(data, unc_measure, sampling_method, ax=None, **kwargs):
+def uncertainty_graph(data, unc_measure, classes, methods, sampling_method, ax=None, **kwargs):
+    if sampling_method == "random":
+        indices = list(range(len(methods)))
+    else:
+        indices = [methods.index(sampling_method)]
+    
     uncertainties = {}
-    for method in data.keys():
-        if method != sampling_method:
-            continue
-        
-        for sf in data[method].keys():
-            if f"{sf:.2f}" not in uncertainties.keys():
-                uncertainties[f"{sf:.2f}"] = []
-
-            for i in range(data[method][sf].shape[0]):
-                logits = np.transpose(np.array([data[method][sf][i]]), (1, 0, 2))
+    for m in indices:
+        for sf in range(len(data[m])):
+            if f"{sf}" not in uncertainties.keys():
+                uncertainties[f"{sf}"] = []
+            
+            for i in range(data[m][sf].shape[1]):
+                logits = np.array([data[m][sf][:, i, :]])
                 unc = unc_measure(logits)[0]
-                uncertainties[f"{sf:.2f}"].append(unc)
+                uncertainties[f"{sf}"].append(unc)
     
     uncertainties_df = pd.DataFrame(uncertainties)
     
-    x = uncertainties_df.columns
+    x = classes
     y = []
     low = []
     high = []
-    for col in x:
+    for col in uncertainties_df.columns:
         mean = np.mean(uncertainties_df[col])
         y.append(mean)
         std = np.std(uncertainties_df[col])
@@ -112,17 +114,24 @@ def sf_plot(summary, conf_matrix, classes, test_classes, training_method, save_d
         acc_fig.savefig(os.path.join(save_dir, f"{prefix}_acc_matrix.pdf"))
     else:
         acc_fig.savefig(os.path.join(save_dir, f"acc_matrix.pdf"))
-    '''
+    
     unc_fig, unc_axes = sub(3, figwidth=16, ncols=1)
     unc_functions = [variation_ratio, predictive_entropy, mutual_information]
     unc_titles = ['Variation Ratio', 'Predictive Entropy', 'Mutual Information']
 
     for i in range(len(unc_axes)):
-        uncertainty_graph(summary, unc_functions[i], training_method, ax=unc_axes[i])
+        uncertainty_graph(
+            summary,
+            unc_functions[i],
+            test_classes,
+            methods,
+            training_method,
+            ax=unc_axes[i]
+        )
         unc_axes[i].set_title(unc_titles[i])
         
     if prefix:
         unc_fig.savefig(os.path.join(save_dir, f"{prefix}_uncertainties.pdf"))
     else:
         unc_fig.savefig(os.path.join(save_dir, "uncertainties.pdf"))
-    '''
+    
