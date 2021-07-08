@@ -34,7 +34,7 @@ class TemperatureScaling(ABC):
         self.temperature = tf.Variable(1, trainable=True, dtype=tf.float32)
         with progressbar.ProgressBar(widgets=[progressbar.Variable('ECE_Loss')]) as bar:
             for i in bar(range(epochs)):
-                if loss < 0.01 or self.temperature < 0.1:
+                if loss < 0.001 or self.temperature < 0.01:
                     break
                 total_loss = 0.0
                 runs = 0
@@ -54,7 +54,8 @@ class TemperatureScaling(ABC):
                     runs += 1
                 bar.update(i, ECE_Loss=total_loss / runs)
 
-    def set_temp(self, data, save_dir=None, strategy=None, epochs=100, lr=1e-3):
+    def set_temp(self, data, save_dir=None, strategy=None, epochs=100, lr=1e-3,
+                 only_init=False):
         """Use validation dataset to calibrate the model."""
         logits_list = []
         labels_list = []
@@ -79,6 +80,10 @@ class TemperatureScaling(ABC):
             num_classes, init_logits, init_labels, return_conf=True)
         self.plot_conf(init_ece_loss, init_acc, init_conf, save_dir,
                        title="init")
+
+        if only_init:
+            logger.info("Not setting temperature.")
+            return
 
         # train to find temperature
         opt = tf.optimizers.Adam(learning_rate=lr)

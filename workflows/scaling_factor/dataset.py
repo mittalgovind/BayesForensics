@@ -27,7 +27,7 @@ class ScalingFactorDataset(Dataset):
             scales,
             sampling_method,
             n_classes,
-            jpeg_quality,
+            jpeg_quality=None,
             codec=None,
             crop_size=64,
             **kwargs,
@@ -68,7 +68,7 @@ class ScalingFactorDataset(Dataset):
         self.val_batch = tf.convert_to_tensor(list(
             self.data["validation"]["y"].unbatch())[:self.batch_size])
         if codec:
-            if "," in jpeg_quality:
+            if jpeg_quality and "," in jpeg_quality:
                 jpeg_quality = jpeg_quality.split(',')
                 self.lower_quality, self.higher_quality = int(jpeg_quality[0]),\
                                                 int(jpeg_quality[1])
