@@ -192,10 +192,9 @@ class ScalingFactorDataset(Dataset):
         for m, method in enumerate(self.test_methods):
             if self.random_method:
                 self.sampling_method = method
-            for s, sf in enumerate(
-                    tf.data.Dataset.from_tensor_slices(self.classes[:-1])):
+            for s, sf in enumerate(self.classes[:-1]):
                 for batch in self.data["calibration"]["y"]:
-                    yield self.preprocess_batch(batch, training=False, sf=sf)
+                    yield self.preprocess_batch(batch, training=False, sf=sf, **kwargs)
 
     def get_training_generator(self, discard="flat", gamma=False,
                                brighten=False, rotate=False, **kwargs):
