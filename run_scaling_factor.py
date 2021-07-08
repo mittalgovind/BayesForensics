@@ -20,7 +20,7 @@ from helpers.utils import setup_logging, perreplica_to_tensor
 from helpers.tf_helpers import disable_gpu, get_callbacks
 from workflows.scaling_factor import (
     ScalingFactorDataset,
-    distributed_validate,
+    validate,
     parse_args,
     ScalingFactor,
     sf_plot,
@@ -165,6 +165,7 @@ def main():
             # -1 because of an error of val_loss being nan for last class
             validation_steps=(args.n_classes - 1) * len(data.test_methods),
         )
+        model.save_model(args.save_dir)
         # save the training performance
         history = train_performance.history
         cache.save(history, step="performance")
@@ -188,10 +189,10 @@ def main():
         float(args.scales.split(",")[1])
     )
     train_classes = tf.linspace(*train_scales, num=args.n_classes)
-    tests_summary, conf_matrix = distributed_validate(
+    tests_summary, conf_matrix = validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
         uncertainty_method=args.uncertainty_method, test_classes=train_classes,
-        strategy=strategy, num_runs=args.num_runs, prefix='normal_range'
+        num_runs=args.num_runs, prefix='normal_range'
     )
     
     tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))
@@ -209,10 +210,10 @@ def main():
     )
     train_classes = tf.linspace(*train_scales, num=args.n_classes * 5)
     
-    tests_summary, conf_matrix = distributed_validate(
+    tests_summary, conf_matrix = validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
         uncertainty_method=args.uncertainty_method, test_classes=train_classes,
-        strategy=strategy, num_runs=args.num_runs, prefix='in_range'
+        num_runs=args.num_runs, prefix='in_range'
     )
     
     tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))
@@ -234,10 +235,10 @@ def main():
         raise ValueError("Test scales should be comma-separated pair/triplet.")
         
     test_classes = tf.linspace(*test_scales, num=args.test_n_classes)
-    tests_summary, conf_matrix = distributed_validate(
+    tests_summary, conf_matrix = validate(
          model=model, data=data, batch_size=args.batch_size, cache=cache,
          uncertainty_method=args.uncertainty_method, test_classes=test_classes,
-         strategy=strategy, num_runs=args.num_runs, prefix='out_of_range'
+         num_runs=args.num_runs, prefix='out_of_range'
     )
 
     tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))

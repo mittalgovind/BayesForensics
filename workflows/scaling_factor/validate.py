@@ -107,15 +107,3 @@ def validate(model, data, batch_size, cache, uncertainty_method,
             cache.save(performance, step="performance")
 
     return logits, conf_matrix
-
-
-# @tf.function
-def distributed_validate(model, data, batch_size, cache, uncertainty_method,
-                         test_classes, strategy=None, num_runs=50, prefix=None):
-    if strategy:
-        return strategy.run(validate, args=(model, data, batch_size, cache,
-                                            uncertainty_method, test_classes,
-                                            num_runs, prefix))
-    else:
-        return validate(model, data, batch_size, cache,
-                        uncertainty_method, test_classes, num_runs, prefix)
