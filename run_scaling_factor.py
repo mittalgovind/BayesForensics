@@ -6,6 +6,7 @@
 
 # Standard libraries
 import os
+import sys
 
 # External libraries
 import numpy as np
@@ -31,7 +32,7 @@ from workflows.scaling_factor import (
 def main():
     setup_logging()
     args = parse_args()
-    logger.info("Arguments running : ", args)
+    logger.info("Arguments running : {}".format(args))
     args.parameters = load_parameters(args.parameters)
     if args.cpu:
         disable_gpu()
@@ -62,6 +63,8 @@ def main():
     else:
         os.makedirs(args.save_dir)
 
+    if not os.path.isdir(args.save_dir):
+        raise RuntimeError("Saving directory could not be created")
     # initializations
     args.codec = args.codec if args.jpeg_compression else None
     cache = ResultCache(["{step}.npz"], prefix=args.save_dir)
