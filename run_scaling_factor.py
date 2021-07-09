@@ -31,8 +31,8 @@ from workflows.scaling_factor import (
 def main():
     setup_logging()
     args = parse_args()
+    logger.info("Arguments running : ", args)
     args.parameters = load_parameters(args.parameters)
-
     if args.cpu:
         disable_gpu()
 
