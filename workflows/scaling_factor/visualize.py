@@ -59,7 +59,7 @@ def uncertainty_graph(data, unc_measure, classes, methods, sampling_method, ax=N
                 uncertainties[f"{sf}"] = []
             
             for i in range(data[m][sf].shape[1]):
-                logits = np.array([data[m][sf][:, i, :]])
+                logits = np.array([data[m][sf][i, :]])
                 unc = unc_measure(logits)[0]
                 uncertainties[f"{sf}"].append(unc)
     

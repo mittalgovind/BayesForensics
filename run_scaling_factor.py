@@ -6,7 +6,6 @@
 
 # Standard libraries
 import os
-import sys
 
 # External libraries
 import numpy as np
@@ -200,8 +199,8 @@ def main():
         num_runs=args.num_runs, prefix='normal_range'
     )
     
-    tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))
-    conf_matrix = np.array(perreplica_to_tensor(conf_matrix, strategy))
+    tests_summary = np.array(tests_summary)
+    conf_matrix = np.array(conf_matrix)
 
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
             args.sampling_method, args.save_dir, prefix='normal_range')
@@ -221,8 +220,8 @@ def main():
         num_runs=args.num_runs, prefix='in_range'
     )
     
-    tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))
-    conf_matrix = np.array(perreplica_to_tensor(conf_matrix, strategy))
+    tests_summary = np.array(tests_summary)
+    conf_matrix = np.array(conf_matrix)
 
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
             args.sampling_method, args.save_dir, prefix='in_range')
@@ -246,8 +245,8 @@ def main():
          num_runs=args.num_runs, prefix='out_of_range'
     )
 
-    tests_summary = np.array(perreplica_to_tensor(tests_summary, strategy))
-    conf_matrix = np.array(perreplica_to_tensor(conf_matrix, strategy))
+    tests_summary = np.array(tests_summary)
+    conf_matrix = np.array(conf_matrix)
     
     sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
             args.sampling_method, args.save_dir, prefix='out_of_range')

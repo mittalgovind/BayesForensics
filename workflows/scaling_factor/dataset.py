@@ -133,12 +133,12 @@ class ScalingFactorDataset(Dataset):
                 randint(minval=6, maxval=10, seed=self.seed), 10), tf.float32)
             batch = tf.image.adjust_gamma(batch, gamma=gamma)
 
+        if tf.math.reduce_max(batch) > 1:
+            batch = tf.math.divide(batch, 255)
         # Resize batch.
         rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
-                                          method=m)
-        if tf.math.reduce_max(rescaled_images) > 1:
-            rescaled_images = tf.math.divide(rescaled_images, 255)
-
+                                          method=m, antialias=True)
+        rescaled_images = tf.clip_by_value(rescaled_images, 0, 1)
         rescaled_images = self.crop_middle(rescaled_images)
 
         # Convert to JPEG if a codec is passed.
