@@ -181,10 +181,6 @@ def main():
         fig = perf(history, alpha=0.1)
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
         
-        fig, ax = plt.subplots()
-        ax.hist(np.array(data.seen_sfs), bins=len(data.classes))
-        fig.savefig(os.path.join(args.save_dir, "seen_sfs.png"))
-
     if args.calibrate:
         logger.info("Started Calibration")
         model.set_temp(data=data, save_dir=args.save_dir)
