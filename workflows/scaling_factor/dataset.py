@@ -30,6 +30,7 @@ class ScalingFactorDataset(Dataset):
             jpeg_quality=None,
             codec=None,
             crop_size=64,
+            normalize=True,
             **kwargs,
     ):
         """
@@ -80,7 +81,8 @@ class ScalingFactorDataset(Dataset):
                 logger.info('Using libjpeg will be slowing the computation.')
         else:
             self.codec = None
-        self.seen_sfs = []
+
+        self.normalize = normalize
 
     def preprocess_batch(self, batch, training=False, **kwargs):
         """
@@ -109,7 +111,6 @@ class ScalingFactorDataset(Dataset):
             # changed to sampling from finite set instead of infinite
             class_id = randint(maxval=self.n_classes, seed=self.seed)
             sf = self.classes[class_id]
-            self.seen_sfs.append(sf.numpy())
         else:
             raise RuntimeError("Pass an sf value when not training")
 
@@ -133,13 +134,13 @@ class ScalingFactorDataset(Dataset):
                 randint(minval=6, maxval=10, seed=self.seed), 10), tf.float32)
             batch = tf.image.adjust_gamma(batch, gamma=gamma)
 
-        if tf.math.reduce_max(batch) > 1:
+        if self.normalize:
             batch = tf.math.divide(batch, 255)
         # Resize batch.
         rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
                                           method=m, antialias=True)
         rescaled_images = tf.clip_by_value(rescaled_images, 0, 1)
-        rescaled_images = self.crop_middle(rescaled_images)
+        rescaled_images = self.crop_middle(rescaled_images, resized_size)
 
         # Convert to JPEG if a codec is passed.
         if self.codec:
@@ -153,9 +154,8 @@ class ScalingFactorDataset(Dataset):
 
         return rescaled_images, sf_labels
 
-    def crop_middle(self, images):
-        shape = images.shape
-        start = (shape[1] - self.crop_size) // 2
+    def crop_middle(self, images, resized_size):
+        start = (resized_size - self.crop_size) // 2
         return tf.slice(
             images, begin=[0, start, start, 0],
             size=[len(images), self.crop_size, self.crop_size, self.channels]
