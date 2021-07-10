@@ -161,10 +161,10 @@ def parse_args():
         help="Use presampled imagenet val data.",
     )
     parser.add_argument(
-        "--antialias",
+        "--no-antialias",
         action="store_false",
         default=True,
-        help="Use antialiasing during resizing.",
+        help="Do not use antialiasing during resizing.",
     )
     parser.add_argument(
         "-eps",
