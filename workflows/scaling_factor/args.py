@@ -162,6 +162,7 @@ def parse_args():
     )
     parser.add_argument(
         "--no-antialias",
+        dest="antialias",
         action="store_false",
         default=True,
         help="Do not use antialiasing during resizing.",
