@@ -31,6 +31,7 @@ class ScalingFactorDataset(Dataset):
             codec=None,
             crop_size=64,
             normalize=True,
+            antialias=True,
             **kwargs,
     ):
         """
@@ -54,6 +55,7 @@ class ScalingFactorDataset(Dataset):
         """
         super().__init__(**kwargs)
         self.crop_size = crop_size
+        self.antialias = antialias
         self.scales = (float(scales.split(",")[0]),
                        float(scales.split(",")[1]))
         self.sampling_method = sampling_method
@@ -138,7 +140,7 @@ class ScalingFactorDataset(Dataset):
             batch = tf.math.divide(batch, 255)
         # Resize batch.
         rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
-                                          method=m, antialias=True)
+                                          method=m, antialias=self.antialias)
         rescaled_images = tf.clip_by_value(rescaled_images, 0, 1)
         rescaled_images = self.crop_middle(rescaled_images, resized_size)
 
