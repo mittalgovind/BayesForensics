@@ -50,6 +50,10 @@ def main():
                        " 1. Setting number of models to 5.")
         args.num_models = 5
 
+    if args.uncertainty_method in ["flipout", "reparameterization"]:
+        args.parameters["dense_dropout"] = 0
+
+
     # Check for saving directory
     if os.path.isdir(os.path.abspath(args.save_dir)):
         if not args.overwrite:

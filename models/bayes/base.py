@@ -74,18 +74,16 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         self.model_created = False
 
         # Depending on method, Conv2D, Dense and Dropout layers are chosen.
+        self.conv2d = tf.keras.layers.Conv2D
         if "mc" in uncertainty_method:
-            self.conv2d = tf.keras.layers.Conv2D
             self.dropout = MCDropoutLayer
             self.dense = tf.keras.layers.Dense
         
         elif uncertainty_method == "dropconnect":
-            self.conv2d = tf.keras.layers.Conv2D
             self.dropout = DropConnectLayer
             self.dense = tf.keras.layers.Dense
 
         elif uncertainty_method == "flipout":
-            self.conv2d = tfp.layers.Convolution2DFlipout
             self.dropout = tf.keras.layers.Dropout
             self.dense = tfp.layers.DenseFlipout
             kl_divergence_function = (
@@ -94,7 +92,6 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             )
 
         elif uncertainty_method == "reparameterization":
-            self.conv2d = tfp.layers.Convolution2DReparameterization
             self.dropout = tf.keras.layers.Dropout
             self.dense = tfp.layers.DenseReparameterization
             kl_divergence_function = (
@@ -103,7 +100,6 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             )
 
         else:
-            self.conv2d = tf.keras.layers.Conv2D
             self.dropout = tf.keras.layers.Dropout
             self.dense = tf.keras.layers.Dense
 

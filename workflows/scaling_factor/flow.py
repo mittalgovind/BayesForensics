@@ -121,7 +121,7 @@ class ScalingFactor(BayesBaseModel):
                             kernel_size=self._h.kernel,
                             padding='same',
                             activation=self.activation,
-                            **self.uncertainty_method_args
+                            # **self.uncertainty_method_args
                             )
             )
             if self._h.use_bn:
@@ -135,7 +135,7 @@ class ScalingFactor(BayesBaseModel):
                 int(filters // self._h.filter_multiplier),
                 kernel_size=1, padding='same',
                 activation=self.activation,
-                **self.uncertainty_method_args
+                # **self.uncertainty_method_args
             )
         )
         if self._h.use_gap:
