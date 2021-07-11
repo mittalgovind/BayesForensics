@@ -30,7 +30,6 @@ class ScalingFactorDataset(Dataset):
             jpeg_quality=None,
             codec=None,
             crop_size=64,
-            normalize=True,
             antialias=True,
             **kwargs,
     ):
@@ -84,8 +83,6 @@ class ScalingFactorDataset(Dataset):
         else:
             self.codec = None
 
-        self.normalize = normalize
-
     def preprocess_batch(self, batch, training=False, **kwargs):
         """
         Resize a batch with the desired scaling factor and sampling method.
@@ -136,7 +133,7 @@ class ScalingFactorDataset(Dataset):
                 randint(minval=6, maxval=10, seed=self.seed), 10), tf.float32)
             batch = tf.image.adjust_gamma(batch, gamma=gamma)
 
-        if self.normalize:
+        if tf.reduce_max(batch) > 1:
             batch = tf.math.divide(batch, 255)
         # Resize batch.
         rescaled_images = tf.image.resize(batch, [resized_size, resized_size],
