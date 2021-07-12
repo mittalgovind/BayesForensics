@@ -37,7 +37,7 @@ def variation_ratio(logits, get_all=False):
     else:
         probs = logits
     means = probs.mean(axis=-2)
-    var_ratio = 1 - means[np.arange(means.shape[0]), np.argmax(means, axis=-1)]
+    var_ratio = 1 - means[np.arange(means.shape[-3]), np.argmax(means, axis=-1)]
     return var_ratio
 
 
