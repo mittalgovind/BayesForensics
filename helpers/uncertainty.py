@@ -8,7 +8,8 @@
 
 # External libraries
 import numpy as np
-import scipy
+from scipy.special import softmax
+from scipy.stats import mode
 
 # Internal libraries
 
@@ -19,7 +20,7 @@ MIN = -int(2e16)
 def get_pred(logits):
     # logits.shape = (None, ..., num_runs, batch_size, num_classes)
     pred_per_run = np.argmax(logits, axis=-1)
-    return scipy.stats.mode(pred_per_run, axis=1)[0].squeeze()
+    return mode(pred_per_run, axis=-2)[0].squeeze()
 
 
 def get_probs(logits):
@@ -27,7 +28,7 @@ def get_probs(logits):
     # make it batch_first
     # (None, ..., batch_size, num_runs, num_classes)
     transpose_shape = np.arange(len(logits.shape) - 3).tolist() + [-2, -3, -1]
-    return scipy.special.softmax(logits.transpose(transpose_shape), axis=-1)
+    return softmax(logits.transpose(transpose_shape), axis=-1)
 
 
 def variation_ratio(logits, get_all=False):
