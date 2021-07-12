@@ -7,10 +7,8 @@
 # Standard libraries
 
 # External libraries
-from scipy.stats import mode
-from scipy.special import softmax
 import numpy as np
-import tensorflow as tf
+import scipy
 
 # Internal libraries
 
@@ -21,7 +19,7 @@ MIN = -int(2e16)
 def get_pred(logits):
     # logits.shape = (None, ..., num_runs, batch_size, num_classes)
     pred_per_run = np.argmax(logits, axis=-1)
-    return stats.mode(pred_per_run, axis=1)[0].squeeze()
+    return scipy.stats.mode(pred_per_run, axis=1)[0].squeeze()
 
 
 def get_probs(logits):
