@@ -18,6 +18,7 @@ MAX = int(2e16)
 MIN = -int(2e16)
 
 
+@tf.function(experimental_compile=True)
 def get_pred(logits):
     # logits.shape = (num_runs, batch_size, num_classes)
     # make it batch_first
@@ -30,6 +31,7 @@ def get_pred(logits):
     return batch_pred
 
 
+@tf.function(experimental_compile=True)
 def get_probs_passes_logits(logits):
     # logits.shape = (num_runs, batch_size, num_classes)
     # make it batch_first
@@ -40,6 +42,7 @@ def get_probs_passes_logits(logits):
     return probs, n_passes, logits
 
 
+@tf.function(experimental_compile=True)
 def variation_ratio(logits):
     probs, n_passes, _ = get_probs_passes_logits(logits)
     means = np.array([[np.sum(c) / n_passes for c in run.T] for run in probs])
@@ -47,6 +50,7 @@ def variation_ratio(logits):
     return var_ratio
 
 
+@tf.function(experimental_compile=True)
 def predictive_entropy(logits):
     probs, n_passes, _ = get_probs_passes_logits(logits)
     means = np.array([[np.sum(c) / n_passes for c in run.T] for run in probs])
@@ -57,6 +61,7 @@ def predictive_entropy(logits):
     return pred_ent
 
 
+@tf.function(experimental_compile=True)
 def mutual_information(logits):
     probs, n_passes, logits = get_probs_passes_logits(logits)
     pred_ent = predictive_entropy(logits)
