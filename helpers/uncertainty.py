@@ -43,11 +43,17 @@ def variation_ratio(logits, get_all=False):
 
 def predictive_entropy(logits, get_all=False, return_probs=False):
     if not get_all:
+        # (None, ..., batch_size, num_runs, num_classes)
         probs = get_probs(logits)
     else:
         probs = logits
+
+    # (None, ..., batch_size, num_classes)
     means = np.clip(probs.mean(axis=-2), 1e-16, None)
+
+    # (None, ..., batch_size)
     pred_ent = -np.sum(np.multiply(means, np.log2(means)), axis=-1)
+
     if return_probs:
         return pred_ent, probs
     else:
@@ -58,14 +64,20 @@ def mutual_information(logits, get_all=False):
     if not get_all:
         entropy, probs = predictive_entropy(logits, return_probs=True)
     else:
+        # (None, ..., batch_size, num_runs, num_classes)
         probs = logits
+        # (None, ..., batch_size)
         entropy = predictive_entropy(probs, get_all=True)
 
+    # (None, ..., batch_size, num_runs, num_classes)
     probs = np.clip(probs, 1e-16, None)
+    # (None, ..., batch_size)
+    # mi = H(X) - H(X|Y) 
     exp_value = np.multiply(probs, np.log2(probs)).sum(axis=-1).mean(axis=-1)
     return np.abs(entropy + exp_value)
 
 
+# TODO rename get_all -> from_logits
 def get_all_uncertainties(logits):
     probs = get_probs(logits)
     return [variation_ratio(probs, get_all=True),

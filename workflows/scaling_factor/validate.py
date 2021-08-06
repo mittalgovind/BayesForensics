@@ -17,7 +17,7 @@ from helpers.uncertainty import get_pred
 
 def validate(model, data, batch_size, cache, uncertainty_method,
              test_classes, num_runs=50, prefix=None,
-             disable_temp_scaling=False):
+             disable_temp_scaling=True):
     performance = None
     len_test_classes = len(test_classes)
     len_test_methods = len(data.methods)
@@ -55,6 +55,8 @@ def validate(model, data, batch_size, cache, uncertainty_method,
     if disable_temp_scaling:
         temperature = 1.0
     else:
+        if uncertainty_method != "vanilla":
+            logger.warning("Doing temperature scaling on non-vanilla models.")
         temperature = model.temperature
 
     with progress_bar(len_test_methods * len_test_classes,
@@ -66,17 +68,19 @@ def validate(model, data, batch_size, cache, uncertainty_method,
                 for images, labels in data.get_validation_generator(sf=sf):
                     if uncertainty_method == "vanilla":
                         logits[m][s][i: i + batch_size] = model(
-                            images, training=False) / temperature
+                            images, training=False)
 
                     elif uncertainty_method == "ensemble":
                         logits[m][s][:, i: i + batch_size] = model(
-                            images, training=False) / temperature
+                            images, training=False)
 
                     else:
                         logits[m][s][:, i: i + batch_size] = [
-                            model(images, training=False) / temperature
+                            model(images, training=False)
                             for _ in range(num_runs)]
                     i += batch_size
+
+                logits /= temperature
 
                 if uncertainty_method == "vanilla":
                     predictions = np.argmax(logits[m][s], axis=-1)
