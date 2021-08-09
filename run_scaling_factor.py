@@ -77,6 +77,8 @@ def main():
     # Prepare model with mirrored strategy.
     with strategy.scope():
         model = ScalingFactor(**vars(args), **args.parameters)
+        if args.load_model:
+            model.load_model(os.path.abspath(args.load_model))
         optimizer = tf.keras.optimizers.Adam(args.lr)
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True
@@ -102,7 +104,7 @@ def main():
         loaded_val_data = None
         val_n_patches = 1
 
-    if args.load_model:
+    if not args.pretrained:
         logger.warning('As only validation dataset is being loaded, '
                        'please ensure a seed is passed explicitly.')
         data = ScalingFactorDataset(
@@ -114,7 +116,6 @@ def main():
             val_rgb_patch_size=args.patch_size,
             **vars(args)
         )
-        model.load_model(os.path.abspath(args.load_model))
     else:
         # load presampled training data
         if args.use_presampled:

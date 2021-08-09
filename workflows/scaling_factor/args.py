@@ -236,6 +236,12 @@ def parse_args():
         help="Enables GPU utilization.",
     )
     parser.add_argument(
+        "--pretrained",
+        action="store_true",
+        default=False,
+        help="Use a pretrained model for training further.",
+    )
+    parser.add_argument(
         "--gamma",
         action="store_true",
         default=False,
