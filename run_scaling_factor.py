@@ -104,7 +104,7 @@ def main():
         loaded_val_data = None
         val_n_patches = 1
 
-    if not args.pretrained:
+    if not args.pretrained and args.load_model:
         logger.warning('As only validation dataset is being loaded, '
                        'please ensure a seed is passed explicitly.')
         data = ScalingFactorDataset(
