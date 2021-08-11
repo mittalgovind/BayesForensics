@@ -183,6 +183,7 @@ def main():
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
         
     if args.calibrate:
+        # TODO model is not being saved as an object so temperature is deleted.
         logger.info("Started Calibration")
         model.set_temp(data=data, save_dir=args.save_dir)
    
@@ -200,13 +201,12 @@ def main():
         num_runs=args.num_runs, prefix='normal_range'
     )
     
-    tests_summary = np.array(tests_summary)
-    conf_matrix = np.array(conf_matrix)
+    if not args.only_logits:
+        tests_summary = np.array(tests_summary)
+        conf_matrix = np.array(conf_matrix)
+        sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
+                args.sampling_method, args.save_dir, prefix='normal_range')
 
-    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
-            args.sampling_method, args.save_dir, prefix='normal_range')
-
-    
     logger.info("Started Testing (2/3)")
 
     train_scales = (
@@ -221,12 +221,11 @@ def main():
         num_runs=args.num_runs, prefix='in_range'
     )
     
-    tests_summary = np.array(tests_summary)
-    conf_matrix = np.array(conf_matrix)
-
-    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
-            args.sampling_method, args.save_dir, prefix='in_range')
-    
+    if not args.only_logits:
+        tests_summary = np.array(tests_summary)
+        conf_matrix = np.array(conf_matrix)
+        sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
+                args.sampling_method, args.save_dir, prefix='in_range')
     
     logger.info("Started Testing (3/3)")
 
@@ -246,11 +245,11 @@ def main():
          num_runs=args.num_runs, prefix='out_of_range'
     )
 
-    tests_summary = np.array(tests_summary)
-    conf_matrix = np.array(conf_matrix)
-    
-    sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
-            args.sampling_method, args.save_dir, prefix='out_of_range')
+    if not args.only_logits:
+        tests_summary = np.array(tests_summary)
+        conf_matrix = np.array(conf_matrix)
+        sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
+                args.sampling_method, args.save_dir, prefix='out_of_range')
     
 
 if __name__ == "__main__":

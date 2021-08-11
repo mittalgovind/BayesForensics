@@ -302,6 +302,11 @@ def parse_args():
         help="Number of classes in the range defined by scales argument",
     )
     parser.add_argument(
+        "--only-logits", default=False,
+        action="store_true",
+        help="Only saves logits to cache and does not output plots."
+    )
+    parser.add_argument(
         "--crop-size",
         default=64,
         type=int,
