@@ -69,11 +69,15 @@ class ScalingFactorDataset(Dataset):
         self.n_classes = n_classes
         self.val_batch = tf.convert_to_tensor(list(
             self.data["validation"]["y"].unbatch())[:self.batch_size])
+        self.training_range = (int(self.train_rgb_patch_size * self.scales[0]),
+                               int(self.train_rgb_patch_size * self.scales[1]))
+        self.training_classes = tf.range(self.training_range[0],
+                                         self.training_range[1] + 1, 31)
         if codec:
             if jpeg_quality and "," in jpeg_quality:
                 jpeg_quality = jpeg_quality.split(',')
-                self.lower_quality, self.higher_quality = int(jpeg_quality[0]),\
-                                                int(jpeg_quality[1])
+                self.lower_quality, self.higher_quality = int(jpeg_quality[0]), \
+                                                          int(jpeg_quality[1])
                 self.codec = TFJPEG(quality=None, codec=codec)
             else:
                 self.lower_quality, self.higher_quality = None, None
@@ -106,17 +110,25 @@ class ScalingFactorDataset(Dataset):
             sf = kwargs['sf']
             class_id = tf.math.floor(
                 tf.math.multiply(self.class_multiplier, sf - self.classes[0]))
+            resized_size = tf.cast(tf.math.multiply(
+                sf, self.val_rgb_patch_size), tf.int32)
         elif training:
             # changed to sampling from finite set instead of infinite
-            class_id = randint(maxval=self.n_classes, seed=self.seed)
-            sf = self.classes[class_id]
+
+            # class_id = randint(maxval=self.n_classes, seed=self.seed)
+            # sf = self.classes[class_id]
+            resized_size = randint(minval=self.training_range[0],
+                                   maxval=self.training_range[1],
+                                   seed=self.seed)
+            class_id = tf.math.argmin(
+                tf.abs(self.training_classes - resized_size))
         else:
             raise RuntimeError("Pass an sf value when not training")
 
-        patch_size = self.train_rgb_patch_size \
-            if training else self.val_rgb_patch_size
+        # patch_size = self.train_rgb_patch_size \
+        #     if training else self.val_rgb_patch_size
 
-        resized_size = tf.cast(tf.math.multiply(sf, patch_size), tf.int32)
+        # resized_size = tf.cast(tf.math.multiply(sf, patch_size), tf.int32)
         # Choose sampling method.
         if training and self.random_method:
             m = self.methods[randint(maxval=len(self.methods), seed=self.seed)]
@@ -144,8 +156,10 @@ class ScalingFactorDataset(Dataset):
         # Convert to JPEG if a codec is passed.
         if self.codec:
             if self.lower_quality:
-                rand_quality = randint(self.lower_quality, self.higher_quality, self.seed)
-                rescaled_images = self.codec.process(rescaled_images, quality=rand_quality)
+                rand_quality = randint(self.lower_quality, self.higher_quality,
+                                       self.seed)
+                rescaled_images = self.codec.process(rescaled_images,
+                                                     quality=rand_quality)
             else:
                 rescaled_images = self.codec.process(rescaled_images)
 
@@ -193,7 +207,8 @@ class ScalingFactorDataset(Dataset):
                 self.sampling_method = method
             for s, sf in enumerate(self.classes[:-1]):
                 for batch in self.data["calibration"]["y"]:
-                    yield self.preprocess_batch(batch, training=False, sf=sf, **kwargs)
+                    yield self.preprocess_batch(batch, training=False, sf=sf,
+                                                **kwargs)
 
     def get_training_generator(self, discard="flat", gamma=False,
                                brighten=False, rotate=False, **kwargs):
@@ -219,18 +234,18 @@ class ScalingFactorDataset(Dataset):
             self.get_training_generator,
             args=(discard, gamma, brighten, rotate),
             output_signature=(
-            tf.TensorSpec((self.batch_size, self.crop_size,
-                           self.crop_size, 3),
-                          tf.float32),
-            tf.TensorSpec((self.batch_size,), tf.float32)),
+                tf.TensorSpec((self.batch_size, self.crop_size,
+                               self.crop_size, 3),
+                              tf.float32),
+                tf.TensorSpec((self.batch_size,), tf.float32)),
         )
 
     def get_validation_pipeline(self):
         return tf.data.Dataset.from_generator(
             self.get_validation_generator,
             output_signature=(
-            tf.TensorSpec((self.batch_size, self.crop_size,
-                           self.crop_size, 3),
-                          tf.float32),
-            tf.TensorSpec((self.batch_size,), tf.float32)),
+                tf.TensorSpec((self.batch_size, self.crop_size,
+                               self.crop_size, 3),
+                              tf.float32),
+                tf.TensorSpec((self.batch_size,), tf.float32)),
         )
