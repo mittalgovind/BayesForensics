@@ -71,8 +71,9 @@ class ScalingFactorDataset(Dataset):
             self.data["validation"]["y"].unbatch())[:self.batch_size])
         self.training_range = (int(self.train_rgb_patch_size * self.scales[0]),
                                int(self.train_rgb_patch_size * self.scales[1]))
-        self.training_classes = tf.range(self.training_range[0],
-                                         self.training_range[1] + 1, 31)
+        self.training_classes = tf.cast(
+            tf.linspace(self.training_range[0], self.training_range[1],
+                        self.n_classes), tf.int32)
         if codec:
             if jpeg_quality and "," in jpeg_quality:
                 jpeg_quality = jpeg_quality.split(',')

@@ -162,9 +162,13 @@ def main():
             update_freq=args.validation_freq,
             steps_per_epoch=steps_per_epoch
         )
+
+
+
             
         # Start training
         train_performance = model._model.fit(
+
             x=train_data,
             validation_data=val_data,
             epochs=args.epochs,
@@ -189,7 +193,7 @@ def main():
    
   
     logger.info("Started Testing (1/3)")
-    
+
     train_scales = (
         float(args.scales.split(",")[0]),
         float(args.scales.split(",")[1])
