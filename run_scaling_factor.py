@@ -191,7 +191,7 @@ def main():
         logger.info("Started Calibration")
         model.set_temp(data=data, save_dir=args.save_dir)
    
-  
+    """  
     logger.info("Started Testing (1/3)")
 
     train_scales = (
@@ -230,7 +230,7 @@ def main():
         conf_matrix = np.array(conf_matrix)
         sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
                 args.sampling_method, args.save_dir, prefix='in_range')
-    
+    """
     logger.info("Started Testing (3/3)")
 
     test_scales = args.test_scales.split(",")
