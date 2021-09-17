@@ -208,7 +208,7 @@ class DifferentiableJPEG(tf.keras.Model):
             # Approximate quantization
             with tf.name_scope("quantization"):
                 # Tile quantization values for successive channels:
-                # image_0 [R .. R G .. G B .. B] ... image_N [R .. R G .. G B .. B]
+                # image_0 [Y .. Y Cb .. Cb Cr .. Cr] ... image_N [Y .. Y Cb.. Cb Cr .. Cr]
                 Ql = tf.tile(
                     tf.expand_dims(self._q_mtx_luma, axis=0),
                     [1 * (tf.shape(p)[-1]), 1, 1],

@@ -83,9 +83,8 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
         if residual_type == "trainable":
             self.residual = ConstrainedConv2D(trainable=True)
         elif residual_type == "pywt":
-            self.residual = None
             # as input already contains the filter.
-            self.channels = 6
+            self.residual = None
         else:
             self.residual = None
 

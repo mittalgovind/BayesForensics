@@ -68,9 +68,6 @@ class DoubleCompressionDataset(Dataset):
             logger.info('Using libjpeg will be slowing the computation.')
 
         self.eval_mode = False
-        if calc_pywt_residual:
-            self.channels = 6
-
         self.qf_val_pairs = [(q1, q2) for q1 in self.qf_train
                              for q2 in self.qf_train if q1 > q2]
         self.per_batch_sub = per_batch_sub
@@ -95,7 +92,8 @@ class DoubleCompressionDataset(Dataset):
             self.codec.process(batch, QF1), QF2)
         images = tf.concat((batch_single_compressed, batch_double_compressed),
                            axis=0)
-        images = tf.math.divide(images, 255)
+        if tf.reduce_max(images) > 255:
+            images = tf.math.divide(images, 255)
         labels = tf.concat((tf.zeros(self.batch_size),
                             tf.ones(self.batch_size)), axis=0)
 
@@ -174,9 +172,8 @@ class DoubleCompressionDataset(Dataset):
             for ycbcr in tqdm(ycbcrs):
                 residuals.append(self._noise_extract(ycbcr))
             residuals = np.array(residuals)
-            self.data[split]["y"] = np.concatenate((self.data[split]["y"],
-                                                    residuals), axis=-1)
-        logger.info("Residuals appended to each patch.")
+            self.data[split]["y"] = residuals
+        logger.info("Residuals replaced each patch.")
 
     def preprocess_dataset(self, **kwargs):
         """Append pywt residual"""

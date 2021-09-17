@@ -240,7 +240,7 @@ class Dataset(object):
             patches = tf.concat((patches, patch), axis=0)
         return patches
 
-    @tf.function(experimental_compile=True)
+    # @tf.function(experimental_compile=True)
     def compiled_sample_patches(self, batch, discard, **kwargs):
         return self.uncompiled_sample_patches(batch, discard, **kwargs)
 
