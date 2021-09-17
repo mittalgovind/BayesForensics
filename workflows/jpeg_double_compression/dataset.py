@@ -41,7 +41,7 @@ class DoubleCompressionDataset(Dataset):
         calc_pywt_residual : bool
             Flag for calculate PyWavelet residual
         """
-        super().__init__(preprocess_data=calc_pywt_residual, **kwargs)
+        super().__init__(**kwargs)
 
         qf_train = qf_train.split(",")
         if len(qf_train) == 2:
@@ -52,7 +52,7 @@ class DoubleCompressionDataset(Dataset):
             logger.error("Invalid training quality factor range")
         self.qf_train = tf.convert_to_tensor(np.arange(*qf_train))
         self.len_qf_train = len(self.qf_train)
-
+        self.calc_pywt_residual = calc_pywt_residual
         qf_test = qf_test.split(",")
         if len(qf_test) == 2:
             qf_test = (int(qf_test[0]), int(qf_test[1]))
@@ -92,6 +92,8 @@ class DoubleCompressionDataset(Dataset):
             self.codec.process(batch, QF1), QF2)
         images = tf.concat((batch_single_compressed, batch_double_compressed),
                            axis=0)
+        if self.calc_pywt_residual:
+            images = self.extract_pywt_residual(images)
         if tf.reduce_max(images) > 255:
             images = tf.math.divide(images, 255)
         labels = tf.concat((tf.zeros(self.batch_size),
@@ -103,7 +105,7 @@ class DoubleCompressionDataset(Dataset):
     def _noise_extract(im: np.ndarray, levels: int = 4, sigma: float = 4):
         """
         NoiseExtract as from Binghamton toolbox.
-        :param im: grayscale or color image, np.uint8
+        :param im: grayscale or color image, np.uint8 (shape =
         :param levels: number of wavelet decomposition levels
         :param sigma: estimated noise power
         :return: noise residual
@@ -151,33 +153,46 @@ class DoubleCompressionDataset(Dataset):
 
         return W
 
-    def extract_pywt_residual(self):
+    def extract_pywt_residual(self, batch):
         """Calculate and append an external filter to all the patches."""
         logger.info("Calculating PyWavelet residuals ...")
-        # TODO Ask Pawel to verify this
         color_F = np.array(
             [[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5],
              [128, 0.5, -0.418688, -0.081312]], dtype=np.float32)
         color_F = tf.reshape(tf.transpose(color_F), [1, 1, 4, 3])
-        for split in ["training", "validation", "calibration"]:
-            if 'y' not in self.data[split].keys():
-                continue
 
-            data = tf.cast(self.data[split]['y'], tf.float32)
-            xc = tf.pad(data, [[0, 0], [0, 0], [0, 0], [1, 0]], 'CONSTANT',
-                        constant_values=1)
-            ycbcrs = tf.nn.conv2d(xc, color_F, [1, 1, 1, 1], 'SAME').numpy()
+        xc = tf.pad(batch, [[0, 0], [0, 0], [0, 0], [1, 0]], 'CONSTANT',
+                    constant_values=1)
+        ycbcrs = tf.nn.conv2d(xc, color_F, [1, 1, 1, 1], 'SAME').numpy()
 
-            residuals = list()
-            for ycbcr in tqdm(ycbcrs):
-                residuals.append(self._noise_extract(ycbcr))
-            residuals = np.array(residuals)
-            self.data[split]["y"] = residuals
-        logger.info("Residuals replaced each patch.")
+        residuals = list()
+        for ycbcr in tqdm(ycbcrs):
+            residuals.append(self._noise_extract(ycbcr))
+        return tf.convert_to_tensor(residuals)
 
-    def preprocess_dataset(self, **kwargs):
-        """Append pywt residual"""
-        return self.extract_pywt_residual()
+    #
+    # def extract_pywt_residual(self):
+    #     """Calculate and append an external filter to all the patches."""
+    #     logger.info("Calculating PyWavelet residuals ...")
+    #     color_F = np.array(
+    #         [[0, 0.299, 0.587, 0.114], [128, -0.168736, -0.331264, 0.5],
+    #          [128, 0.5, -0.418688, -0.081312]], dtype=np.float32)
+    #     color_F = tf.reshape(tf.transpose(color_F), [1, 1, 4, 3])
+    #     for split in ["training", "validation", "calibration"]:
+    #         if 'y' not in self.data[split].keys():
+    #             continue
+    #
+    #         data = tf.cast(self.data[split]['y'], tf.float32)
+    #         xc = tf.pad(data, [[0, 0], [0, 0], [0, 0], [1, 0]], 'CONSTANT',
+    #                     constant_values=1)
+    #         ycbcrs = tf.nn.conv2d(xc, color_F, [1, 1, 1, 1], 'SAME').numpy()
+    #
+    #         residuals = list()
+    #         for ycbcr in tqdm(ycbcrs):
+    #             residuals.append(self._noise_extract(ycbcr))
+    #         residuals = np.array(residuals)
+    #         self.data[split]["y"] = residuals
+    #     logger.info("Residuals replaced each patch.")
 
     def get_training_pipeline(self, discard="flat"):
         return tf.data.Dataset.from_generator(
