@@ -145,12 +145,12 @@ def main():
             update_freq=args.validation_freq,
             steps_per_epoch=steps_per_epoch
         )
-        for images, labels in data.get_training_generator():
-            from helpers import plots
-            plots.set_interactive(True)
-            out = plots.images(images.numpy(), ncols=args.batch_size)
-            out.show()
-            pass
+        # for images, labels in data.get_training_generator():
+        #     from helpers import plots
+        #     plots.set_interactive(True)
+        #     out = plots.images(images.numpy(), ncols=args.batch_size)
+        #     out.show()
+        #     pass
             # sys.exit(0)
 
         train_performance = model._model.fit(
