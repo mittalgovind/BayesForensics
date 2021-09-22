@@ -11,6 +11,7 @@ import os
 # External libraries
 import tensorflow as tf
 from loguru import logger
+import numpy as np
 
 # Internal libraries
 from helpers.tf_dataset import Dataset
@@ -76,18 +77,13 @@ class ScalingFactorDataset(Dataset):
                         self.n_classes), tf.int32)
         if codec:
             if jpeg_quality and "," in jpeg_quality:
-                jpeg_quality = jpeg_quality.split(',')
-                if len(jpeg_quality) == 2:
-                    self.jpeg_quality = tf.range(*(jpeg_quality[0],
-                                                   jpeg_quality[1]))
-                elif len(jpeg_quality) == 2:
-                    self.jpeg_quality = tf.range(*(jpeg_quality[0],
-                                                   jpeg_quality[1],
-                                                   jpeg_quality[2]))
+                jpeg_quality = np.array(jpeg_quality.split(',')).astype(int)
+                self.jpeg_quality = tf.range(*jpeg_quality)
                 self.codec = TFJPEG(quality=None, codec=codec)
+                self.random_jpeg = True
             else:
-                self.jpeg_quality = None
                 self.codec = TFJPEG(quality=int(jpeg_quality), codec=codec)
+                self.random_jpeg = False
             if codec == 'libjpeg':
                 logger.info('Using libjpeg will be slowing the computation.')
         else:
@@ -161,7 +157,7 @@ class ScalingFactorDataset(Dataset):
 
         # Convert to JPEG if a codec is passed.
         if self.codec:
-            if self.jpeg_quality:
+            if self.random_jpeg:
                 rand_quality = self.jpeg_quality[randint(
                     maxval=len(self.jpeg_quality), seed=self.seed)]
 
