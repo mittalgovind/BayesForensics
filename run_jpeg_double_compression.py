@@ -145,13 +145,13 @@ def main():
             update_freq=args.validation_freq,
             steps_per_epoch=steps_per_epoch
         )
-        # for images, labels in data.get_training_generator():
+        # for images, labels in data.get_validation_generator(QF1=23, QF2=12):
         #     from helpers import plots
         #     plots.set_interactive(True)
         #     out = plots.images(images.numpy(), ncols=args.batch_size)
         #     out.show()
         #     pass
-            # sys.exit(0)
+        #     sys.exit(0)
 
         train_performance = model._model.fit(
             x=train_data,
@@ -185,11 +185,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-"""
- ACTIONS
- - train
- - validate 
- - hyperopt
- - calibrate
-"""

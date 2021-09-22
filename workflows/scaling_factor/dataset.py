@@ -77,11 +77,16 @@ class ScalingFactorDataset(Dataset):
         if codec:
             if jpeg_quality and "," in jpeg_quality:
                 jpeg_quality = jpeg_quality.split(',')
-                self.lower_quality, self.higher_quality = int(jpeg_quality[0]), \
-                                                          int(jpeg_quality[1])
+                if len(jpeg_quality) == 2:
+                    self.jpeg_quality = tf.range(*(jpeg_quality[0],
+                                                   jpeg_quality[1]))
+                elif len(jpeg_quality) == 2:
+                    self.jpeg_quality = tf.range(*(jpeg_quality[0],
+                                                   jpeg_quality[1],
+                                                   jpeg_quality[2]))
                 self.codec = TFJPEG(quality=None, codec=codec)
             else:
-                self.lower_quality, self.higher_quality = None, None
+                self.jpeg_quality = None
                 self.codec = TFJPEG(quality=int(jpeg_quality), codec=codec)
             if codec == 'libjpeg':
                 logger.info('Using libjpeg will be slowing the computation.')
@@ -156,9 +161,10 @@ class ScalingFactorDataset(Dataset):
 
         # Convert to JPEG if a codec is passed.
         if self.codec:
-            if self.lower_quality:
-                rand_quality = randint(self.lower_quality, self.higher_quality,
-                                       self.seed)
+            if self.jpeg_quality:
+                rand_quality = self.jpeg_quality[randint(
+                    maxval=len(self.jpeg_quality), seed=self.seed)]
+
                 rescaled_images = self.codec.process(rescaled_images,
                                                      quality=rand_quality)
             else:
