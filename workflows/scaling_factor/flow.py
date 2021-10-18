@@ -73,7 +73,7 @@ class ScalingFactor(BayesBaseModel):
             activation function.
             (see helpers.tf_helpers.activation_mapping for more activations).
         """
-        super().__init__(activation=activation, **kwargs)
+        super().__init__(activation=activation, drop_rate=dense_dropout, **kwargs)
 
         # Set-up and validate hyper-parameters
         self._h = ParamSpec(
@@ -153,7 +153,7 @@ class ScalingFactor(BayesBaseModel):
                     **self.uncertainty_method_args
                 )
             )
-            if self._h.dense_dropout > 0:
+            if self._h.dense_dropout > 0 and self.dropout is not None:
                 layers.append(self.dropout(self._h.dense_dropout))
 
         # final classification head
@@ -162,7 +162,6 @@ class ScalingFactor(BayesBaseModel):
                 self.last_layer(
                     self._h.n_classes,
                     activation=None,
-                    **self.uncertainty_method_args
                 )
             )
         else:

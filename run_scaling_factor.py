@@ -51,7 +51,7 @@ def main():
                        " 1. Setting number of models to 5.")
         args.num_models = 5
 
-    if args.uncertainty_method in ["flipout", "reparameterization", "dropconnect"]:
+    if args.uncertainty_method in ["flipout", "reparameterization"]:
         args.parameters["dense_dropout"] = 0
         logger.warning("Dropout has been disabled as it is incompatible.")
 
