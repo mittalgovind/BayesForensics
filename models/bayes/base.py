@@ -29,14 +29,25 @@ class MCDropoutLayer(tf.keras.layers.Layer):
         return self.dropout(inputs, training=True)
 
 
-class DropConnectLayer(tf.keras.layers.Layer):
+class DropConnectDenseLayer(tf.keras.layers.Dense):
     def __init__(self, rate=0.5, **kwargs):
         super().__init__(rate, **kwargs)
         self.keep_rate = 1 - rate
-        self.dropout = tf.keras.layers.Dropout(rate, **kwargs)
-    
+
     def call(self, inputs, training=None):
-        return self.dropout(inputs, training=True) * self.keep_rate
+        mask = tf.cast(
+            tf.random.uniform(
+                (inputs.shape[-1], self.units)) <= self.keep_rate,
+            tf.float32
+        )
+        # W' = mask * W
+        kernel = tf.multiply(self.kernel, mask)
+        # W'x + b
+        logits = tf.matmul(inputs, kernel) + self.bias
+        if self.activation:
+            return self.activation(logits)
+        else:
+            return logits
 
 
 class BayesBaseModel(TFModel, TemperatureScaling):
@@ -75,19 +86,21 @@ class BayesBaseModel(TFModel, TemperatureScaling):
 
         # Depending on method, Conv2D, Dense and Dropout layers are chosen.
         self.conv2d = tf.keras.layers.Conv2D
+        self.last_layer = None
         if "mc" in uncertainty_method:
             self.dropout = MCDropoutLayer
             self.dense = tf.keras.layers.Dense
-        
+
         elif uncertainty_method == "dropconnect":
-            self.dropout = DropConnectLayer
-            self.dense = tf.keras.layers.Dense
+            self.dense = DropConnectDenseLayer
+            self.last_layer = tf.keras.layers.Dense
 
         elif uncertainty_method == "flipout":
             self.dropout = tf.keras.layers.Dropout
             self.dense = tfp.layers.DenseFlipout
             kl_divergence_function = (
-                lambda q, p, _: tfp.distributions.kl_divergence(q, p) / tf.cast(
+                lambda q, p, _: tfp.distributions.kl_divergence(q,
+                                                                p) / tf.cast(
                     n_train_images, dtype=tf.float32)
             )
 
@@ -95,7 +108,8 @@ class BayesBaseModel(TFModel, TemperatureScaling):
             self.dropout = tf.keras.layers.Dropout
             self.dense = tfp.layers.DenseReparameterization
             kl_divergence_function = (
-                lambda q, p, _: tfp.distributions.kl_divergence(q, p) / tf.cast(
+                lambda q, p, _: tfp.distributions.kl_divergence(q,
+                                                                p) / tf.cast(
                     n_train_images, dtype=tf.float32)
             )
 
@@ -107,7 +121,8 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         if kl_divergence_function:
             logger.info("Please add **self.uncertainty_method_args"
                         " to any flipout and rep trick layers.")
-            self.uncertainty_method_args['kernel_divergence_fn'] = kl_divergence_function
+            self.uncertainty_method_args[
+                'kernel_divergence_fn'] = kl_divergence_function
 
         self.temperature = 1.0
 

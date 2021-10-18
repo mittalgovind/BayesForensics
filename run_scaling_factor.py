@@ -40,6 +40,7 @@ def main():
         physical_devices = tf.config.list_physical_devices("GPU")
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
+    # Input Sanitization
     if args.num_models > 1 and args.uncertainty_method != "ensemble":
         logger.warning("Number of models is greater than 1 but uncertainty "
                        "method is not ensemble. Setting it to ensemble mode.")
@@ -50,9 +51,9 @@ def main():
                        " 1. Setting number of models to 5.")
         args.num_models = 5
 
-    if args.uncertainty_method in ["flipout", "reparameterization"]:
+    if args.uncertainty_method in ["flipout", "reparameterization", "dropconnect"]:
         args.parameters["dense_dropout"] = 0
-
+        logger.warning("Dropout has been disabled as it is incompatible.")
 
     # Check for saving directory
     if os.path.isdir(os.path.abspath(args.save_dir)):
@@ -162,9 +163,6 @@ def main():
             update_freq=args.validation_freq,
             steps_per_epoch=steps_per_epoch
         )
-
-
-
             
         # Start training
         train_performance = model._model.fit(

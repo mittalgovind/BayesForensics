@@ -143,6 +143,7 @@ class ScalingFactor(BayesBaseModel):
             layers.append(tf.keras.layers.GlobalAveragePooling2D())
         else:
             layers.append(tf.keras.layers.Flatten())
+
         # Fully-connected classifier
         for _ in range(self._h.dense_layers):
             layers.append(
@@ -156,13 +157,22 @@ class ScalingFactor(BayesBaseModel):
                 layers.append(self.dropout(self._h.dense_dropout))
 
         # final classification head
-        layers.append(
-            self.dense(
-                self._h.n_classes,
-                activation=None,
-                **self.uncertainty_method_args
+        if self.last_layer:
+            layers.append(
+                self.last_layer(
+                    self._h.n_classes,
+                    activation=None,
+                    **self.uncertainty_method_args
+                )
             )
-        )
+        else:
+            layers.append(
+                self.dense(
+                    self._h.n_classes,
+                    activation=None,
+                    **self.uncertainty_method_args
+                )
+            )
 
         if set_model:
             self._model = tf.keras.models.Sequential(layers)
