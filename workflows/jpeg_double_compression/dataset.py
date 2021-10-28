@@ -94,7 +94,7 @@ class DoubleCompressionDataset(Dataset):
                            axis=0)
         if self.calc_pywt_residual:
             images = self.extract_pywt_residual(images)
-        if tf.reduce_max(images) > 255:
+        if tf.reduce_max(images) > 1:
             images = tf.math.divide(images, 255)
         labels = tf.concat((tf.zeros(self.batch_size),
                             tf.ones(self.batch_size)), axis=0)
