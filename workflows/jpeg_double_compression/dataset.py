@@ -22,8 +22,9 @@ from helpers.tf_jpeg import TFJPEG
 try:
     from prnulib import commons
 except RuntimeError:
-    raise RuntimeError(
-        "Could NOT load prnulib. Run git submodule init & git submodule update ")
+    logger.warning(
+        "Could NOT load prnulib. Run git submodule init & git submodule update."
+        "PyWavelets filter would throw an error.")
 
 
 class DoubleCompressionDataset(Dataset):
