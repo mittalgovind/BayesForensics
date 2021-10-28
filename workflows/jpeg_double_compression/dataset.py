@@ -209,9 +209,19 @@ class DoubleCompressionDataset(Dataset):
         )
 
     def get_validation_generator(self, **kwargs):
-        batch = self.data["validation"]["y"][:self.per_batch_sub]
-        for QF1, QF2 in self.qf_val_pairs:
-            yield self.preprocess_batch(batch, QF1=QF1, QF2=QF2)
+        # for validation during training, only do it on the first batch.
+        flag = True
+        for batch in self.data["validation"]["y"]:
+            if 'QF1' not in kwargs or 'QF2' not in kwargs:
+                if flag:
+                    flag = False
+                    for QF1, QF2 in self.qf_val_pairs:
+                        yield self.preprocess_batch(batch, QF1=QF1, QF2=QF2)
+                else:
+                    break
+            else:
+                yield self.preprocess_batch(batch, QF1=kwargs['QF1'],
+                                            QF2=kwargs['QF2'])
 
     def get_validation_pipeline(self):
         return tf.data.Dataset.from_generator(
