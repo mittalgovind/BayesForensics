@@ -21,7 +21,7 @@ from helpers.tf_jpeg import TFJPEG
 
 try:
     from prnulib import commons
-except RuntimeError:
+except:
     logger.warning(
         "Could NOT load prnulib. Run git submodule init & git submodule update."
         "PyWavelets filter would throw an error.")
