@@ -69,8 +69,8 @@ class DoubleCompressionDataset(Dataset):
             logger.info('Using libjpeg will be slowing the computation.')
 
         self.eval_mode = False
-        self.qf_val_pairs = [(q1, q2) for q1 in self.qf_train
-                             for q2 in self.qf_train if q1 > q2]
+        self.qf_val_pairs = [(q1, q2) for q1 in self.qf_train[::2]
+                             for q2 in self.qf_train[::2]]
         self.per_batch_sub = per_batch_sub
 
     def preprocess_batch(self, batch, **kwargs):
