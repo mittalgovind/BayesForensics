@@ -71,6 +71,8 @@ def main():
     # Prepare model with mirrored strategy.
     with strategy.scope():
         model = JPEGDoubleCompression(**args.parameters, **vars(args))
+        if args.load_model:
+            model.load_model(os.path.abspath(args.load_model))
         optimizer = tf.keras.optimizers.Adam(args.lr)
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True)
@@ -99,7 +101,6 @@ def main():
             calc_pywt_residual="pywt" in args.parameters["residual_type"],
             **vars(args)
         )
-        model.load_model(os.path.abspath(args.load_model))
     else:
         # load presampled training data
         if args.use_presampled:
