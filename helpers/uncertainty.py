@@ -9,7 +9,7 @@
 # External libraries
 import numpy as np
 from scipy.special import softmax
-from scipy.stats import mode
+from scipy import stats
 
 # Internal libraries
 
@@ -36,8 +36,15 @@ def variation_ratio(logits, get_all=False):
         probs = get_probs(logits)
     else:
         probs = logits
-    means = probs.mean(axis=-2)
-    var_ratio = 1 - means[np.arange(means.shape[-3]), np.argmax(means, axis=-1)]
+
+    # probs.shape = (..., batch_size, num_runs, num_classes)
+
+    # (..., batch_size, num_runs)
+    preds = probs.argmax(axis=-1)
+    # mode = (..., batch_size, 1), count = (..., batch_size, 1)
+    mode = stats.mode(preds, axis=len(preds.shape) - 1)
+    # (..., batch_size)
+    var_ratio = 1 - mode[1].squeeze() / preds.shape[-1]
     return var_ratio
 
 
