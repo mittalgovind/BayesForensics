@@ -112,8 +112,6 @@ def main():
             load="y",
             n_images=0,
             v_images=args.n_val_images,
-            preloaded_rgb_val_data=loaded_val_data,
-            val_n_patches=val_n_patches,
             val_rgb_patch_size=args.patch_size,
             **vars(args)
         )
@@ -215,13 +213,13 @@ def main():
         float(args.scales.split(",")[1])
     )
     train_classes = tf.linspace(*train_scales, num=args.n_classes * 5)
-    
+
     tests_summary, conf_matrix = validate(
         model=model, data=data, batch_size=args.batch_size, cache=cache,
         uncertainty_method=args.uncertainty_method, test_classes=train_classes,
         num_runs=args.num_runs, prefix='in_range'
     )
-    
+
     if not args.only_logits:
         tests_summary = np.array(tests_summary)
         conf_matrix = np.array(conf_matrix)
@@ -238,7 +236,7 @@ def main():
                        float(test_scales[2]))
     else:
         raise ValueError("Test scales should be comma-separated pair/triplet.")
-        
+
     test_classes = tf.linspace(*test_scales, num=args.test_n_classes)
     tests_summary, conf_matrix = validate(
          model=model, data=data, batch_size=args.batch_size, cache=cache,
