@@ -24,7 +24,6 @@ from workflows.jpeg_double_compression import (
     JPEGDoubleCompression,
     load_parameters,
     qf_plot,
-    AdaBoundOptimizer
 )
 
 
@@ -74,8 +73,8 @@ def main():
         model = JPEGDoubleCompression(**args.parameters, **vars(args))
         if args.load_model:
             model.load_model(os.path.abspath(args.load_model))
-        # optimizer = tf.keras.optimizers.Adam(args.lr)
-        optimizer = tf.keras.optimizers.SGD(args.lr)
+        optimizer = tf.keras.optimizers.Adam(args.lr)
+        # optimizer = tf.keras.optimizers.SGD(args.lr)
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True)
         model._model.compile(optimizer, loss=loss_criterion,
