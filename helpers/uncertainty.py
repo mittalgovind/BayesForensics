@@ -7,9 +7,10 @@
 # Standard libraries
 
 # External libraries
-import numpy as np
+from scipy.stats import mode
 from scipy.special import softmax
-from scipy import stats
+import numpy as np
+import tensorflow as tf
 
 # Internal libraries
 
@@ -18,78 +19,60 @@ MIN = -int(2e16)
 
 
 def get_pred(logits):
-    # logits.shape = (None, ..., num_runs, batch_size, num_classes)
-    pred_per_run = np.argmax(logits, axis=-1)
-    return mode(pred_per_run, axis=-2)[0].squeeze()
-
-
-def get_probs(logits):
-    # expected input logits.shape = (None, ..., num_runs, batch_size, num_classes)
+    # logits.shape = (num_runs, batch_size, num_classes)
     # make it batch_first
-    # (None, ..., batch_size, num_runs, num_classes)
-    transpose_shape = np.arange(len(logits.shape) - 3).tolist() + [-2, -3, -1]
-    return softmax(logits.transpose(transpose_shape), axis=-1)
+    # (batch_size, num_runs, num_classes)
+    logits = tf.transpose(logits, (1, 0, 2))
+    # (batch_size, num_runs)
+    pred_per_run = tf.math.argmax(logits, axis=-1)
+    # (batch_size, )
+    batch_pred = mode(pred_per_run, axis=1)[0]
+    
+    return batch_pred
 
 
-def variation_ratio(logits, get_all=False):
-    if not get_all:
-        probs = get_probs(logits)
-    else:
-        probs = logits
+def get_probs_passes_logits(logits):
+    # logits.shape = (num_runs, batch_size, num_classes)
+    # make it batch_first
+    # (batch_size, num_runs, num_classes)
+    batch_logits = np.transpose(logits, (1, 0, 2))
+    probs = np.array([[softmax(run) for run in logits] for logits in batch_logits])
+    # probs = np.array([[run for run in logits] for logits in batch_logits])
+    n_passes = probs.shape[1]
+    return probs, n_passes, logits
 
-    # probs.shape = (..., batch_size, num_runs, num_classes)
 
-    # (..., batch_size, num_runs)
-    preds = probs.argmax(axis=-1)
-    # mode = (..., batch_size, 1), count = (..., batch_size, 1)
-    mode = stats.mode(preds, axis=len(preds.shape) - 1)
-    # (..., batch_size)
-    var_ratio = 1 - mode[1].squeeze() / preds.shape[-1]
+def variation_ratio(logits):
+    probs, n_passes, _ = get_probs_passes_logits(logits)
+    
+    means = np.array([[np.sum(c) / n_passes for c in run.T] for run in probs])
+    
+    var_ratio = 1 - means[np.arange(means.shape[0]), np.argmax(means, axis=-1)]
     return var_ratio
 
 
-def predictive_entropy(logits, get_all=False, return_probs=False):
-    if not get_all:
-        # (None, ..., batch_size, num_runs, num_classes)
-        probs = get_probs(logits)
-    else:
-        probs = logits
+def predictive_entropy(logits):
+    probs, n_passes, _ = get_probs_passes_logits(logits)
+    means = np.array([[np.sum(c) / n_passes for c in run.T] for run in probs])
 
-    # (None, ..., batch_size, num_classes)
-    means = np.clip(probs.mean(axis=-2), 1e-16, None)
-
-    # (None, ..., batch_size)
-    pred_ent = -np.sum(np.multiply(means, np.log2(means)), axis=-1)
-
-    if return_probs:
-        return pred_ent, probs
-    else:
-        return pred_ent
+    pred_ent = -np.sum(
+        np.multiply(means, np.log2(np.clip(means, 1e-16, None))), axis=-1
+    )
+    return pred_ent
 
 
-def mutual_information(logits, get_all=False):
-    if not get_all:
-        entropy, probs = predictive_entropy(logits, return_probs=True)
-    else:
-        # (None, ..., batch_size, num_runs, num_classes)
-        probs = logits
-        # (None, ..., batch_size)
-        entropy = predictive_entropy(probs, get_all=True)
+def mutual_information(logits):
+    probs, n_passes, logits = get_probs_passes_logits(logits)
+    pred_ent = predictive_entropy(logits)
+    clipped_pred = np.clip(probs, 1e-16, None)
+    exp_value = np.array(
+        [
+            np.divide(np.sum(np.multiply([prob], np.log2(prob))), n_passes)
+            for prob in clipped_pred
+        ]
+    )
 
-    # (None, ..., batch_size, num_runs, num_classes)
-    probs = np.clip(probs, 1e-16, None)
-    # (None, ..., batch_size)
-    # mi = H(X) - H(X|Y) 
-    exp_value = np.multiply(probs, np.log2(probs)).sum(axis=-1).mean(axis=-1)
-    return np.abs(entropy + exp_value)
-
-
-# TODO rename get_all -> from_logits
-def get_all_uncertainties(logits):
-    probs = get_probs(logits)
-    return [variation_ratio(probs, get_all=True),
-            predictive_entropy(probs, get_all=True),
-            mutual_information(probs, get_all=True)]
+    return np.abs(pred_ent + exp_value)
 
 
 def get_limits(n_models, n_classes):
