@@ -20,7 +20,7 @@ MIN = -int(2e16)
 def get_pred(logits):
     # logits.shape = (None, ..., num_runs, batch_size, num_classes)
     pred_per_run = np.argmax(logits, axis=-1)
-    return mode(pred_per_run, axis=-2)[0].squeeze()
+    return stats.mode(pred_per_run, axis=-2)[0].squeeze()
 
 
 def get_probs(logits):
