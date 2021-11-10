@@ -110,7 +110,7 @@ def main():
                        'please ensure a seed is passed explicitly.')
         data = ScalingFactorDataset(
             load="y",
-            n_images=0,
+            n_images=args.n_train_images,
             v_images=args.n_val_images,
             val_rgb_patch_size=args.patch_size,
             **vars(args)
