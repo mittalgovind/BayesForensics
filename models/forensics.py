@@ -27,7 +27,9 @@ class FAN(TFModel):
     6. Output layer with K classes
     """
 
-    def __init__(self, n_classes, patch_size=None, n_filters=32, n_fscale=2, n_convolutions=4, kernel=5, dropout=0.0, use_gap=True, n_dense=0, activation='leaky_relu'):
+    def __init__(self, n_classes, patch_size=None, n_filters=32, n_fscale=2,
+                 n_convolutions=4, kernel=5, dropout=0.0, use_gap=True,
+                 n_dense=0, activation='leaky_relu'):
         """
         Creates a forensic analysis network (see class docstring for details).
 
@@ -53,28 +55,34 @@ class FAN(TFModel):
             'dropout': (0, float, (0, 1)),
             'use_gap': (False, bool, None),
             'n_dense': (2, int, (0, 16)),
-            'activation': ('leaky_relu', str, set(tf_helpers.activation_mapping.keys()))
+            'activation': (
+            'leaky_relu', str, set(tf_helpers.activation_mapping.keys()))
         })
         params = locals()
         self._h.update(**{k: params[k] for k in self._h.keys()})
         activation = tf_helpers.activation_mapping[self._h.activation]
 
         # Setup network input
-        self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, 3))
-        
+        self.x = tf.keras.Input(dtype=tf.float32,
+                                shape=(patch_size, patch_size, 3))
+
         # Constrained convolution with a learned residual filter
         net = ConstrainedConv2D()(self.x)
 
         # Standard convolutional layers
         for _ in range(self._h.n_convolutions):
-            net = tf.keras.layers.Conv2D(n_filters, [self._h.kernel, self._h.kernel], padding='same', activation=activation)(net)
+            net = tf.keras.layers.Conv2D(n_filters,
+                                         [self._h.kernel, self._h.kernel],
+                                         padding='same',
+                                         activation=activation)(net)
             net = tf.keras.layers.MaxPool2D([2, 2])(net)
             n_filters = int(n_filters * self._h.n_fscale)
 
         n_filters = n_filters // n_fscale
 
         # Final 1 x 1 convolution
-        net = tf.keras.layers.Conv2D(int(n_filters), [1, 1], activation=activation)(net)
+        net = tf.keras.layers.Conv2D(int(n_filters), [1, 1],
+                                     activation=activation)(net)
 
         # GAP / Feature formation
         if use_gap:
@@ -87,10 +95,12 @@ class FAN(TFModel):
             n_filters = n_filters // n_fscale
             net = tf.keras.layers.Dense(n_filters, activation=activation)(net)
             if dropout > 0: net = tf.keras.layers.Dropout(dropout)(net)
-        
-        self.y = tf.keras.layers.Dense(n_classes, activation=tf.keras.activations.softmax)(net)
 
-        self._model = tf.keras.Model(inputs=self.x, outputs=self.y)        
+        self.y = tf.keras.layers.Dense(n_classes,
+                                       activation=tf.keras.activations.softmax)(
+            net)
+
+        self._model = tf.keras.Model(inputs=self.x, outputs=self.y)
         self.optimizer = tf.keras.optimizers.Adam()
         self.loss = tf.keras.losses.SparseCategoricalCrossentropy()
 
@@ -113,7 +123,7 @@ class FAN(TFModel):
             return probs.numpy().argmax(axis=1), probs.numpy().max(axis=1)
         else:
             return probs.numpy().argmax(axis=1)
-        
+
     def training_step(self, batch_x, target_labels, learning_rate=None):
         """ Make a single training step and return the current loss. (Use class numbers for target labels.) """
         with tf.GradientTape() as tape:
@@ -122,18 +132,18 @@ class FAN(TFModel):
 
         if learning_rate is not None: self.optimizer.lr.assign(learning_rate)
         grads = tape.gradient(loss, self._model.trainable_weights)
-        self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
+        self.optimizer.apply_gradients(
+            zip(grads, self._model.trainable_weights))
         return loss
 
     def summary(self):
         return '{kernel}x{kernel} CNN: 1+{conv}+1 conv layers {gap}+ {fc} fc layers [{params:,} parameters]'.format(
-            kernel=self._h.kernel, 
-            conv=self._h.n_convolutions, 
+            kernel=self._h.kernel,
+            conv=self._h.n_convolutions,
             fc=self._h.n_dense,
             gap='+ (GAP) ' if self._h.use_gap else '',
             params=self.count_parameters())
 
-    
 
 class BayesFAN(BayesBaseModel):
     """
@@ -152,7 +162,10 @@ class BayesFAN(BayesBaseModel):
     6. Output layer with K classes
     """
 
-    def __init__(self, n_classes, uncertainty_method="vanilla", patch_size=None, n_filters=32, n_fscale=2, n_convolutions=4, kernel=5, dropout=0.0, use_gap=True, n_dense=0, activation='leaky_relu', n_models=1, n_train_images=0):
+    def __init__(self, n_classes, uncertainty_method="vanilla",
+                 patch_size=None, n_filters=32, n_fscale=2, n_convolutions=4,
+                 kernel=5, dropout=0.0, use_gap=True, n_dense=0,
+                 activation='leaky_relu', n_models=1, n_train_images=0):
         """
         Creates a forensic analysis network (see class docstring for details).
 
@@ -183,52 +196,58 @@ class BayesFAN(BayesBaseModel):
             'dropout': (0, float, (0, 1)),
             'use_gap': (False, bool, None),
             'n_dense': (2, int, (0, 16)),
-            'activation': ('leaky_relu', str, set(tf_helpers.activation_mapping.keys()))
+            'activation': (
+            'leaky_relu', str, set(tf_helpers.activation_mapping.keys()))
         })
         params = locals()
         self._h.update(**{k: params[k] for k in self._h.keys()})
-        
+
         self.n_models = n_models
 
         # Setup network input
-        self.x = tf.keras.Input(dtype=tf.float32, shape=(patch_size, patch_size, 3))
+        self.x = tf.keras.Input(dtype=tf.float32,
+                                shape=(patch_size, patch_size, 3))
         self.y = None
-        
+
         self.create_model()
-    
+
     def _seq_model(self, set_model=True):
         layers = list()
-        
+
         # Constrained convolution with a learned residual filter
         layers.append(ConstrainedConv2D())
-        
+
         activation = tf_helpers.activation_mapping[self._h.activation]
         n_filters = self._h.n_filters
-        
+
         # Standard convolutional layers
         for _ in range(self._h.n_convolutions):
-            layers.append(self.conv2d(n_filters, [self._h.kernel, self._h.kernel], padding='same', activation=activation))
+            layers.append(
+                self.conv2d(n_filters, [self._h.kernel, self._h.kernel],
+                            padding='same', activation=activation))
             layers.append(tf.keras.layers.MaxPool2D([2, 2]))
             n_filters = int(n_filters * self._h.n_fscale)
-            
+
         n_filters = n_filters // self._h.n_fscale
 
         # Final 1 x 1 convolution
-        layers.append(self.conv2d(int(n_filters), [1, 1], activation=activation))
+        layers.append(
+            self.conv2d(int(n_filters), [1, 1], activation=activation))
 
         # GAP / Feature formation
         if self._h.use_gap:
             layers.append(tf.keras.layers.GlobalAveragePooling2D())
         else:
             layers.append(tf.keras.layers.Flatten())
-        
+
         # Fully-connected classifier
         for _ in range(self._h.n_dense):
             n_filters = int(n_filters // self._h.n_fscale)
-            layers.append(self.dense(n_filters, activation=activation, **self.uncertainty_method_args))
+            layers.append(self.dense(n_filters, activation=activation,
+                                     **self.uncertainty_method_args))
             if self._h.dropout > 0 and self.dropout is not None:
                 layers.append(self.dropout(self._h.dropout))
-        
+
         # final classification head
         if self.last_layer:
             layers.append(
@@ -250,12 +269,12 @@ class BayesFAN(BayesBaseModel):
             self._model = tf.keras.models.Sequential(layers)
         else:
             return layers
-    
+
     def _create_model(self):
         layers = []
         for i in range(self.n_models):
             layers.append(self._seq_model(set_model=False))
-        
+
         outputs_list = []
 
         for i in range(self.n_models):
@@ -268,10 +287,10 @@ class BayesFAN(BayesBaseModel):
 
         if self.n_models == 1:
             outputs_list = outputs_list[0]
-        
+
         self.y = outputs_list
         self._model = tf.keras.models.Model(self.x, self.y)
-    
+
     def reset_performance_stats(self):
         self.performance = {
             'loss': {'training': [], 'validation': []},
@@ -291,7 +310,7 @@ class BayesFAN(BayesBaseModel):
             return probs.numpy().argmax(axis=1), probs.numpy().max(axis=1)
         else:
             return probs.numpy().argmax(axis=1)
-        
+
     def training_step(self, batch_x, target_labels, learning_rate=None):
         """ Make a single training step and return the current loss. (Use class numbers for target labels.) """
         with tf.GradientTape() as tape:
@@ -300,13 +319,14 @@ class BayesFAN(BayesBaseModel):
 
         if learning_rate is not None: self.optimizer.lr.assign(learning_rate)
         grads = tape.gradient(loss, self._model.trainable_weights)
-        self.optimizer.apply_gradients(zip(grads, self._model.trainable_weights))
+        self.optimizer.apply_gradients(
+            zip(grads, self._model.trainable_weights))
         return loss
 
     def summary(self):
         return '{kernel}x{kernel} CNN: 1+{conv}+1 conv layers {gap}+ {fc} fc layers [{params:,} parameters]'.format(
-            kernel=self._h.kernel, 
-            conv=self._h.n_convolutions, 
+            kernel=self._h.kernel,
+            conv=self._h.n_convolutions,
             fc=self._h.n_dense,
             gap='+ (GAP) ' if self._h.use_gap else '',
             params=self.count_parameters())
