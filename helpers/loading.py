@@ -28,24 +28,59 @@ def discover_images(
     logger.debug(
         f"{data_directory}: in total {len(files)} files available - requested split {n_images}:{v_images}:{c_images}"
     )
-
-    if randomize:
-        np.random.seed(randomize)
-        np.random.shuffle(files)
-
-    if n_images == 0 and v_images == -1:
-        v_images = len(files)
-
-    if n_images == -1 and v_images == 0:
-        n_images = len(files)
-
-    if len(files) >= n_images + v_images + c_images:
-        train_files = files[0: n_images]
-        val_files = files[n_images: (n_images + v_images)]
-        cal_files = files[
-                    (n_images + v_images): (n_images + v_images + c_images)]
+    
+    if len(files) == 0:
+        subdirs = os.listdir(data_directory)
+        subdirs = [x for x in subdirs if not x.startswith('.')]
+        
+        train_files = []
+        val_files = []
+        cal_files = []
+        
+        if n_images >= 1:
+            n_images = int(n_images / len(subdirs))
+        if v_images >= 1:
+            v_images = int(v_images / len(subdirs))
+        if c_images >= 1:
+            c_images = int(c_images / len(subdirs))
+        
+        for d in subdirs:
+            dd = os.path.join(data_directory, d)
+            t, v, c = discover_images(dd, n_images=n_images, v_images=v_images, c_images=c_images, extension=extension, randomize=randomize)
+            
+            t = [os.path.join(d, x) for x in t]
+            v = [os.path.join(d, x) for x in v]
+            c = [os.path.join(d, x) for x in c]
+            
+            train_files += t
+            val_files += v
+            cal_files += c
+        
     else:
-        raise ValueError("Not enough images!")
+        if randomize:
+            np.random.seed(randomize)
+            np.random.shuffle(files)
+
+        if n_images == 0 and v_images == -1:
+            v_images = len(files)
+
+        if n_images == -1 and v_images == 0:
+            n_images = len(files)
+
+        if len(files) >= n_images + v_images + c_images:
+            if n_images < 1:
+                n_images = int(len(files) * n_images)
+            if v_images < 1:
+                v_images = int(len(files) * v_images)
+            if c_images < 1:
+                c_images = int(len(files) * c_images)
+            
+            train_files = files[0: n_images]
+            val_files = files[n_images: (n_images + v_images)]
+            cal_files = files[
+                        (n_images + v_images): (n_images + v_images + c_images)]
+        else:
+            raise ValueError("Not enough images!")
 
     return train_files, val_files, cal_files
 
@@ -109,7 +144,6 @@ def load_patches(
 ):
     """
     Sample (raw, rgb) pairs or random patches from given images.
-
     :param files: list of available images
     :param data_directory: directory path
     :param patch_size: patch size (in the raw image - rgb patches will be twice as big)
@@ -186,11 +220,9 @@ def sample_patch(
     """
     Sample a single patch from a full-resolution image. Sampling can be fully random or can follow a discarding policy.
     The following DISCARD modes are available:
-
         - flat - attempts to discard flat patches based on patch variance (not strict)
         - flat-aggressive - a more aggressive version that avoids patches with variance < 0.01
         - dark-n-textured - avoid dark (mean < 0.35) and textured patches (variance > 0.005)
-
     :param rgb_image: full resolution RGB image
     :param rgb_patch_size: integer, self-explanatory
     :param discard: discard policy

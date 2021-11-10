@@ -1,10 +1,14 @@
+
 import io
 import numpy as np
 from scipy import cluster
 from collections import Counter
 
 from scipy.cluster.vq import vq
-from skimage.measure import compare_ssim, compare_psnr
+# from skimage.measure import compare_ssim, compare_psnr
+from skimage.metrics import structural_similarity as compare_ssim
+from skimage.metrics import peak_signal_noise_ratio as compare_psnr
+
 
 import helpers.stats
 from pyfse import pyfse
@@ -30,29 +34,21 @@ def compress_n_stats(batch_x, dcn):
 
     batch_y = np.zeros_like(batch_x)
     stats = {
-        "ssim": np.zeros((batch_x.shape[0])),
-        "psnr": np.zeros((batch_x.shape[0])),
-        "entropy": np.zeros((batch_x.shape[0])),
-        "bytes": np.zeros((batch_x.shape[0])),
-        "bpp": np.zeros((batch_x.shape[0])),
+        'ssim': np.zeros((batch_x.shape[0])),
+        'psnr': np.zeros((batch_x.shape[0])),
+        'entropy': np.zeros((batch_x.shape[0])),
+        'bytes': np.zeros((batch_x.shape[0])),
+        'bpp': np.zeros((batch_x.shape[0]))
     }
 
     for image_id in range(batch_x.shape[0]):
-        batch_y[image_id], image_bytes = simulate_compression(
-            batch_x[image_id : image_id + 1], dcn
-        )
-        batch_z = dcn.compress(batch_x[image_id : image_id + 1])
-        stats["bytes"][image_id] = image_bytes
-        stats["entropy"][image_id] = helpers.stats.entropy(batch_z, dcn.get_codebook())
-        stats["ssim"][image_id] = compare_ssim(
-            batch_x[image_id], batch_y[image_id], multichannel=True, data_range=1
-        )
-        stats["psnr"][image_id] = compare_psnr(
-            batch_x[image_id], batch_y[image_id], data_range=1
-        )
-        stats["bpp"][image_id] = (
-            8 * image_bytes / batch_x[image_id].shape[0] / batch_x[image_id].shape[1]
-        )
+        batch_y[image_id], image_bytes = simulate_compression(batch_x[image_id:image_id + 1], dcn)
+        batch_z = dcn.compress(batch_x[image_id:image_id + 1])
+        stats['bytes'][image_id] = image_bytes
+        stats['entropy'][image_id] = helpers.stats.entropy(batch_z, dcn.get_codebook())
+        stats['ssim'][image_id] = compare_ssim(batch_x[image_id], batch_y[image_id], multichannel=True, data_range=1)
+        stats['psnr'][image_id] = compare_psnr(batch_x[image_id], batch_y[image_id], data_range=1)
+        stats['bpp'][image_id] = 8 * image_bytes / batch_x[image_id].shape[0] / batch_x[image_id].shape[1]
 
     if batch_x.shape[0] == 1:
         for k in stats.keys():
@@ -80,7 +76,7 @@ def compare(dcn, batch_x):
     decoded_fse = pyfse.decompress(coded_fse, int(np.prod(indices.shape)))
 
     # Check sanity
-    assert data == decoded_fse, "Entropy decoding error"
+    assert data == decoded_fse, 'Entropy decoding error'
 
     shape = list(dcn.latent_shape)
     shape[0] = 1
@@ -127,10 +123,10 @@ def compress(batch_x, model, verbose=False):
     coded_layers = []
     code_book = model.get_codebook()
     if verbose:
-        print("[l3ic encoder]", "Code book:", code_book)
+        print('[l3ic encoder]', 'Code book:', code_book)
 
     if len(code_book) > 256:
-        raise L3ICError("Code-books with more than 256 centers are not supported")
+        raise L3ICError('Code-books with more than 256 centers are not supported')
 
     for n in range(latent_shape[-1]):
         # TODO Should a code book always be used? What about integers?
@@ -141,9 +137,7 @@ def compress(batch_x, model, verbose=False):
             coded_layer = pyfse.compress(bytes(indices.astype(np.uint8)))
         except pyfse.FSESymbolRepetitionError:
             # All bytes are identical, fallback to RLE
-            coded_layer = (
-                np.uint16(len(indices)).tobytes() + np.uint8(indices[0]).tobytes()
-            )
+            coded_layer = np.uint16(len(indices)).tobytes() + np.uint8(indices[0]).tobytes()
         except pyfse.FSENotCompressibleError:
             # Stream does not compress
             coded_layer = np.uint8(indices).tobytes()
@@ -151,62 +145,38 @@ def compress(batch_x, model, verbose=False):
             if len(coded_layer) == 1:
                 if verbose:
                     layer_stats = Counter(batch_z[:, :, :, n].reshape((-1))).items()
-                    print(
-                        "[l3ic encoder]",
-                        "Layer {} values:".format(n),
-                        batch_z[:, :, :, n].reshape((-1)),
-                    )
-                    print(
-                        "[l3ic encoder]",
-                        "Layer {} code-book indices:".format(n),
-                        indices.reshape((-1))[:20],
-                    )
-                    print("[l3ic encoder]", "Layer {} hist:".format(n), layer_stats)
+                    print('[l3ic encoder]', 'Layer {} values:'.format(n), batch_z[:, :, :, n].reshape((-1)))
+                    print('[l3ic encoder]', 'Layer {} code-book indices:'.format(n), indices.reshape((-1))[:20])
+                    print('[l3ic encoder]', 'Layer {} hist:'.format(n), layer_stats)
 
-                raise L3ICError(
-                    "Layer {} data compresses to a single byte? Something is wrong!".format(
-                        n
-                    )
-                )
+                raise L3ICError('Layer {} data compresses to a single byte? Something is wrong!'.format(n))
             coded_layers.append(coded_layer)
 
     # Show example layer
     if verbose:
         n = 0
         layer_stats = Counter(batch_z[:, :, :, n].reshape((-1))).items()
-        print(
-            "[l3ic encoder]",
-            "Layer {} values:".format(n),
-            batch_z[:, :, :, n].reshape((-1)),
-        )
-        print(
-            "[l3ic encoder]",
-            "Layer {} code-book indices:".format(n),
-            indices.reshape((-1))[:20],
-        )
-        print("[l3ic encoder]", "Layer {} hist:".format(n), layer_stats)
+        print('[l3ic encoder]', 'Layer {} values:'.format(n), batch_z[:, :, :, n].reshape((-1)))
+        print('[l3ic encoder]', 'Layer {} code-book indices:'.format(n), indices.reshape((-1))[:20])
+        print('[l3ic encoder]', 'Layer {} hist:'.format(n), layer_stats)
 
     # Write the layer size array
     layer_lengths = np.array([len(x) for x in coded_layers], dtype=np.uint16)
 
     try:
         coded_lengths = pyfse.compress(layer_lengths.tobytes())
-        if verbose:
-            print("[l3ic encoder]", "FSE coded lengths")
+        if verbose: print('[l3ic encoder]', 'FSE coded lengths')
     except pyfse.FSENotCompressibleError:
         # If the FSE coded stream is empty - it is not compressible - save natively
-        if verbose:
-            print("[l3ic encoder]", "RAW coded lengths")
+        if verbose: print('[l3ic encoder]', 'RAW coded lengths')
         coded_lengths = layer_lengths.tobytes()
 
     if verbose:
-        print(
-            "[l3ic encoder]", "Coded lengths #", len(coded_lengths), "=", coded_lengths
-        )
-        print("[l3ic encoder]", "Layer lengths = ", layer_lengths)
+        print('[l3ic encoder]', 'Coded lengths #', len(coded_lengths), '=', coded_lengths)
+        print('[l3ic encoder]', 'Layer lengths = ', layer_lengths)
 
     if len(coded_lengths) == 0:
-        raise RuntimeError("Empty coded layer lengths!")
+        raise RuntimeError('Empty coded layer lengths!')
 
     image_stream.write(np.uint16(len(coded_lengths)).tobytes())
     image_stream.write(coded_lengths)
@@ -227,8 +197,8 @@ def decompress(stream, model=None, verbose=False):
         stream = io.BytesIO(stream)
     elif type(stream) is io.BytesIO:
         pass
-    elif not hasattr(stream, "read"):
-        raise ValueError("Unsupported stream type!")
+    elif not hasattr(stream, 'read'):
+        raise ValueError('Unsupported stream type!')
 
     # Read the shape of the latent representation
     latent_x, latent_y, n_latent = np.frombuffer(stream.read(3), np.uint8)
@@ -238,39 +208,33 @@ def decompress(stream, model=None, verbose=False):
     coded_layer_lengths = stream.read(int(layer_bytes))
 
     if verbose:
-        print("[l3ic decoder]", "Latent space", latent_x, latent_y, n_latent)
-        print("[l3ic decoder]", "Layer bytes", layer_bytes)
+        print('[l3ic decoder]', 'Latent space', latent_x, latent_y, n_latent)
+        print('[l3ic decoder]', 'Layer bytes', layer_bytes)
 
     if layer_bytes != 2 * n_latent:
         if verbose:
-            print("[l3ic decoder]", "Decoding FSE L")
-            print("[l3ic decoder]", "Decoding from", coded_layer_lengths)
+            print('[l3ic decoder]', 'Decoding FSE L')
+            print('[l3ic decoder]', 'Decoding from', coded_layer_lengths)
         layer_lengths_bytes = pyfse.decompress(coded_layer_lengths)
         layer_lengths = np.frombuffer(layer_lengths_bytes, dtype=np.uint16)
     else:
         if verbose:
-            print("[l3ic decoder]", "Decoding RAW L")
+            print('[l3ic decoder]', 'Decoding RAW L')
         layer_lengths = np.frombuffer(coded_layer_lengths, dtype=np.uint16)
 
     if verbose:
-        print("[l3ic decoder]", "Layer lengths", layer_lengths)
+        print('[l3ic decoder]', 'Layer lengths', layer_lengths)
 
     # Get the correct DCN model
     if model is None:
-        model = restore("{}c".format(n_latent))
+        model = restore('{}c'.format(n_latent))
 
     if model.latent_shape[-1] != n_latent:
-        print(
-            "[l3ic decoder]",
-            "WARNING",
-            "the specified model ({}c) does not match the coded stream ({}c) - switching".format(
-                model.n_latent, n_latent
-            ),
-        )
-        model = restore("{}c".format(n_latent))
+        print('[l3ic decoder]', 'WARNING', 'the specified model ({}c) does not match the coded stream ({}c) - switching'.format(model.n_latent, n_latent))
+        model = restore('{}c'.format(n_latent))
 
     code_book = model.get_codebook()
-
+    
     # Create the latent space array
     batch_z = np.zeros((1, latent_x, latent_y, n_latent))
 
@@ -288,29 +252,17 @@ def decompress(stream, model=None, verbose=False):
             else:
                 layer_data = pyfse.decompress(coded_layer, 4 * latent_x * latent_y)
         except pyfse.FSEException as e:
-            print("[l3ic decoder]", "ERROR while decoding layer", n)
-            print(
-                "[l3ic decoder]",
-                "Stream of size",
-                len(coded_layer),
-                "bytes =",
-                coded_layer,
-            )
+            print('[l3ic decoder]', 'ERROR while decoding layer', n)
+            print('[l3ic decoder]', 'Stream of size', len(coded_layer), 'bytes =', coded_layer)
             raise e
-        batch_z[0, :, :, n] = code_book[np.frombuffer(layer_data, np.uint8)].reshape(
-            (latent_x, latent_y)
-        )
+        batch_z[0, :, :, n] = code_book[np.frombuffer(layer_data, np.uint8)].reshape((latent_x, latent_y))
 
     # Show example layer
     if verbose:
         n = 0
         layer_stats = Counter(batch_z[:, :, :, n].reshape((-1))).items()
-        print(
-            "[l3ic decoder]",
-            "Layer {} values:".format(n),
-            batch_z[:, :, :, n].reshape((-1)),
-        )
-        print("[l3ic decoder]", "Layer {} hist:".format(n), layer_stats)
+        print('[l3ic decoder]', 'Layer {} values:'.format(n), batch_z[:, :, :, n].reshape((-1)))
+        print('[l3ic decoder]', 'Layer {} hist:'.format(n), layer_stats)
 
     # Use the DCN decoder to decompress the RGB image
     return model.decompress(batch_z).numpy()
@@ -338,11 +290,4 @@ def restore(dir_name, patch_size=None, fetch_stats=False):
     codec.restore('16c')
     """
     from models import tfmodel
-
-    return tfmodel.restore(
-        dir_name,
-        compression,
-        key="codec",
-        patch_size=patch_size,
-        fetch_stats=fetch_stats,
-    )
+    return tfmodel.restore(dir_name, compression, key='codec', patch_size=patch_size, fetch_stats=fetch_stats)

@@ -37,8 +37,6 @@ def variation_ratio(logits, get_all=False):
     else:
         probs = logits
 
-    # probs.shape = (..., batch_size, num_runs, num_classes)
-
     # (..., batch_size, num_runs)
     preds = probs.argmax(axis=-1)
     # mode = (..., batch_size, 1), count = (..., batch_size, 1)
