@@ -174,6 +174,9 @@ def main():
             steps_per_epoch=steps_per_epoch
         )
 
+        for images, labels in data.get_validation_generator():
+            outputs = model._model(images)
+
         # Start training
         train_performance = model._model.fit(
 
