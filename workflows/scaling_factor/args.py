@@ -317,7 +317,6 @@ def parse_args():
 
 def load_parameters(parameters):
     """Load parameters from the config file"""
-    # TODO (Govind) Change to the new standard parameters from sensor branch.
     if parameters:
         f = open(parameters, 'r')
     else:
