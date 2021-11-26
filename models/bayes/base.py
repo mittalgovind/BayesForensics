@@ -35,16 +35,9 @@ class DropConnectDenseLayer(tf.keras.layers.Dense):
         self.keep_rate = keep_rate
 
     def call(self, inputs, training=None):
-        kernel_mask = tf.cast(
-            tf.random.uniform(
-                (inputs.shape[-1], self.units)) <= self.keep_rate,
-            tf.float32
-        )
-        bias_mask = tf.cast(
-            tf.random.uniform(self.bias.shape) <= self.keep_rate, tf.float32)
         # W' = mask * W
-        kernel = tf.multiply(self.kernel, kernel_mask)
-        bias = tf.multiply(self.bias, bias_mask)
+        kernel = tf.nn.dropout(self.kernel, 1 - self.keep_rate)
+        bias = tf.nn.dropout(self.bias, 1 - self.keep_rate)
         # W'x + b
         logits = tf.matmul(inputs, kernel) + bias
         if self.activation:
