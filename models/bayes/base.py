@@ -23,10 +23,14 @@ class MCDropoutLayer(tf.keras.layers.Layer):
 
     def __init__(self, rate=0.5, **kwargs):
         super().__init__(rate, **kwargs)
+        self.rate = rate
         self.dropout = tf.keras.layers.Dropout(rate, **kwargs)
 
     def call(self, inputs, training=None):
-        return self.dropout(inputs, training=True)
+        if training:
+            return self.dropout(inputs, training=True)
+        else:
+            return self.dropout(inputs, training=True) / (1 - self.rate)
 
 
 class DropConnectDenseLayer(tf.keras.layers.Dense):
@@ -77,7 +81,7 @@ class BayesBaseModel(TFModel, TemperatureScaling):
         super().__init__()
 
         self.mc_num_samples = mc_num_samples
-        self.drop_rate = min(max(drop_rate, 0.0), 1.0)
+        self.drop_rate = min(max(drop_rate, 0.0), 1.0 - 1e-3)
         self.uncertainty_method = uncertainty_method.lower()
         self.activation = tfh.activation_mapping[activation]
         self.uncertainty_method_args = {}
