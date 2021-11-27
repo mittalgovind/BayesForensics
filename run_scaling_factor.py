@@ -8,7 +8,6 @@
 import os
 
 # External libraries
-import keras.losses
 import numpy as np
 import tensorflow as tf
 from loguru import logger
@@ -27,17 +26,6 @@ from workflows.scaling_factor import (
     sf_plot,
     load_parameters,
 )
-
-class custom_loss(tf.keras.losses.Loss):
-    def __init__(self):
-        super(custom_loss, self).__init__()
-        self.loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True
-        )
-
-    def call(self, y_true, y_pred):
-        nll = self.loss_criterion(y_true, y_pred)
-
 
 
 def main():
