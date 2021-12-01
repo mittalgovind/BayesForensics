@@ -70,7 +70,7 @@ class JPEGDoubleCompression(BayesBaseModel, ABC):
                 "use_bn": (False, bool, None),
                 "dense_layers": (2, int, (0, 4)),
                 "activation": (
-                    "prelu", str, set(activation_mapping.keys())),
+                    "leaky_relu", str, set(activation_mapping.keys())),
                 "pool_size": (2, int, (1, 4)),
                 "dense_units": (200, int, (100, 400))
             }
