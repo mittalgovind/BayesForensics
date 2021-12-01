@@ -161,7 +161,10 @@ def main():
             update_freq=args.validation_freq,
             steps_per_epoch=steps_per_epoch
         )
-            
+
+        for images, labels in data.get_validation_generator():
+            outputs = model._model(images)
+
         # Start training
         train_performance = model._model.fit(
 
@@ -181,12 +184,12 @@ def main():
 
         fig = perf(history, alpha=0.1)
         fig.savefig(os.path.join(args.save_dir, "training_progress.png"))
-        
+
     if args.calibrate:
         # TODO model is not being saved as an object so temperature is deleted.
         logger.info("Started Calibration")
         model.set_temp(data=data, save_dir=args.save_dir)
-   
+
     logger.info("Started Testing (1/3)")
 
     train_scales = (
@@ -199,7 +202,7 @@ def main():
         uncertainty_method=args.uncertainty_method, test_classes=train_classes,
         num_runs=args.num_runs, prefix='normal_range'
     )
-    
+
     if not args.only_logits:
         tests_summary = np.array(tests_summary)
         conf_matrix = np.array(conf_matrix)
@@ -249,7 +252,7 @@ def main():
         conf_matrix = np.array(conf_matrix)
         sf_plot(tests_summary, conf_matrix, data.classes.numpy(), test_classes,
                 args.sampling_method, args.save_dir, prefix='out_of_range')
-    
+
 
 if __name__ == "__main__":
     main()
