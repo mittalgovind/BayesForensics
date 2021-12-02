@@ -312,7 +312,7 @@ def sample_patch(
 
 def randint(minval=0, maxval=None, seed=10, num=1):
     if num == 1:
-        shape = []
+        shape = [1]
     else:
         shape = [num]
     return tf.random.stateless_uniform(minval=minval, maxval=maxval,
