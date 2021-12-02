@@ -46,9 +46,7 @@ def discover_images(
 
         for d in subdirs:
             dd = os.path.join(data_directory, d)
-            t, v, c = discover_images(dd, n_images=n_images, v_images=v_images,
-                                      c_images=c_images, extension=extension,
-                                      randomize=randomize)
+            t, v, c = discover_images(dd, n_images=n_images, v_images=v_images, c_images=c_images, extension=extension, randomize=randomize)
 
             t = [os.path.join(d, x) for x in t]
             v = [os.path.join(d, x) for x in v]
@@ -80,8 +78,7 @@ def discover_images(
             train_files = files[0: n_images]
             val_files = files[n_images: (n_images + v_images)]
             cal_files = files[
-                        (n_images + v_images): (
-                                    n_images + v_images + c_images)]
+                        (n_images + v_images): (n_images + v_images + c_images)]
         else:
             raise ValueError("Not enough images!")
 
@@ -312,12 +309,11 @@ def sample_patch(
 
 def randint(minval=0, maxval=None, seed=10, num=1):
     if num == 1:
-        shape = [1]
+        shape = []
     else:
         shape = [num]
-    return tf.random.stateless_uniform(minval=minval, maxval=maxval,
-                                       shape=shape,
-                                       dtype=tf.int32, seed=seed)
+    return tf.random.uniform(minval=minval, maxval=maxval, shape=shape,
+                             dtype=tf.int32, seed=seed)
 
 
 def tf_sample_patch(
