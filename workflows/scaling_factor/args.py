@@ -83,6 +83,15 @@ def parse_args():
         type=int,
         help="Number of classes in the range defined by scales argument",
     )
+     parser.add_argument(
+        "--presample",
+        "--classes",
+        dest="n_classes",
+        action="store",
+        default=31,
+        type=int,
+        help="Number of classes in the range defined by scales argument",
+    )
     parser.add_argument(
         "-nt",
         "--train-images",
@@ -279,9 +288,9 @@ def parse_args():
         help="Number of models to use for ensemble."
     )
     parser.add_argument(
-        "--use-presampled",
-        default=None,
-        type=str,
+        "--presample-epochs",
+        default=4,
+        type=int,
         help="Uses presampled data. Pass the path to npy file.",
     )
     parser.add_argument(
