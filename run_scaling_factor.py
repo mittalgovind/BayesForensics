@@ -88,10 +88,36 @@ def main():
         model._model.compile(optimizer, loss=loss_criterion,
                              metrics=["accuracy"])
 
+    # # load presampled validation data
+    # if args.use_presampled:
+    #     if args.imagenet_val:
+    #         val_n_patches = 1
+    #         # loaded_val_data = np.zeros((1024, 128, 128, 3), np.float32)
+    #         loaded_val_data = np.load(
+    #             "./data/rgb/imagenet_128_4974.npy")[
+    #             :args.n_val_images
+    #         ]
+    #     else:
+    #         val_n_patches = 20
+    #         loaded_val_data = np.load(
+    #             os.path.join(args.use_presampled, 'native12k_20k_val.npy'))[
+    #                           :val_n_patches * args.n_val_images]
+    # else:
+    #     loaded_val_data = None
+    #     val_n_patches = 1
+
     if not args.pretrained and args.load_model:
         logger.warning('As only validation dataset is being loaded, '
                        'please ensure a seed is passed explicitly.')
-
+        data = ScalingFactorDataset(
+            load="y",
+            # TODO change it to 0 in final.
+            n_images=args.n_train_images,
+            v_images=args.n_val_images,
+            val_rgb_patch_size=args.patch_size,
+            **vars(args)
+        )
+    else:
         data = ScalingFactorDataset(
             load="y",
             n_images=args.n_train_images,
@@ -123,9 +149,6 @@ def main():
             update_freq=args.validation_freq,
             steps_per_epoch=steps_per_epoch
         )
-
-        for images, labels in data.get_validation_generator():
-            outputs = model._model(images)
 
         # Start training
         train_performance = model._model.fit(
