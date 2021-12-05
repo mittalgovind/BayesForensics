@@ -88,50 +88,13 @@ def main():
         model._model.compile(optimizer, loss=loss_criterion,
                              metrics=["accuracy"])
 
-    # # load presampled validation data
-    # if args.use_presampled:
-    #     if args.imagenet_val:
-    #         val_n_patches = 1
-    #         # loaded_val_data = np.zeros((1024, 128, 128, 3), np.float32)
-    #         loaded_val_data = np.load(
-    #             "./data/rgb/imagenet_128_4974.npy")[
-    #             :args.n_val_images
-    #         ]
-    #     else:
-    #         val_n_patches = 20
-    #         loaded_val_data = np.load(
-    #             os.path.join(args.use_presampled, 'native12k_20k_val.npy'))[
-    #                           :val_n_patches * args.n_val_images]
-    # else:
-    #     loaded_val_data = None
-    #     val_n_patches = 1
-
     if not args.pretrained and args.load_model:
         logger.warning('As only validation dataset is being loaded, '
                        'please ensure a seed is passed explicitly.')
-        data = ScalingFactorDataset(
-            load="y",
-            n_images=args.n_train_images,
-            v_images=args.n_val_images,
-            val_rgb_patch_size=args.patch_size,
-            **vars(args)
-        )
-    else:
-        # load presampled training data
-        if args.use_presampled:
-            train_n_patches = 25
-            loaded_train_data = np.load(
-                os.path.join(args.use_presampled, 'native12k_qM.npy'))[
-                                :train_n_patches * args.n_train_images]
-        else:
-            loaded_train_data = None
-            train_n_patches = 1
 
         data = ScalingFactorDataset(
             load="y",
             n_images=args.n_train_images,
-            preloaded_rgb_train_data=loaded_train_data,
-            train_n_patches=train_n_patches,
             v_images=args.n_val_images,
             val_rgb_patch_size=args.patch_size,
             **vars(args)
