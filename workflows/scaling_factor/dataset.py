@@ -137,15 +137,16 @@ class ScalingFactorDataset(Dataset):
         else:
             m = self.sampling_method
 
-        # Do data augmentation
-        if 'rotate' in kwargs and kwargs['rotate']:
-            batch = tf.image.rot90(batch, k=randint(maxval=3, seed=self.seed))
-        if 'brighten' in kwargs and kwargs['brighten']:
-            batch = tf.image.random_brightness(batch, 0.2, seed=self.seed)
-        if 'gamma' in kwargs and kwargs['gamma']:
-            gamma = tf.cast(tf.math.divide(
-                randint(minval=6, maxval=10, seed=self.seed), 10), tf.float32)
-            batch = tf.image.adjust_gamma(batch, gamma=gamma)
+        if training:
+            # Do data augmentation
+            if 'rotate' in kwargs and kwargs['rotate']:
+                batch = tf.image.rot90(batch, k=randint(maxval=3, seed=self.seed))
+            if 'brighten' in kwargs and kwargs['brighten']:
+                batch = tf.image.random_brightness(batch, 0.2, seed=self.seed)
+            if 'gamma' in kwargs and kwargs['gamma']:
+                gamma = tf.cast(tf.math.divide(
+                    randint(minval=6, maxval=10, seed=self.seed), 10), tf.float32)
+                batch = tf.image.adjust_gamma(batch, gamma=gamma)
 
         if tf.reduce_max(batch) > 1:
             batch = tf.math.divide(batch, 255)
