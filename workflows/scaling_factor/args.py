@@ -83,15 +83,6 @@ def parse_args():
         type=int,
         help="Number of classes in the range defined by scales argument",
     )
-     parser.add_argument(
-        "--presample",
-        "--classes",
-        dest="n_classes",
-        action="store",
-        default=31,
-        type=int,
-        help="Number of classes in the range defined by scales argument",
-    )
     parser.add_argument(
         "-nt",
         "--train-images",
