@@ -155,12 +155,6 @@ def parse_args():
         help="Overwrite the output folder, if exists.",
     )
     parser.add_argument(
-        "--imagenet-val",
-        action="store_true",
-        default=False,
-        help="Use presampled imagenet val data.",
-    )
-    parser.add_argument(
         "--no-antialias",
         dest="antialias",
         action="store_false",
@@ -280,7 +274,7 @@ def parse_args():
     )
     parser.add_argument(
         "--presample-epochs",
-        default=4,
+        default=0,
         type=int,
         help="Uses presampled data. Pass the path to npy file.",
     )
