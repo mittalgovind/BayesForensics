@@ -24,7 +24,7 @@ import progressbar
 class TemperatureScaling(ABC):
     """Decorator for wrapping a TensorFlow model with temperature scaling."""
 
-    def set_temperature(self, data):
+    def set_temperature(self, data, save_dir=None):
         logits_list = []
         labels_list = []
         sparse_nll_loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
@@ -63,3 +63,8 @@ class TemperatureScaling(ABC):
         logger.info(f'Resulting temperature: {temp.numpy():.3f}')
         
         self.temperature = temp
+
+        if save_dir:
+            f = open(os.path.join(save_dir, "temperature.txt"), "w")
+            f.write(temp)
+            f.close()

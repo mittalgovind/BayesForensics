@@ -39,6 +39,12 @@ def parse_args():
              "factor and step used for training, e.g. '75,100' or '75,95,5'",
     )
     parser.add_argument(
+        "--presample-epochs",
+        default=0,
+        type=int,
+        help="Uses presampled data. Pass the path to npy file.",
+    )
+    parser.add_argument(
         "--qf-test",
         dest="qf_test",
         action="store",

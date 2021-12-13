@@ -128,11 +128,11 @@ def main():
 
         # Data pipeline prep
         train_data = data.get_training_pipeline().prefetch(tf.data.AUTOTUNE)
-        val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
+        # val_data = data.get_validation_pipeline().prefetch(tf.data.AUTOTUNE)
         options = tf.data.Options()
         options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
         train_data = train_data.with_options(options)
-        val_data = val_data.with_options(options)
+        # val_data = val_data.with_options(options)
 
         # get callbacks using options
         save_freq = args.save_every * args.n_train_images // args.batch_size
@@ -157,12 +157,12 @@ def main():
 
         train_performance = model._model.fit(
             x=train_data,
-            validation_data=val_data,
+            # validation_data=val_data,
             epochs=args.epochs,
             verbose=0,
             callbacks=callbacks,
-            validation_freq=args.validation_freq,
-            validation_steps=len(data.qf_val_pairs)
+            # validation_freq=args.validation_freq,
+            # validation_steps=len(data.qf_val_pairs)
         )
 
         # save the training performance

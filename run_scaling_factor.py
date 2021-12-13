@@ -112,7 +112,7 @@ def main():
         data = ScalingFactorDataset(
             load="y",
             # TODO change it to 0 in final.
-            n_images=args.n_train_images,
+            n_images=0,
             v_images=args.n_val_images,
             val_rgb_patch_size=args.patch_size,
             **vars(args)
@@ -152,7 +152,6 @@ def main():
 
         # Start training
         train_performance = model._model.fit(
-
             x=train_data,
             validation_data=val_data,
             epochs=args.epochs,
