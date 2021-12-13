@@ -88,24 +88,6 @@ def main():
         model._model.compile(optimizer, loss=loss_criterion,
                              metrics=["accuracy"])
 
-    # # load presampled validation data
-    # if args.use_presampled:
-    #     if args.imagenet_val:
-    #         val_n_patches = 1
-    #         # loaded_val_data = np.zeros((1024, 128, 128, 3), np.float32)
-    #         loaded_val_data = np.load(
-    #             "./data/rgb/imagenet_128_4974.npy")[
-    #             :args.n_val_images
-    #         ]
-    #     else:
-    #         val_n_patches = 20
-    #         loaded_val_data = np.load(
-    #             os.path.join(args.use_presampled, 'native12k_20k_val.npy'))[
-    #                           :val_n_patches * args.n_val_images]
-    # else:
-    #     loaded_val_data = None
-    #     val_n_patches = 1
-
     if not args.pretrained and args.load_model:
         logger.warning('As only validation dataset is being loaded, '
                        'please ensure a seed is passed explicitly.')
