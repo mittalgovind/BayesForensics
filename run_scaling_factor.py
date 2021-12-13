@@ -36,6 +36,8 @@ def main():
     if args.cpu:
         disable_gpu()
 
+    tf.config.optimizer.set_jit(args.xla)
+
     if args.memory_growth:
         physical_devices = tf.config.list_physical_devices("GPU")
         for devices in physical_devices:
