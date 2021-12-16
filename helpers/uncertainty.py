@@ -24,18 +24,12 @@ def get_pred(logits):
 
 
 def get_probs(logits):
-    # expected input logits.shape = (None, ..., num_runs, batch_size, num_classes)
-    # make it batch_first
-    # (None, ..., batch_size, num_runs, num_classes)
-    transpose_shape = np.arange(len(logits.shape) - 3).tolist() + [-2, -3, -1]
-    return softmax(logits.transpose(transpose_shape), axis=-1)
+    soft_logits = np.clip(softmax(logits, axis=-1), 1e-16, None)
+    return soft_logits
 
 
-def variation_ratio(logits, get_all=False):
-    if not get_all:
-        probs = get_probs(logits)
-    else:
-        probs = logits
+def variation_ratio(logits):
+    probs = get_probs(logits)
 
     # (..., batch_size, num_runs)
     preds = probs.argmax(axis=-1)
@@ -46,48 +40,39 @@ def variation_ratio(logits, get_all=False):
     return var_ratio
 
 
-def predictive_entropy(logits, get_all=False, return_probs=False):
-    if not get_all:
-        # (None, ..., batch_size, num_runs, num_classes)
-        probs = get_probs(logits)
-    else:
-        probs = logits
-
-    # (None, ..., batch_size, num_classes)
-    means = np.clip(probs.mean(axis=-2), 1e-16, None)
-
-    # (None, ..., batch_size)
-    pred_ent = -np.sum(np.multiply(means, np.log2(means)), axis=-1)
-
-    if return_probs:
-        return pred_ent, probs
-    else:
-        return pred_ent
-
-
-def mutual_information(logits, get_all=False):
-    if not get_all:
-        entropy, probs = predictive_entropy(logits, return_probs=True)
-    else:
-        # (None, ..., batch_size, num_runs, num_classes)
-        probs = logits
-        # (None, ..., batch_size)
-        entropy = predictive_entropy(probs, get_all=True)
-
-    # (None, ..., batch_size, num_runs, num_classes)
-    probs = np.clip(probs, 1e-16, None)
-    # (None, ..., batch_size)
-    # mi = H(X) - H(X|Y) 
-    exp_value = np.multiply(probs, np.log2(probs)).sum(axis=-1).mean(axis=-1)
-    return np.abs(entropy + exp_value)
-
-
-# TODO rename get_all -> from_logits
-def get_all_uncertainties(logits):
+def predictive_entropy(logits, mean_across_data=True):
     probs = get_probs(logits)
-    return [variation_ratio(probs, get_all=True),
-            predictive_entropy(probs, get_all=True),
-            mutual_information(probs, get_all=True)]
+    # mean across runs. ensure you have (..., num_runs, num_samples, num_classes)
+    mean_probs = probs.mean(axis=-2)
+
+    # sum across classes
+    pred_ent = -np.sum(np.multiply(mean_probs, np.log2(mean_probs)), axis=-1)
+
+    if mean_across_data:
+        pred_ent = pred_ent.mean(axis=-1)
+
+    return pred_ent
+
+
+def mutual_information(logits, entropy=None, mean_across_data=True):
+    if entropy is None:
+        entropy = predictive_entropy(logits, mean_across_data=mean_across_data)
+
+    # (None, ..., batch_size)
+    probs = get_probs(logits)
+    # last sum is over classes
+    expectation_across_classes = -np.multiply(probs, np.log2(probs)).sum(
+        axis=-1)
+
+    # this one is over runs.
+    expectation_across_runs = expectation_across_classes.mean(axis=-2)
+
+    mi = entropy - expectation_across_runs
+
+    if mean_across_data:
+        mi = mi.mean(axis=-1)
+
+    return mi
 
 
 def get_limits(n_models, n_classes):
