@@ -40,7 +40,7 @@ def variation_ratio(logits):
     return var_ratio
 
 
-def predictive_entropy(logits, mean_across_data=True):
+def predictive_entropy(logits, mean_across_data=False):
     probs = get_probs(logits)
     # mean across runs. ensure you have (..., num_runs, num_samples, num_classes)
     mean_probs = probs.mean(axis=-2)
@@ -54,15 +54,14 @@ def predictive_entropy(logits, mean_across_data=True):
     return pred_ent
 
 
-def mutual_information(logits, entropy=None, mean_across_data=True):
+def mutual_information(logits, entropy=None, mean_across_data=False):
     if entropy is None:
         entropy = predictive_entropy(logits, mean_across_data=mean_across_data)
 
     # (None, ..., batch_size)
     probs = get_probs(logits)
     # last sum is over classes
-    expectation_across_classes = -np.multiply(probs, np.log2(probs)).sum(
-        axis=-1)
+    expectation_across_classes = -np.multiply(probs, np.log2(probs)).sum(axis=-1)
 
     # this one is over runs.
     expectation_across_runs = expectation_across_classes.mean(axis=-2)
