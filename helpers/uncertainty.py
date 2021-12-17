@@ -34,7 +34,7 @@ def variation_ratio(logits):
     # (..., batch_size, num_runs)
     preds = probs.argmax(axis=-1)
     # mode = (..., batch_size, 1), count = (..., batch_size, 1)
-    mode = stats.mode(preds, axis=len(preds.shape) - 1)
+    mode = stats.mode(preds, axis=-2)
     # (..., batch_size)
     var_ratio = 1 - mode[1].squeeze() / preds.shape[-1]
     return var_ratio
@@ -43,7 +43,7 @@ def variation_ratio(logits):
 def predictive_entropy(logits, mean_across_data=False):
     probs = get_probs(logits)
     # mean across runs. ensure you have (..., num_runs, num_samples, num_classes)
-    mean_probs = probs.mean(axis=-2)
+    mean_probs = probs.mean(axis=-3)
 
     # sum across classes
     pred_ent = -np.sum(np.multiply(mean_probs, np.log2(mean_probs)), axis=-1)
