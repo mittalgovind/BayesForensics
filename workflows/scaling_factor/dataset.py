@@ -115,10 +115,6 @@ class ScalingFactorDataset(Dataset):
             resized_size = tf.cast(tf.math.multiply(
                 sf, self.val_rgb_patch_size), tf.int32)
         elif training:
-            # changed to sampling from finite set instead of infinite
-
-            # class_id = randint(maxval=self.n_classes, seed=self.seed)
-            # sf = self.classes[class_id]
             resized_size = randint(minval=self.training_range[0],
                                    maxval=self.training_range[1],
                                    seed=self.seed)
@@ -127,10 +123,6 @@ class ScalingFactorDataset(Dataset):
         else:
             raise RuntimeError("Pass an sf value when not training")
 
-        # patch_size = self.train_rgb_patch_size \
-        #     if training else self.val_rgb_patch_size
-
-        # resized_size = tf.cast(tf.math.multiply(sf, patch_size), tf.int32)
         # Choose sampling method.
         if training and self.random_method:
             m = self.methods[randint(maxval=len(self.methods), seed=self.seed)]

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 # Internal libraries
 from helpers.results_data import ResultCache
 from helpers.plots import perf
-from helpers.utils import setup_logging, perreplica_to_tensor
+from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu, get_callbacks
 from workflows.scaling_factor import (
     ScalingFactorDataset,
@@ -95,7 +95,6 @@ def main():
                        'please ensure a seed is passed explicitly.')
         data = ScalingFactorDataset(
             load="y",
-            # TODO change it to 0 in final.
             n_images=0,
             v_images=args.n_val_images,
             val_rgb_patch_size=args.patch_size,
