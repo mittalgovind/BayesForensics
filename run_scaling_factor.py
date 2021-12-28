@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 # Internal libraries
 from helpers.results_data import ResultCache
 from helpers.plots import perf
-from helpers.utils import setup_logging, perreplica_to_tensor
+from helpers.utils import setup_logging
 from helpers.tf_helpers import disable_gpu, get_callbacks
 from workflows.scaling_factor import (
     ScalingFactorDataset,
@@ -95,7 +95,6 @@ def main():
                        'please ensure a seed is passed explicitly.')
         data = ScalingFactorDataset(
             load="y",
-            # TODO change it to 0 in final.
             n_images=0,
             v_images=args.n_val_images,
             val_rgb_patch_size=args.patch_size,
@@ -131,7 +130,8 @@ def main():
             patience=int(args.epochs * args.patience_percent),
             verbose=args.verbose,
             update_freq=args.validation_freq,
-            steps_per_epoch=steps_per_epoch
+            steps_per_epoch=steps_per_epoch,
+            save_best_only=False,
         )
 
         # Start training
@@ -156,7 +156,7 @@ def main():
     if args.calibrate:
         # TODO model is not being saved as an object so temperature is deleted.
         logger.info("Started Calibration")
-        model.set_temp(data=data, save_dir=args.save_dir)
+        model.set_temperature(data=data, save_dir=args.save_dir)
 
     logger.info("Started Testing (1/3)")
 
