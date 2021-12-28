@@ -130,7 +130,8 @@ def main():
             patience=int(args.epochs * args.patience_percent),
             verbose=args.verbose,
             update_freq=args.validation_freq,
-            steps_per_epoch=steps_per_epoch
+            steps_per_epoch=steps_per_epoch,
+            save_best_only=False,
         )
 
         # Start training
@@ -155,7 +156,7 @@ def main():
     if args.calibrate:
         # TODO model is not being saved as an object so temperature is deleted.
         logger.info("Started Calibration")
-        model.set_temp(data=data, save_dir=args.save_dir)
+        model.set_temperature(data=data, save_dir=args.save_dir)
 
     logger.info("Started Testing (1/3)")
 
