@@ -164,38 +164,38 @@ def main():
         float(args.scales.split(",")[0]),
         float(args.scales.split(",")[1])
     )
-    train_classes = tf.linspace(*train_scales, num=args.n_classes)
-    tests_summary, conf_matrix = validate(
-        model=model, data=data, batch_size=args.batch_size, cache=cache,
-        uncertainty_method=args.uncertainty_method, test_classes=train_classes,
-        num_runs=args.num_runs, prefix='normal_range'
-    )
+#     train_classes = tf.linspace(*train_scales, num=args.n_classes)
+#     tests_summary, conf_matrix = validate(
+#         model=model, data=data, batch_size=args.batch_size, cache=cache,
+#         uncertainty_method=args.uncertainty_method, test_classes=train_classes,
+#         num_runs=args.num_runs, prefix='normal_range'
+#     )
 
-    if not args.only_logits:
-        tests_summary = np.array(tests_summary)
-        conf_matrix = np.array(conf_matrix)
-        sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
-                args.sampling_method, args.save_dir, prefix='normal_range')
+#     if not args.only_logits:
+#         tests_summary = np.array(tests_summary)
+#         conf_matrix = np.array(conf_matrix)
+#         sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
+#                 args.sampling_method, args.save_dir, prefix='normal_range')
 
-    logger.info("Started Testing (2/3)")
+#     logger.info("Started Testing (2/3)")
 
-    train_scales = (
-        float(args.scales.split(",")[0]),
-        float(args.scales.split(",")[1])
-    )
-    train_classes = tf.linspace(*train_scales, num=args.n_classes * 5)
+#     train_scales = (
+#         float(args.scales.split(",")[0]),
+#         float(args.scales.split(",")[1])
+#     )
+#     train_classes = tf.linspace(*train_scales, num=args.n_classes * 5)
 
-    tests_summary, conf_matrix = validate(
-        model=model, data=data, batch_size=args.batch_size, cache=cache,
-        uncertainty_method=args.uncertainty_method, test_classes=train_classes,
-        num_runs=args.num_runs, prefix='in_range'
-    )
+#     tests_summary, conf_matrix = validate(
+#         model=model, data=data, batch_size=args.batch_size, cache=cache,
+#         uncertainty_method=args.uncertainty_method, test_classes=train_classes,
+#         num_runs=args.num_runs, prefix='in_range'
+#     )
 
-    if not args.only_logits:
-        tests_summary = np.array(tests_summary)
-        conf_matrix = np.array(conf_matrix)
-        sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
-                args.sampling_method, args.save_dir, prefix='in_range')
+#     if not args.only_logits:
+#         tests_summary = np.array(tests_summary)
+#         conf_matrix = np.array(conf_matrix)
+#         sf_plot(tests_summary, conf_matrix, data.classes.numpy(), train_classes,
+#                 args.sampling_method, args.save_dir, prefix='in_range')
 
     logger.info("Started Testing (3/3)")
 
