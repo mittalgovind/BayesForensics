@@ -68,15 +68,15 @@ def validate(model, data, batch_size, cache, uncertainty_method,
                 for images, labels in data.get_validation_generator(sf=sf):
                     if uncertainty_method == "vanilla":
                         logits[m][s][i: i + batch_size] = model(
-                            images, training=False)
+                            images, training=False).numpy()
 
                     elif uncertainty_method == "ensemble":
                         logits[m][s][:, i: i + batch_size] = model(
-                            images, training=False)
+                            images, training=False).numpy()
 
                     else:
                         logits[m][s][:, i: i + batch_size] = [
-                            model(images, training=False)
+                            model(images, training=False).numpy()
                             for _ in range(num_runs)]
                     i += batch_size
 
