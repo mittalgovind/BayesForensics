@@ -80,7 +80,6 @@ def validate(model, data, batch_size, cache, uncertainty_method,
                             for _ in range(num_runs)]
                     i += batch_size
 
-                logits /= temperature
 
                 if uncertainty_method == "vanilla":
                     predictions = np.argmax(logits[m][s], axis=-1)
@@ -92,6 +91,7 @@ def validate(model, data, batch_size, cache, uncertainty_method,
                     conf_matrix[m][s][label] += count
 
                 pbar.update(1)
+    logits /= temperature
 
     conf_matrix /= data.count_validation
     if cache:
