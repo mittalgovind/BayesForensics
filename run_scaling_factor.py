@@ -212,7 +212,7 @@ def main():
     tests_summary, conf_matrix = validate(
          model=model, data=data, batch_size=args.batch_size, cache=cache,
          uncertainty_method=args.uncertainty_method, test_classes=test_classes,
-         num_runs=args.num_runs, prefix='out_of_range'
+         num_runs=args.num_runs, prefix='out_of_range', disable_temp_scaling=False
     )
 
     if not args.only_logits:
