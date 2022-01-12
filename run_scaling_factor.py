@@ -158,6 +158,11 @@ def main():
         logger.info("Started Calibration")
         model.set_temperature(data=data, save_dir=args.save_dir)
 
+    if os.path.isfile(os.path.join(args.save_dir, "temperature.txt")):
+        f = open(os.path.join(args.save_dir, "temperature.txt"))
+        model.temperature = float(f.read())
+        logger.info(f"Temperature loaded from file: {model.temperature}")
+
     logger.info("Started Testing (1/3)")
 
     train_scales = (
