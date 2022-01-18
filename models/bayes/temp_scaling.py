@@ -11,15 +11,20 @@ import os
 # External libraries
 import tensorflow as tf
 import tensorflow_probability as tfp
-from tensorflow_probability.python.internal import prefer_static as ps
-from tensorflow_probability.python.internal import dtype_util
-import numpy as np
 from loguru import logger
-import matplotlib.pyplot as plt
-import progressbar
+from tqdm import tqdm
+import functools
 
 
 # Internal libraries
+
+
+def _make_val_and_grad_fn(value_fn):
+    @functools.wraps(value_fn)
+    def val_and_grad(x):
+        return tfp.math.value_and_gradient(value_fn, x)
+
+    return val_and_grad
 
 
 class TemperatureScaling(ABC):
@@ -28,11 +33,14 @@ class TemperatureScaling(ABC):
     def set_temperature(self, data, save_dir=None):
         logits_list = []
         labels_list = []
-        sparse_nll_loss = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True)
+        if data.n_classes == 2:
+            nll_loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+        else:
+            nll_loss = tf.keras.losses.SparseCategoricalCrossentropy(
+                from_logits=True)
 
         # Before training
-        for batch_x, batch_y in data.get_calibration_generator():
+        for batch_x, batch_y in tqdm(data.get_calibration_generator()):
             probabilities = self._model(batch_x, training=False)
 
             logits_list.append(probabilities)
@@ -47,23 +55,33 @@ class TemperatureScaling(ABC):
                               dtype=tf.float32)
         labels_list = tf.cast(tf.reshape(labels_list, -1), dtype=tf.int32)
 
-        base_nll = sparse_nll_loss(labels_list, logits_list)
+        if data.n_classes == 2:
+            base_nll = nll_loss(labels_list, logits_list[..., 1])
+        else:
+            base_nll = nll_loss(labels_list, logits_list[..., 1])
         base_ece = tfp.stats.expected_calibration_error(10, logits=logits_list,
                                                         labels_true=labels_list)
 
         logger.info(
             f'Original NLL: {base_nll.numpy():.3f}, Original ECE: {base_ece.numpy():.3f}')
 
+        @_make_val_and_grad_fn
         def temp_scale_loss(x):
-            return tfp.math.value_and_gradient(
-                lambda x: sparse_nll_loss(labels_list, logits_list / x), x)
+            if data.n_classes == 2:
+                return nll_loss(labels_list, logits_list[..., 1] / x)
+            else:
+                return nll_loss(labels_list, logits_list / x)
 
-        xinit = tf.constant([1.0])
+        xinit = tf.constant([self.temperature])
         results = tfp.optimizer.lbfgs_minimize(temp_scale_loss,
                                                initial_position=xinit)
         temp = tf.squeeze(results.position)
 
-        new_nll = sparse_nll_loss(labels_list, logits_list / temp)
+        if data.n_classes == 2:
+            new_nll = nll_loss(labels_list, logits_list[..., 1] / temp)
+        else:
+            new_nll = nll_loss(labels_list, logits_list / temp)
+
         new_ece = tfp.stats.expected_calibration_error(15,
                                                        logits=logits_list / temp,
                                                        labels_true=labels_list)

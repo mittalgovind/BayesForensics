@@ -17,7 +17,7 @@ import re
 import subprocess
 import sys
 from functools import reduce
-import tensorflow as tf
+# import tensorflow as tf
 
 from tqdm import tqdm
 
@@ -47,15 +47,15 @@ _numeric_types = {
     np.uint64,
 }
 
-_tf_numeric_types = {
-    tf.float32,
-    tf.float64,
-    tf.int32,
-    tf.int64,
-    tf.uint8,
-    tf.uint32,
-    tf.uint64,
-}
+# _tf_numeric_types = {
+#     tf.float32,
+#     tf.float64,
+#     tf.int32,
+#     tf.int64,
+#     tf.uint8,
+#     tf.uint32,
+#     tf.uint64,
+# }
 
 
 def setup_logging(filename=None, long_date=False, level="INFO"):
