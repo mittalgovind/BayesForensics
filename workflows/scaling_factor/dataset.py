@@ -190,21 +190,13 @@ class ScalingFactorDataset(Dataset):
             for batch in self.data["validation"]["y"]:
                 yield self.preprocess_batch(batch, training=False, **kwargs)
         else:
-            for m, method in enumerate(self.test_methods):
-                if self.random_method:
-                    self.sampling_method = method
-                for s, sf in enumerate(self.classes[:-1]):
-                    yield self.preprocess_batch(self.val_batch, training=False,
-                                                sf=sf)
+            for s, sf in enumerate(self.classes[:-1]):
+                yield self.preprocess_batch(self.val_batch, training=False, sf=sf)
 
     def get_calibration_generator(self, **kwargs):
-        for m, method in enumerate(self.test_methods):
-            if self.random_method:
-                self.sampling_method = method
-            for s, sf in enumerate(self.classes[:-1]):
-                for batch in self.data["calibration"]["y"]:
-                    yield self.preprocess_batch(batch, training=False, sf=sf,
-                                                **kwargs)
+        for s, sf in enumerate(self.classes[:-1]):
+            for batch in self.data["calibration"]["y"]:
+                yield self.preprocess_batch(batch, training=False, sf=sf, **kwargs)
 
     def get_training_generator(self, discard="flat", gamma=False,
                                brighten=False, rotate=False, **kwargs):
