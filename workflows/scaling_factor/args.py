@@ -143,7 +143,7 @@ def parse_args():
         help="Learning_rate"
     )
     parser.add_argument(
-        "-fds", "--first_decay_steps", action="store", default=4000, type=int,
+        "-fds", "--first_decay_steps", action="store", default=20000, type=int,
         help="Learning rate."
     )
     parser.add_argument(
