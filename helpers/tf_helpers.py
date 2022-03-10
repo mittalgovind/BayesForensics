@@ -13,14 +13,15 @@ Example functionality:
 
 """
 import os
-import tensorflow as tf
-import numpy as np
 
-from helpers.kernels import gkern, repeat_2dfilter
+import numpy as np
+import tensorflow as tf
 from IPython.display import display, HTML
 
+from helpers.kernels import gkern, repeat_2dfilter
+
 activation_mapping = {
-    'leaky_relu' : tf.keras.layers.LeakyReLU(alpha=0.2),
+    'leaky_relu': tf.keras.layers.LeakyReLU(alpha=0.2),
     'relu': tf.keras.activations.relu,
     'tanh': tf.keras.activations.tanh,
     'sigmoid': tf.keras.activations.sigmoid,
@@ -45,8 +46,10 @@ def msssim_loss(a, b):
 
 
 def corr(a, b):
-    a = (a - tf.reduce_mean(a, axis=[1, 2, 3], keepdims=True)) / (1e-9 + tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True))
-    b = (b - tf.reduce_mean(b, axis=[1, 2, 3], keepdims=True)) / (1e-9 + tf.math.reduce_std(b, axis=[1, 2, 3], keepdims=True))
+    a = (a - tf.reduce_mean(a, axis=[1, 2, 3], keepdims=True)) / (
+            1e-9 + tf.math.reduce_std(a, axis=[1, 2, 3], keepdims=True))
+    b = (b - tf.reduce_mean(b, axis=[1, 2, 3], keepdims=True)) / (
+            1e-9 + tf.math.reduce_std(b, axis=[1, 2, 3], keepdims=True))
     c = tf.reduce_mean(a * b, axis=[1, 2, 3])
     return c
 
@@ -59,14 +62,13 @@ def corrcoeff(a, b):
 
 
 def rsquared(a, b):
-    from sklearn.metrics import r2_score 
+    from sklearn.metrics import r2_score
     a = (a - tf.reduce_mean(a)) / (1e-9 + tf.math.reduce_std(a))
     b = (b - tf.reduce_mean(b)) / (1e-9 + tf.math.reduce_std(b))
     return r2_score(a, b)
 
 
 def manipulation_resample(x, factor=50, method='bilinear'):
-
     if 0 < factor <= 1:
         factor = 100 * factor
 
@@ -85,18 +87,20 @@ def manipulation_awgn(x, strength=0.025):
 def manipulation_gamma(x, strength=2.0):
     im_gamma = tf.pow(x, strength)
     im_gamma = soft_quantization(im_gamma)
-    return tf.pow(tf.clip_by_value(im_gamma, 1.0/255, 1), 1/strength)
+    return tf.pow(tf.clip_by_value(im_gamma, 1.0 / 255, 1), 1 / strength)
 
 
-def manipulation_median(x, kernel=3):    
+def manipulation_median(x, kernel=3):
     kernel = int(kernel)
     if kernel % 2 == 0:
         kernel += 1
     kernel = max(kernel, 1)
 
-    xp = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
-    patches = tf.image.extract_patches(xp, [1, kernel, kernel, 1], [1, 1, 1, 1], 4*[1], 'VALID')
-    patches = tf.reshape(patches, [tf.shape(patches)[0], tf.shape(patches)[1], tf.shape(patches)[2], tf.shape(patches)[3]//3, 3])
+    xp = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], 'REFLECT')
+    patches = tf.image.extract_patches(xp, [1, kernel, kernel, 1], [1, 1, 1, 1], 4 * [1], 'VALID')
+    patches = tf.reshape(patches,
+                         [tf.shape(patches)[0], tf.shape(patches)[1], tf.shape(patches)[2], tf.shape(patches)[3] // 3,
+                          3])
     patches = tf.transpose(patches, [0, 1, 2, 4, 3])
 
     area = kernel ** 2
@@ -117,12 +121,13 @@ def manipulation_gaussian(x, kernel, std, skip_clip=False):
     for r in range(3):
         gfilter[:, :, r, r] = gk
     gkk = tf.constant(gfilter, tf.float32)
-    xp = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
+    xp = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], 'REFLECT')
     y = tf.nn.conv2d(xp, gkk, [1, 1, 1, 1], 'VALID')
     if skip_clip:
         return y
     else:
         return tf.clip_by_value(y, 0, 1)
+
 
 def residual(x, hsv=False):
     with tf.name_scope('residual_filter'):
@@ -141,7 +146,7 @@ def residual(x, hsv=False):
 
         gkk = tf.constant(gfilter, tf.float32)
 
-        y = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
+        y = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], 'REFLECT')
 
         if hsv:
             y = tf.image.rgb_to_hsv(y)
@@ -152,6 +157,7 @@ def residual(x, hsv=False):
             y = tf.image.hsv_to_rgb(y)
 
         return y
+
 
 def manipulation_sharpen(x, strength=1, hsv=True):
     # Prepare the sharpening filter
@@ -199,7 +205,7 @@ def residual(x, hsv=False):
 
     gkk = tf.constant(gfilter, tf.float32)
 
-    y = tf.pad(x, [[0, 0], 2*[kernel//2], 2*[kernel//2], [0, 0]], 'REFLECT')
+    y = tf.pad(x, [[0, 0], 2 * [kernel // 2], 2 * [kernel // 2], [0, 0]], 'REFLECT')
 
     if hsv:
         y = tf.image.rgb_to_hsv(y)
@@ -222,7 +228,7 @@ def _strip_consts(graph_def, max_const_size=32):
             tensor = n.attr['value'].tensor
             size = len(tensor.tensor_content)
             if size > max_const_size:
-                tensor.tensor_content = bytes("<stripped %d bytes>"%size, 'ascii')
+                tensor.tensor_content = bytes("<stripped %d bytes>" % size, 'ascii')
     return strip_def
 
 
@@ -260,7 +266,7 @@ def show_graph(graph_def=None, width=1200, height=800, max_const_size=32, ungrou
         <div style="height:{height}px">
           <tf-graph-basic id="{id}"></tf-graph-basic>
         </div>
-    """.format(data=repr(data), height=height, id='graph'+str(np.random.rand()))
+    """.format(data=repr(data), height=height, id='graph' + str(np.random.rand()))
 
     iframe = """
         <iframe seamless style="width:{}px;height:{}px;border:0" srcdoc="{}"></iframe>
@@ -337,20 +343,27 @@ def print_versions():
     print('Tensorflow:', tf.__version__)
     print('GPUs:', tf.config.list_physical_devices('GPU'))
 
+
 def disable_warnings():
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 
 def disable_gpu():
     tf.config.set_visible_devices([], 'GPU')
 
-def get_callbacks(path, model_name=None, save_freq=0, monitor='loss',
+
+def get_callbacks(path, model_name=None, save_freq=0, monitor='val_loss',
                   patience=200, tensorboard=False, verbose=0,
-                  save_best_only=True, min_delta=0.001, update_freq='epoch',
-                  steps_per_epoch=1,
-                  write_graph=False):
+                  save_best_only=True, min_delta=0.001, update_freq=1,
+                  steps_per_epoch=1, write_graph=False):
     """callbacks list for keras models."""
+
+    if update_freq > 1 and "val_" in monitor:
+        early_stopping_monitor = "loss"
+    else:
+        early_stopping_monitor = monitor
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(monitor=monitor,
+        tf.keras.callbacks.EarlyStopping(monitor=early_stopping_monitor,
                                          patience=patience,
                                          min_delta=min_delta,
                                          verbose=verbose),
@@ -366,8 +379,8 @@ def get_callbacks(path, model_name=None, save_freq=0, monitor='loss',
             save_weights_only=True,
             monitor=monitor, mode='auto',
             save_best_only=save_best_only,
-            save_freq=save_freq,
-            verbose=verbose
+            save_freq='epoch',
+            verbose=0
         ))
 
     if tensorboard:
@@ -379,4 +392,3 @@ def get_callbacks(path, model_name=None, save_freq=0, monitor='loss',
         ))
 
     return callbacks
-    

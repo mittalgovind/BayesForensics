@@ -135,7 +135,7 @@ def main():
             verbose=args.verbose,
             update_freq=args.validation_freq,
             steps_per_epoch=steps_per_epoch,
-            save_best_only=False,
+            monitor="val_loss"
         )
 
         # Start training
