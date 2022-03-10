@@ -143,6 +143,10 @@ def parse_args():
         help="Learning_rate"
     )
     parser.add_argument(
+        "-fds", "--first_decay_steps", action="store", default=4000, type=int,
+        help="Learning rate."
+    )
+    parser.add_argument(
         "--load-model",
         type=str,
         help="Path to a trained model.",

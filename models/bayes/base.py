@@ -22,7 +22,7 @@ class MCDropoutLayer(tf.keras.layers.Layer):
     """Dropout layer which always drops some connections."""
 
     def __init__(self, rate=0.5, **kwargs):
-        super().__init__(rate, **kwargs)
+        super().__init__(**kwargs)
         self.dropout = tf.keras.layers.Dropout(rate, **kwargs)
 
     def call(self, inputs, training=None):

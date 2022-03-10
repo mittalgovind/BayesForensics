@@ -83,7 +83,11 @@ def main():
         model = ScalingFactor(**vars(args), **args.parameters)
         if args.load_model:
             model.load_model(os.path.abspath(args.load_model))
-        optimizer = tf.keras.optimizers.Adam(args.lr)
+        lr_fn = tf.keras.optimizers.schedules.CosineDecayRestarts(
+            args.lr, args.first_decay_steps, t_mul=2.0, m_mul=1.0, alpha=0.0, name=None
+        )
+
+        optimizer = tf.keras.optimizers.Adam(lr_fn)
         loss_criterion = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True
         )
